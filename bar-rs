@@ -1,6 +1,6 @@
 #!/bin/sh
 
-project_path="/home/stk/untitled/rust/projects/bar-rs"
+project_path=""
 pid_file="/tmp/bar-rs.pid"
 log_file="/tmp/bar-rs.log"
 

@@ -15,6 +15,8 @@ else
     $chmod_cmd
 fi
 
+sed -i "s|project_path=\"$directory\"|project_path=\"\"|" $directory/bar-rs
+
 echo -e "Uninstall bar-rs by running \`bar-rs uninstall\`\n"
 echo You need to build the project before you can open the bar:
 echo -e "\`cargo build --release\` to build for release (recommended)"
