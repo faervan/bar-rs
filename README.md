@@ -1,6 +1,9 @@
 # bar-rs
 A simple status bar, written in [iced-rs](https://github.com/iced-rs/iced/) (purely rust)
 
+![image](https://github.com/user-attachments/assets/29daa606-3189-4355-bc04-a21e8f245f6f)
+
+
 Not (yet?) configurable and currently only working on [hyprland](https://github.com/hyprwm/Hyprland/).
 
 Only contains the active hyprland workspaces and title of the focused window (left), the date and time (center) as well as the currently playing media as reported by playerctl, the sound volume, the battery capacity, cpu and memory usage (right).
