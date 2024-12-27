@@ -1,0 +1,16 @@
+[package]
+name = "bar-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4.39"
+ctrlc = "3.4.5"
+hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
+iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = ["tokio"] }
+system-tray = "0.5.0"
+tokio = { version = "1.42.0", features = ["io-util", "macros", "process", "sync"] }
+udev = { version = "0.9.1", features = ["mio"] }
+
+[profile.dev.package."*"]
+opt-level = 3
