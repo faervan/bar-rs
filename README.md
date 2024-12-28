@@ -9,7 +9,7 @@ Not (yet?) configurable and currently only working on [hyprland](https://github.
 Only contains the active hyprland workspaces and title of the focused window (left), the date and time (center) as well as the currently playing media as reported by playerctl, the sound volume, the battery capacity, cpu and memory usage (right).
 
 ## Installation
-To use bar-rs you have to build the project yourself (very straight forward on a up-to-date system like Arch, harder on "stable" ones like Debian due to outdated system libraries)
+To use bar-rs you have to build the project yourself (very straight forward on an up-to-date system like Arch, harder on "stable" ones like Debian due to outdated system libraries)
 
 ```sh
 # Clone the project
@@ -38,6 +38,7 @@ bar-rs depends on the following cli utilities:
 
 ## Hyprland configuration
 [iced-rs](https://github.com/iced-rs/iced/) uses [winit](https://github.com/rust-windowing/winit/) as it's windowing shell, which has no support for the [`wlr layer shell protocol`](https://wayland.app/protocols/wlr-layer-shell-unstable-v1) yet, though there is [effort](https://github.com/rust-windowing/winit/pull/4044) made to implement it
+
 For this reason, some hyprland rules are needed to make bar-rs behave as it should:
 ```
 windowrulev2 = pin, class:(bar-rs)
