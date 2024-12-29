@@ -8,6 +8,15 @@ Not (yet?) configurable and currently only working on [hyprland](https://github.
 
 Only contains the active hyprland workspaces and title of the focused window (left), the date and time (center) as well as the currently playing media as reported by playerctl, the sound volume, the battery capacity, cpu and memory usage (right).
 
+## ToC
+1. [Installation](#installation)
+2. [Extra dependencies](#extra-dependencies)
+3. [Hyprland configuration](#hyprland-configuration)
+4. [Usage](#usage)
+5. [Configuration](#configuration)
+6. [Logs](#logs)
+7. [Extra credits](#extra-credits)
+
 ## Installation
 To use bar-rs you have to build the project yourself (very straight forward on an up-to-date system like Arch, harder on "stable" ones like Debian due to outdated system libraries)
 
