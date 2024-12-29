@@ -24,6 +24,7 @@ pub fn get_config_dir() -> PathBuf {
     if File::create_new(&config_file).is_ok() {
         let mut ini = Ini::new();
         ini.set("enabled", "batteries", Some("false".to_string()));
+        ini.set("general", "monitor", Some(get_monitor_name()));
         ini.write(&config_file)
             .unwrap_or_else(|e|
                 panic!("Couldn't persist default config to {}: {e}",
@@ -53,7 +54,8 @@ impl From<Ini> for Config {
                     _ => false
                 })
                 .unwrap_or(false),
-            monitor: get_monitor_name(),
+            monitor: ini.get("general", "monitor")
+                .unwrap_or(get_monitor_name()),
         }
     }
 }

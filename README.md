@@ -41,15 +41,21 @@ bar-rs depends on the following cli utilities:
 
 For this reason, some hyprland rules are needed to make bar-rs behave as it should:
 ```
-windowrulev2 = pin, class:(bar-rs)
-windowrulev2 = float, class:(bar-rs)
-windowrulev2 = nofocus, class:(bar-rs)
-windowrulev2 = noborder, class:(bar-rs)
-windowrulev2 = move 0 0, class:(bar-rs)
-windowrulev2 = decorate 0, class:(bar-rs)
-windowrulev2 = rounding 0, class:(bar-rs)
+windowrule = monitor DP-1, bar-rs # replace with your monitor name
+windowrule = pin, bar-rs
+windowrule = float, bar-rs
+windowrule = nofocus, bar-rs
+windowrule = noborder, bar-rs
+windowrule = move 0 0, bar-rs
+windowrule = decorate 0, bar-rs
+windowrule = rounding 0, bar-rs
 windowrulev2 = opacity 0, onworkspace:f[0], class:(bar-rs)
 windowrulev2 = noblur 1, onworkspace:f[0], class:(bar-rs)
+```
+
+Also, add this line to launch bar-rs on startup:
+```
+exec-once = bar-rs open
 ```
 
 ## Usage
@@ -67,8 +73,15 @@ bar-rs open
 ```
 
 ## Configuration
-This term is a bit of a stretch here, currently the only configurable thing is whether to show the battery module.
+This term is a bit of a stretch here, currently the only configurable things are whether to show the battery module and the monitor.
 On Linux, the config file should be `~/.config/bar-rs/bar-rs.ini`. If it isn't, read [this](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html#method.config_local_dir) and then check the logs.
+The default config looks like this:
+```
+[general]
+monitor=DP-1
+[enabled]
+batteries=false
+```
 
 ## Logs
 are saved to `/tmp/bar-rs.log` and should only contain anything if there is an error.

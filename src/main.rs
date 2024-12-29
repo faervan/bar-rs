@@ -5,7 +5,7 @@ use config::{get_config_dir, read_config, Config};
 use hyprland::keyword::Keyword;
 use iced::{alignment::Horizontal::{Left, Right}, application, theme::Palette, widget::{container, row, text, Row}, window::{settings::PlatformSpecific, Level, Settings}, Alignment::Center, Background, Border, Color, Element, Font, Length::Fill, Padding, Size, Subscription, Task, Theme};
 use iced::widget::text::{Rich, Span};
-use modules::{battery::{battery_stats, BatteryStats}, cpu::cpu_usage, hyprland::{get_monitor_name, hyprland_events, reserve_bar_space, OpenWorkspaces}, playerctl::{playerctl, MediaStats}, sys_tray::system_tray, volume::{volume, VolumeStats}};
+use modules::{battery::{battery_stats, BatteryStats}, cpu::cpu_usage, hyprland::{hyprland_events, reserve_bar_space, OpenWorkspaces}, playerctl::{playerctl, MediaStats}, sys_tray::system_tray, volume::{volume, VolumeStats}};
 use tokio::sync::mpsc;
 
 mod modules;
@@ -15,15 +15,6 @@ const BAR_HEIGHT: u16 = 30;
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
 fn main() -> iced::Result {
-    let monitor = get_monitor_name();
-    reserve_bar_space(&monitor);
-
-    ctrlc::set_handler(move || {
-        Keyword::set("monitor", format!("{monitor}, addreserved, 0, 0, 0, 0"))
-            .expect("Failed to clear reserved space using hyprctl");
-        exit(0);
-    }).expect("Failed to exec exit handler");
-
     application("Bar", Bar::update, Bar::view)
         .theme(|bar| Theme::custom("Custom".to_string(), Palette {
             background: bar.background_color(),
@@ -90,6 +81,16 @@ impl Bar {
     fn new() -> (Self, Task<Message>) {
         let config_file = get_config_dir();
         let config = read_config(&config_file);
+
+        let monitor = config.monitor.clone();
+        reserve_bar_space(&monitor);
+
+        ctrlc::set_handler(move || {
+            Keyword::set("monitor", format!("{monitor}, addreserved, 0, 0, 0, 0"))
+                .expect("Failed to clear reserved space using hyprctl");
+            exit(0);
+        }).expect("Failed to exec exit handler");
+
         (
             Self {
                 _config_file: config_file,

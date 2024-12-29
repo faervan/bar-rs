@@ -94,11 +94,12 @@ async fn update_workspaces(sender: &mut Sender<Message>, active: Option<i32>) {
         sender.send(Message::Workspaces(
             OpenWorkspaces::from((
                 workspaces,
-                active.unwrap_or(
+                active.unwrap_or({
+                    eprintln!("No active workspace?");
                     Monitor::get_active()
                         .map(|monitor| monitor.active_workspace.id)
-                        .unwrap_or(0)
-                ) as usize - 1,
+                        .unwrap_or(1)
+                }) as usize - 1,
             )
         )))
         .await
