@@ -1,6 +1,8 @@
-use hyprland::{data::{Client, Monitor, Workspaces}, event_listener::AsyncEventListener, keyword::Keyword, shared::{HyprData, HyprDataActive, HyprDataActiveOptional, HyprDataVec}};
+use std::time::Duration;
+
+use hyprland::{data::{Client, Monitor, Workspace, Workspaces}, event_listener::AsyncEventListener, keyword::Keyword, shared::{HyprData, HyprDataActive, HyprDataActiveOptional, HyprDataVec}};
 use iced::{futures::{channel::mpsc::Sender, SinkExt, Stream}, stream};
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, time::sleep};
 
 use crate::{Message, BAR_HEIGHT};
 
@@ -12,16 +14,16 @@ pub struct OpenWorkspaces {
 
 impl From<(Workspaces, usize)> for OpenWorkspaces {
     fn from(value: (Workspaces, usize)) -> Self {
-        let mut workspaces = OpenWorkspaces {
-            active: value.1,
-            open: vec![],
-        };
-        let mut value = value.0.to_vec();
-        value.sort_by(|a, b| a.id.cmp(&b.id));
-        value.iter()
+        let mut workspaces = OpenWorkspaces::default();
+        let mut list = value.0.to_vec();
+        list.sort_by(|a, b| a.id.cmp(&b.id));
+        list.iter()
             .for_each(
                 |ws| workspaces.open.push(ws.name.clone())
             );
+        workspaces.active = list.iter()
+            .position(|ws| ws.id as usize == value.1)
+            .unwrap_or(0);
         workspaces
     }
 }
@@ -90,16 +92,17 @@ pub fn hyprland_events() -> impl Stream<Item = Message> {
 }
 
 async fn update_workspaces(sender: &mut Sender<Message>, active: Option<i32>) {
+    // Sleep a bit, to reduce the probability that a nonexisting ws is still reported active
+    sleep(Duration::from_millis(10)).await;
     if let Ok(workspaces) = Workspaces::get() {
         sender.send(Message::Workspaces(
             OpenWorkspaces::from((
                 workspaces,
-                active.unwrap_or({
-                    eprintln!("No active workspace?");
-                    Monitor::get_active()
-                        .map(|monitor| monitor.active_workspace.id)
-                        .unwrap_or(1)
-                }) as usize - 1,
+                active.unwrap_or(
+                    Workspace::get_active()
+                        .map(|ws| ws.id)
+                        .unwrap_or(0)
+                ) as usize,
             )
         )))
         .await
