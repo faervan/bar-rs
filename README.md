@@ -66,6 +66,10 @@ or using the `bar-rs` script (after installing it using the `install.sh` script)
 bar-rs open
 ```
 
+## Configuration
+This term is a bit of a stretch here, currently the only configurable thing is whether to show the battery module.
+On Linux, the config file should be `~/.config/bar-rs/bar-rs.ini`. If it isn't, read [this](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html#method.config_local_dir) and then check the logs.
+
 ## Logs
 are saved to `/tmp/bar-rs.log` and should only contain anything if there is an error.
 If an error occurs and all dependencies are installed on your system, please feel free to open an [issue](https://github.com/faervan/bar-rs/issues)

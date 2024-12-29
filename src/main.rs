@@ -1,21 +1,25 @@
-use std::process::{exit, Command};
+use std::{path::PathBuf, process::{exit, Command}};
 
 use chrono::Local;
+use config::{get_config_dir, read_config, Config};
 use hyprland::keyword::Keyword;
-use iced::{alignment::Horizontal::{Left, Right}, application, theme::Palette, widget::{container, row, text}, window::{settings::PlatformSpecific, Level, Settings}, Alignment::Center, Background, Border, Color, Element, Font, Length::Fill, Padding, Size, Subscription, Theme};
+use iced::{alignment::Horizontal::{Left, Right}, application, theme::Palette, widget::{container, row, text, Row}, window::{settings::PlatformSpecific, Level, Settings}, Alignment::Center, Background, Border, Color, Element, Font, Length::Fill, Padding, Size, Subscription, Task, Theme};
 use iced::widget::text::{Rich, Span};
-use modules::{battery::{battery_stats, BatteryStats}, cpu::cpu_usage, hyprland::{hyprland_events, reserve_bar_space, OpenWorkspaces}, playerctl::{playerctl, MediaStats}, sys_tray::system_tray, volume::{volume, VolumeStats}};
+use modules::{battery::{battery_stats, BatteryStats}, cpu::cpu_usage, hyprland::{get_monitor_name, hyprland_events, reserve_bar_space, OpenWorkspaces}, playerctl::{playerctl, MediaStats}, sys_tray::system_tray, volume::{volume, VolumeStats}};
+use tokio::sync::mpsc;
 
 mod modules;
+mod config;
 
 const BAR_HEIGHT: u16 = 30;
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
 fn main() -> iced::Result {
-    reserve_bar_space();
+    let monitor = get_monitor_name();
+    reserve_bar_space(&monitor);
 
-    ctrlc::set_handler(|| {
-        Keyword::set("monitor", "eDP-1, addreserved, 0, 0, 0, 0")
+    ctrlc::set_handler(move || {
+        Keyword::set("monitor", format!("{monitor}, addreserved, 0, 0, 0, 0"))
             .expect("Failed to clear reserved space using hyprctl");
         exit(0);
     }).expect("Failed to exec exit handler");
@@ -29,14 +33,19 @@ fn main() -> iced::Result {
             danger: Color::BLACK,
         }))
         .font(include_bytes!("../assets/3270/3270NerdFont-Regular.ttf"))
-        .subscription(|_| Subscription::batch([
-            Subscription::run(cpu_usage),
-            Subscription::run(battery_stats),
-            Subscription::run(volume),
-            Subscription::run(playerctl),
-            Subscription::run(hyprland_events),
-            Subscription::run(system_tray),
-        ]))
+        .subscription(|state| {
+            let mut subs = vec![
+                Subscription::run(cpu_usage),
+                Subscription::run(volume),
+                Subscription::run(playerctl),
+                Subscription::run(hyprland_events),
+                Subscription::run(system_tray),
+            ];
+            if state.config.show_batteries {
+                subs.push(Subscription::run(battery_stats));
+            }
+            Subscription::batch(subs)
+        })
         .window(Settings {
             transparent: true,
             decorations: false,
@@ -50,7 +59,7 @@ fn main() -> iced::Result {
             },
             ..Default::default()
         })
-        .run()
+        .run_with(Bar::new)
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +70,7 @@ enum Message {
     Media(MediaStats),
     Workspaces(OpenWorkspaces),
     Window(Option<String>),
+    GetConfig(mpsc::Sender<Config>),
 }
 
 #[derive(Default, Debug)]
@@ -72,9 +82,24 @@ struct Bar {
     media: MediaStats,
     workspaces: OpenWorkspaces,
     window: Option<String>,
+    _config_file: PathBuf,
+    config: Config,
 }
 
 impl Bar {
+    fn new() -> (Self, Task<Message>) {
+        let config_file = get_config_dir();
+        let config = read_config(&config_file);
+        (
+            Self {
+                _config_file: config_file,
+                config,
+                ..Default::default()
+            },
+            Task::none()
+        )
+    }
+
     fn update(&mut self, msg: Message) {
         match msg {
             Message::CPU(perc) => {
@@ -99,6 +124,7 @@ impl Bar {
             Message::Media(stats) => self.media = stats,
             Message::Workspaces(ws) => self.workspaces = ws,
             Message::Window(window) => self.window = window,
+            Message::GetConfig(sx) => sx.try_send(self.config.clone()).unwrap(),
         }
     }
 
@@ -179,18 +205,10 @@ impl Bar {
                 ].center().height(Fill)
             ].spacing(10),
 
-            // Battery
-            row![
-                text!("{}", self.battery.icon)
-                    .center().height(Fill).size(20).font(NERD_FONT),
-                text![
-                    " {}% ({}h {}min left)",
-                    self.battery.capacity,
-                    self.battery.hours,
-                    self.battery.minutes
-                ].center().height(Fill)
-            ],
-
+        ].push_maybe(
+            self.config.show_batteries
+                .then_some(self.battery())
+        ).push(
             // CPU
             row![
                 text!("󰻠")
@@ -198,8 +216,8 @@ impl Bar {
                 text![
                     "{}%", self.cpu_usage
                 ].center().height(Fill),
-            ].spacing(10),
-
+            ].spacing(10)
+        ).push(
             // Memory
             row![
                 text!("󰍛")
@@ -208,7 +226,7 @@ impl Bar {
                     "{}%", self.ram_usage
                 ].center().height(Fill)
             ].spacing(10),
-        ];
+        );
 
         row(
             [
@@ -224,6 +242,19 @@ impl Bar {
                 .into()
             )
         ).padding([0, 10]).into()
+    }
+
+    fn battery(&self) -> Row<Message> {
+        row![
+            text!("{}", self.battery.icon)
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                " {}% ({}h {}min left)",
+                self.battery.capacity,
+                self.battery.hours,
+                self.battery.minutes
+            ].center().height(Fill)
+        ]
     }
 
     fn background_color(&self) -> Color {

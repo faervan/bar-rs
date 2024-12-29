@@ -1,5 +1,6 @@
 use hyprland::{data::{Client, Monitor, Workspaces}, event_listener::AsyncEventListener, keyword::Keyword, shared::{HyprData, HyprDataActive, HyprDataActiveOptional, HyprDataVec}};
 use iced::{futures::{channel::mpsc::Sender, SinkExt, Stream}, stream};
+use tokio::sync::mpsc;
 
 use crate::{Message, BAR_HEIGHT};
 
@@ -27,6 +28,16 @@ impl From<(Workspaces, usize)> for OpenWorkspaces {
 
 pub fn hyprland_events() -> impl Stream<Item = Message> {
     stream::channel(1, |mut sender| async move {
+
+        let (sx, mut rx) = mpsc::channel(1);
+        sender.send(Message::GetConfig(sx))
+            .await
+            .unwrap_or_else(|err| {
+                eprintln!("Trying to request config failed with err: {err}");
+            });
+        let Some(config) = rx.recv().await else {
+            panic!("Something went wrong! No config was returned");
+        };
 
         update_workspaces(&mut sender, None).await;
         if let Ok(Some(window)) = Client::get_active() {
@@ -66,11 +77,12 @@ pub fn hyprland_events() -> impl Stream<Item = Message> {
             })
         });
 
-        listener.add_config_reloaded_handler(||
-            Box::pin(async {
-                reserve_bar_space()
+        listener.add_config_reloaded_handler(move || {
+            let monitor = config.monitor.clone();
+            Box::pin(async move {
+                reserve_bar_space(&monitor)
             })
-        );
+        });
 
         listener.start_listener_async().await
             .expect("Failed to listen for hyprland events");
@@ -96,7 +108,13 @@ async fn update_workspaces(sender: &mut Sender<Message>, active: Option<i32>) {
     }
 }
 
-pub fn reserve_bar_space() {
-    Keyword::set("monitor", format!("eDP-1, addreserved, {BAR_HEIGHT}, 0, 0, 0"))
+pub fn get_monitor_name() -> String {
+    Monitor::get_active()
+        .map(|m| m.name)
+        .unwrap_or("eDP-1".to_string())
+}
+
+pub fn reserve_bar_space(monitor: &String) {
+    Keyword::set("monitor", format!("{monitor}, addreserved, {BAR_HEIGHT}, 0, 0, 0"))
         .expect("Failed to set reserved space using hyprctl");
 }
