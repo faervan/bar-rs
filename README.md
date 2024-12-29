@@ -3,6 +3,9 @@ A simple status bar, written in [iced-rs](https://github.com/iced-rs/iced/) (pur
 
 ![image](https://github.com/user-attachments/assets/29daa606-3189-4355-bc04-a21e8f245f6f)
 
+![2024-12-29_17-16](https://github.com/user-attachments/assets/199452ec-b5bc-4ac3-ac35-ef7aed732c2f)
+
+
 
 Not (yet?) configurable and currently only working on [hyprland](https://github.com/hyprwm/Hyprland/).
 
