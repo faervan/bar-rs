@@ -1,5 +1,9 @@
 # bar-rs
-A simple status bar, written in [iced-rs](https://github.com/iced-rs/iced/) (purely rust)
+<a href="https://github.com/iced-rs/iced">
+  <img src="https://gist.githubusercontent.com/hecrj/ad7ecd38f6e47ff3688a38c79fd108f0/raw/74384875ecbad02ae2a926425e9bcafd0695bade/color.svg" width="130px">
+</a>
+
+A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (purely rust)
 
 ![image](https://github.com/user-attachments/assets/29daa606-3189-4355-bc04-a21e8f245f6f)
 
