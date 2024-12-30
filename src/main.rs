@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::{exit, Command}};
 use chrono::Local;
 use config::{get_config_dir, read_config, Config};
 use hyprland::keyword::Keyword;
-use iced::{alignment::Horizontal::{Left, Right}, application, theme::Palette, widget::{container, row, text, Row}, window::{settings::PlatformSpecific, Level, Settings}, Alignment::Center, Background, Border, Color, Element, Font, Length::Fill, Padding, Size, Subscription, Task, Theme};
+use iced::{alignment::Horizontal::{Left, Right}, daemon, theme::Palette, widget::{container, row, text, Row}, window::{self, settings::PlatformSpecific, Id, Level, Settings}, Alignment::Center, Background, Border, Color, Element, Font, Length::Fill, Padding, Size, Subscription, Task, Theme};
 use iced::widget::text::{Rich, Span};
 use modules::{battery::{battery_stats, BatteryStats}, cpu::cpu_usage, hyprland::{hyprland_events, reserve_bar_space, OpenWorkspaces}, playerctl::{playerctl, MediaStats}, sys_tray::system_tray, volume::{volume, VolumeStats}};
 use tokio::sync::mpsc;
@@ -15,14 +15,8 @@ const BAR_HEIGHT: u16 = 30;
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
 fn main() -> iced::Result {
-    application("Bar", Bar::update, Bar::view)
-        .theme(|bar| Theme::custom("Custom".to_string(), Palette {
-            background: bar.background_color(),
-            text: Color::BLACK,
-            primary: Color::BLACK,
-            success: Color::WHITE,
-            danger: Color::BLACK,
-        }))
+    daemon("Bar", Bar::update, Bar::view)
+        .theme(Bar::theme)
         .font(include_bytes!("../assets/3270/3270NerdFont-Regular.ttf"))
         .subscription(|state| {
             let mut subs = vec![
@@ -37,19 +31,6 @@ fn main() -> iced::Result {
             }
             Subscription::batch(subs)
         })
-        .window(Settings {
-            transparent: true,
-            decorations: false,
-            icon: None,
-            resizable: false,
-            level: Level::AlwaysOnTop,
-            size: Size::new(1920., BAR_HEIGHT as f32),
-            platform_specific: PlatformSpecific {
-                application_id: "bar-rs".to_string(),
-                override_redirect: false,
-            },
-            ..Default::default()
-        })
         .run_with(Bar::new)
 }
 
@@ -62,10 +43,20 @@ enum Message {
     Workspaces(OpenWorkspaces),
     Window(Option<String>),
     GetConfig(mpsc::Sender<Config>),
+    ToggleWindow,
+    WindowOpened,
+}
+
+#[derive(Debug)]
+struct Bar {
+    _config_file: PathBuf,
+    config: Config,
+    opened: bool,
+    data: ModuleData,
 }
 
 #[derive(Default, Debug)]
-struct Bar {
+struct ModuleData {
     cpu_usage: usize,
     ram_usage: usize,
     battery: BatteryStats,
@@ -73,8 +64,6 @@ struct Bar {
     media: MediaStats,
     workspaces: OpenWorkspaces,
     window: Option<String>,
-    _config_file: PathBuf,
-    config: Config,
 }
 
 impl Bar {
@@ -91,21 +80,25 @@ impl Bar {
             exit(0);
         }).expect("Failed to exec exit handler");
 
+        let (_window_id, task) = Self::open_window();
+
         (
             Self {
                 _config_file: config_file,
                 config,
-                ..Default::default()
+                opened: true,
+                data: ModuleData::default(),
             },
-            Task::none()
+            task.map(|_| Message::WindowOpened)
         )
     }
 
-    fn update(&mut self, msg: Message) {
+    fn update(&mut self, msg: Message) -> Task<Message> {
+        let data = &mut self.data;
         match msg {
             Message::CPU(perc) => {
-                self.cpu_usage = perc;
-                self.ram_usage = Command::new("sh")
+                data.cpu_usage = perc;
+                data.ram_usage = Command::new("sh")
                     .arg("-c")
                     .arg("free | grep Mem | awk '{printf \"%.0f\", $3/$2 * 100.0}'")
                     .output()
@@ -120,119 +113,45 @@ impl Bar {
                         999
                     });
             }
-            Message::Battery(stats) => self.battery = stats,
-            Message::Volume(stats) => self.volume = stats,
-            Message::Media(stats) => self.media = stats,
-            Message::Workspaces(ws) => self.workspaces = ws,
-            Message::Window(window) => self.window = window,
+            Message::Battery(stats) => data.battery = stats,
+            Message::Volume(stats) => data.volume = stats,
+            Message::Media(stats) => data.media = stats,
+            Message::Workspaces(ws) => data.workspaces = ws,
+            Message::Window(window) => data.window = window,
             Message::GetConfig(sx) => sx.try_send(self.config.clone()).unwrap(),
+            Message::ToggleWindow => {
+                self.opened = !self.opened;
+                return match self.opened {
+                    true => Self::open_window().1.map(|_| Message::WindowOpened),
+                    false => window::get_latest().and_then(window::close)
+                }
+            }
+            Message::WindowOpened => {}
         }
+        Task::none()
     }
 
-    fn view(&self) -> Element<Message> {
-        let time = Local::now();
-
+    fn view(&self, _window_id: Id) -> Element<Message> {
         let left = row![
-            // Workspace
-            row(
-                self.workspaces.open
-                    .iter()
-                    .enumerate()
-                    .map(|(id, ws)| {
-                        let mut span = Span::new(ws)
-                            .size(20)
-                            .padding(Padding {top: -3., bottom: 0., right: 10., left: 5.})
-                            .font(NERD_FONT);
-                        if id == self.workspaces.active {
-                            span = span
-                                .background(Background::Color(Color::WHITE).scale_alpha(0.5))
-                                .border(Border::default().rounded(8))
-                                .color(Color::BLACK);
-                        }
-                        Rich::with_spans([span])
-                            .center()
-                            .height(Fill)
-                            .into()
-                    })
-            ).spacing(15),
-
-            // Window
-            row![
-                text![
-                    "{}",
-                    self.window.as_ref()
-                        .unwrap_or(&"".to_string())
-                ].center().height(Fill)
-            ]
-        ];
-
-        let center = row![
-            // Time
-            row![
-                text!("")
-                    .center().height(Fill).size(20).font(NERD_FONT),
-                text![
-                    " {}", time.format("%a, %d. %b  ")
-                ].center().height(Fill),
-                text!("")
-                    .center().height(Fill).size(25).font(NERD_FONT),
-                text![
-                    " {}", time.format("%H:%M")
-                ].center().height(Fill),
-            ].spacing(10),
+            self.workspaces(),
+            self.window()
         ];
 
         let right = row![
-            // Media
-            row![
-                text!("{}", self.media.icon)
-                    .center().height(Fill).size(20).font(NERD_FONT),
-                text![
-                    "{}{}",
-                    self.media.title,
-                    self.media.artist.as_ref()
-                        .map(|name| format!(" - {name}"))
-                        .unwrap_or("".to_string())
-                ].center().height(Fill)
-            ].spacing(15),
-
-            // Volume
-            row![
-                text!("{}", self.volume.icon)
-                    .center().height(Fill).size(20).font(NERD_FONT),
-                text![
-                    "{}%",
-                    self.volume.level,
-                ].center().height(Fill)
-            ].spacing(10),
-
-        ].push_maybe(
-            self.config.show_batteries
-                .then_some(self.battery())
-        ).push(
-            // CPU
-            row![
-                text!("󰻠")
-                    .center().height(Fill).size(20).font(NERD_FONT),
-                text![
-                    "{}%", self.cpu_usage
-                ].center().height(Fill),
-            ].spacing(10)
-        ).push(
-            // Memory
-            row![
-                text!("󰍛")
-                    .center().height(Fill).size(20).font(NERD_FONT),
-                text![
-                    "{}%", self.ram_usage
-                ].center().height(Fill)
-            ].spacing(10),
-        );
+            self.media(),
+            self.volume()
+        ]
+            .push_maybe(
+                self.config.show_batteries
+                    .then_some(self.battery())
+            )
+            .push(self.cpu())
+            .push(self.memory());
 
         row(
             [
                 (left, Left),
-                (center, Center.into()),
+                (self.time(), Center.into()),
                 (right, Right)
             ].map(|(row, alignment)|
                 container(
@@ -245,20 +164,139 @@ impl Bar {
         ).padding([0, 10]).into()
     }
 
-    fn battery(&self) -> Row<Message> {
+    fn open_window() -> (Id, Task<Id>) {
+        window::open(Settings {
+            transparent: true,
+            decorations: false,
+            icon: None,
+            resizable: false,
+            level: Level::AlwaysOnTop,
+            size: Size::new(1920., BAR_HEIGHT as f32),
+            platform_specific: PlatformSpecific {
+                application_id: "bar-rs".to_string(),
+                override_redirect: false,
+            },
+            ..Default::default()
+        })
+    }
+
+    fn theme(&self, _window_id: Id) -> Theme {
+        Theme::custom("Custom".to_string(), Palette {
+            background: Color::from_rgba(0., 0., 0., 0.5),
+            text: Color::BLACK,
+            primary: Color::BLACK,
+            success: Color::WHITE,
+            danger: Color::BLACK,
+        })
+    }
+
+    fn workspaces(&self) -> Row<Message> {
+        row(
+            self.data.workspaces.open
+                .iter()
+                .enumerate()
+                .map(|(id, ws)| {
+                    let mut span = Span::new(ws)
+                        .size(20)
+                        .padding(Padding {top: -3., bottom: 0., right: 10., left: 5.})
+                        .font(NERD_FONT);
+                    if id == self.data.workspaces.active {
+                        span = span
+                            .background(Background::Color(Color::WHITE).scale_alpha(0.5))
+                            .border(Border::default().rounded(8))
+                            .color(Color::BLACK);
+                    }
+                    Rich::with_spans([span])
+                        .center()
+                        .height(Fill)
+                        .into()
+                })
+        ).spacing(15)
+    }
+
+    fn window(&self) -> Row<Message> {
         row![
-            text!("{}", self.battery.icon)
-                .center().height(Fill).size(20).font(NERD_FONT),
             text![
-                " {}% ({}h {}min left)",
-                self.battery.capacity,
-                self.battery.hours,
-                self.battery.minutes
+                "{}",
+                self.data.window.as_ref()
+                    .unwrap_or(&"".to_string())
             ].center().height(Fill)
         ]
     }
 
-    fn background_color(&self) -> Color {
-        Color::from_rgba(0., 0., 0., 0.5)
+    fn time(&self) -> Row<Message> {
+        let time = Local::now();
+        row![
+            text!("")
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                " {}", time.format("%a, %d. %b  ")
+            ].center().height(Fill),
+            text!("")
+                .center().height(Fill).size(25).font(NERD_FONT),
+            text![
+                " {}", time.format("%H:%M")
+            ].center().height(Fill),
+        ].spacing(10)
+    }
+
+    fn media(&self) -> Row<Message> {
+        let data = &self.data;
+        row![
+            text!("{}", data.media.icon)
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                "{}{}",
+                data.media.title,
+                data.media.artist.as_ref()
+                    .map(|name| format!(" - {name}"))
+                    .unwrap_or("".to_string())
+            ].center().height(Fill)
+        ].spacing(15)
+    }
+
+    fn volume(&self) -> Row<Message> {
+        row![
+            text!("{}", self.data.volume.icon)
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                "{}%",
+                self.data.volume.level,
+            ].center().height(Fill)
+        ].spacing(10)
+    }
+
+    fn battery(&self) -> Row<Message> {
+        let data = &self.data;
+        row![
+            text!("{}", data.battery.icon)
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                " {}% ({}h {}min left)",
+                data.battery.capacity,
+                data.battery.hours,
+                data.battery.minutes
+            ].center().height(Fill)
+        ]
+    }
+
+    fn cpu(&self) -> Row<Message> {
+        row![
+            text!("󰻠")
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                "{}%", self.data.cpu_usage
+            ].center().height(Fill),
+        ].spacing(10)
+    }
+
+    fn memory(&self) -> Row<Message> {
+        row![
+            text!("󰍛")
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                "{}%", self.data.ram_usage
+            ].center().height(Fill)
+        ].spacing(10)
     }
 }

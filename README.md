@@ -61,8 +61,6 @@ windowrule = noborder, bar-rs
 windowrule = move 0 0, bar-rs
 windowrule = decorate 0, bar-rs
 windowrule = rounding 0, bar-rs
-windowrulev2 = opacity 0, onworkspace:f[0], class:(bar-rs)
-windowrulev2 = noblur 1, onworkspace:f[0], class:(bar-rs)
 ```
 
 Also, add this line to launch bar-rs on startup:

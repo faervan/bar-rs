@@ -52,9 +52,9 @@ pub fn hyprland_events() -> impl Stream<Item = Message> {
 
         let mut listener = AsyncEventListener::new();
 
-        let sender1 = sender.clone();
+        let senderx = sender.clone();
         listener.add_active_window_changed_handler(move |data| {
-            let mut sender = sender1.clone();
+            let mut sender = senderx.clone();
             Box::pin(async move {
                 sender
                     .send(Message::Window(data.map(|name| match name.title.len() > 25 {
@@ -72,8 +72,9 @@ pub fn hyprland_events() -> impl Stream<Item = Message> {
             })
         });
 
+        let senderx = sender.clone();
         listener.add_workspace_changed_handler(move |data| {
-            let mut sender = sender.clone();
+            let mut sender = senderx.clone();
             Box::pin(async move {
                 update_workspaces(&mut sender, Some(data.id)).await;
             })
@@ -83,6 +84,17 @@ pub fn hyprland_events() -> impl Stream<Item = Message> {
             let monitor = config.monitor.clone();
             Box::pin(async move {
                 reserve_bar_space(&monitor)
+            })
+        });
+
+        listener.add_fullscreen_state_changed_handler(move |_| {
+            let mut sender = sender.clone();
+            Box::pin(async move {
+                sender.send(Message::ToggleWindow)
+                    .await
+                    .unwrap_or_else(|err| {
+                        eprintln!("Trying to send fullscreen toggle event failed with err: {err}");
+                    });
             })
         });
 
