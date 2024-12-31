@@ -1,69 +1,95 @@
-use std::{collections::HashMap, path::Path, thread, time::Duration};
+use std::{collections::HashMap, path::Path, sync::Arc, thread, time::Duration};
 
-use iced::{futures::{SinkExt, Stream}, stream};
+use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
 use tokio::{runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
-use crate::Message;
+use crate::{Message, NERD_FONT};
 
-#[allow(dead_code)]
-#[derive(Debug, Default, Clone)]
-pub struct BatteryStats {
-    pub capacity: u16,
-    pub remaining: f32,
-    pub hours: u16,
-    pub minutes: u16,
-    pub icon: &'static str,
+use super::Module;
+
+#[derive(Debug, Default)]
+pub struct BatteryMod {
+    capacity: u16,
+    hours: u16,
+    minutes: u16,
+    icon: &'static str,
 }
 
-pub fn battery_stats() -> impl Stream<Item = Message> {
-    let (sx, mut rx) = mpsc::channel(10);
-    std::thread::spawn(move || {
-        let local = task::LocalSet::new();
-        let runtime = runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+impl Module for BatteryMod {
+    fn id(&self) -> String {
+        "battery".to_string()
+    }
 
-        runtime.block_on(local.run_until(async move {
-            task::spawn_local(async move {
-                let socket = udev::MonitorBuilder::new()
-                    .and_then(|b| b.match_subsystem_devtype("power_supply", "power_supply"))
-                    .and_then(|b| b.listen())
-                    .expect("Failed to build udev MonitorBuilder");
+    fn view(&self) -> iced::Element<Message> {
+        row![
+            text!("{}", self.icon)
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                " {}% ({}h {}min left)",
+                self.capacity,
+                self.hours,
+                self.minutes
+            ].center().height(Fill)
+        ].into()
+    }
 
-                loop {
-                    let Some(event) = socket.iter().next() else {
-                        sleep(Duration::from_millis(10)).await;
-                        continue;
-                    };
+    fn subscription(&self) -> Option<iced::Subscription<Message>> {
+        Some(Subscription::run(|| {
+            let (sx, mut rx) = mpsc::channel(10);
+            std::thread::spawn(move || {
+                let local = task::LocalSet::new();
+                let runtime = runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
 
-                    if event.sysname() != "AC" {
-                        continue;
+                runtime.block_on(local.run_until(async move {
+                    task::spawn_local(async move {
+                        let socket = udev::MonitorBuilder::new()
+                            .and_then(|b| b.match_subsystem_devtype("power_supply", "power_supply"))
+                            .and_then(|b| b.listen())
+                            .expect("Failed to build udev MonitorBuilder");
+
+                        loop {
+                            let Some(event) = socket.iter().next() else {
+                                sleep(Duration::from_millis(10)).await;
+                                continue;
+                            };
+
+                            if event.sysname() != "AC" {
+                                continue;
+                            }
+                            sleep(Duration::from_secs(1)).await;
+                            sx.send(()).await.expect("mpsc channel closed");
+                        }
+                    }).await.unwrap();
+                }));
+            });
+
+            stream::channel(1, |mut sender| async move {
+                tokio::spawn(async move {
+                    loop {
+                        sender.send(Message::UpdateModule {
+                                id: "battery".to_string(),
+                                data: Arc::new(get_stats())
+                            })
+                            .await
+                            .unwrap_or_else(|err| {
+                                eprintln!("Trying to send battery_stats failed with err: {err}");
+                            });
+                        select! {
+                            _ = sleep(Duration::from_secs(30)) => {}
+                            _ = rx.recv() => {}
+                        }
                     }
-                    sleep(Duration::from_secs(1)).await;
-                    sx.send(()).await.expect("mpsc channel closed");
-                }
-            }).await.unwrap();
-        }));
-    });
-    stream::channel(1, |mut sender| async move {
-        tokio::spawn(async move {
-            loop {
-                sender.send(Message::Battery(get_stats())).await
-                    .unwrap_or_else(|err| {
-                        eprintln!("Trying to send battery_stats failed with err: {err}");
-                    });
-                select! {
-                    _ = sleep(Duration::from_secs(30)) => {}
-                    _ = rx.recv() => {}
-                }
-            }
-        });
-    })
+                });
+            })
+        }))
+    }
 }
 
-fn get_stats() -> BatteryStats {
+fn get_stats() -> BatteryMod {
     let batteries = vec!["BAT0", "BAT1"];
     let properties = vec!["energy_now", "energy_full", "power_now", "voltage_now", "status"];
     let batteries = loop {
@@ -130,9 +156,8 @@ fn get_stats() -> BatteryStats {
         false => energy_now / power_now,
     };
 
-    BatteryStats {
+    BatteryMod {
         capacity,
-        remaining: (time_remaining * 100.).round() / 100.,
         hours: time_remaining.floor() as u16,
         minutes: ((time_remaining - time_remaining.floor()) *60.) as u16,
         icon: match charging {

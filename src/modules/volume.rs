@@ -1,50 +1,77 @@
-use std::process::Stdio;
+use std::{process::Stdio, sync::Arc};
 
-use iced::{futures::{SinkExt, Stream}, stream};
+use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
 use tokio::{io::{AsyncBufReadExt, BufReader}, process::Command};
 
-use crate::Message;
+use crate::{Message, NERD_FONT};
 
-#[derive(Default, Debug, Clone)]
-pub struct VolumeStats {
-    pub level: u16,
-    pub icon: &'static str,
+use super::Module;
+
+#[derive(Default, Debug)]
+pub struct VolumeMod {
+    level: u16,
+    icon: &'static str,
 }
 
+impl Module for VolumeMod {
+    fn id(&self) -> String {
+        "volume".to_string()
+    }
 
-pub fn volume() -> impl Stream<Item = Message> {
-    stream::channel(1, |mut sender| async move {
-        sender.send(Message::Volume(get_volume())).await
-            .unwrap_or_else(|err| {
-                eprintln!("Trying to send volume failed with err: {err}");
-            });
+    fn view(&self) -> iced::Element<Message> {
+        row![
+            text!("{}", self.icon)
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                "{}%",
+                self.level,
+            ].center().height(Fill)
+        ].spacing(10).into()
+    }
 
-        let mut child = Command::new("sh")
-            .arg("-c")
-            .arg("pactl subscribe")
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn pactl to monitor volume changes");
+    fn subscription(&self) -> Option<iced::Subscription<Message>> {
+        Some(Subscription::run(||
+            stream::channel(1, |mut sender| async move {
+                let volume = || Message::UpdateModule {
+                    id: "volume".to_string(),
+                    data: Arc::new(get_volume())
+                };
 
-        let stdout = child
-            .stdout
-            .take()
-            .expect("child did not have a handle to stdout");
-
-        let mut reader = BufReader::new(stdout).lines();
-
-        while let Some(line) = reader.next_line().await.unwrap() {
-            if line.contains("'change' on sink") {
-                sender.send(Message::Volume(get_volume())).await
+                sender.send(volume())
+                    .await
                     .unwrap_or_else(|err| {
                         eprintln!("Trying to send volume failed with err: {err}");
                     });
-            }
-        }
-    })
+
+                let mut child = Command::new("sh")
+                    .arg("-c")
+                    .arg("pactl subscribe")
+                    .stdout(Stdio::piped())
+                    .spawn()
+                    .expect("Failed to spawn pactl to monitor volume changes");
+
+                let stdout = child
+                    .stdout
+                    .take()
+                    .expect("child did not have a handle to stdout");
+
+                let mut reader = BufReader::new(stdout).lines();
+
+                while let Some(line) = reader.next_line().await.unwrap() {
+                    if line.contains("'change' on sink") {
+                        sender.send(volume())
+                            .await
+                            .unwrap_or_else(|err| {
+                                eprintln!("Trying to send volume failed with err: {err}");
+                            });
+                    }
+                }
+            })
+        ))
+    }
 }
 
-fn get_volume() -> VolumeStats {
+fn get_volume() -> VolumeMod {
     let volume = String::from_utf8(
         std::process::Command::new("sh")
             .arg("-c")
@@ -64,7 +91,7 @@ fn get_volume() -> VolumeStats {
     }
     let volume = volume.parse::<f32>().unwrap();
     let volume = (volume * 100.) as u16;
-    VolumeStats {
+    VolumeMod {
         level: volume,
         icon: match muted {
             true => "󰖁",

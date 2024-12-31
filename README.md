@@ -13,7 +13,7 @@ A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (
 
 Not (yet?) configurable and currently only working on [hyprland](https://github.com/hyprwm/Hyprland/).
 
-Only contains the active hyprland workspaces and title of the focused window (left), the date and time (center) as well as the currently playing media as reported by playerctl, the sound volume, the battery capacity, cpu and memory usage (right).
+For a list of currently supported modules, see [Configuration#Modules](#modules)
 
 ## ToC
 1. [Installation](#installation)
@@ -72,6 +72,12 @@ Also, add this line to launch bar-rs on startup:
 exec-once = bar-rs open
 ```
 
+To have the `hyprland.workspaces` module show some nice workspace icons, set rules for your workspaces like this:
+```
+workspace = 1, defaultName:󰈹
+```
+Find some nice icons to use [here](https://www.nerdfonts.com/cheat-sheet)
+
 ## Usage
 Either launch bar-rs directly:
 
@@ -87,15 +93,28 @@ bar-rs open
 ```
 
 ## Configuration
-This term is a bit of a stretch here, currently the only configurable things are whether to show the battery module and the monitor.
+This term is a bit of a stretch here, currently the only configurable things are the enabled modules (and their order) and the monitor to use.
+
 On Linux, the config file should be `~/.config/bar-rs/bar-rs.ini`. If it isn't, read [this](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html#method.config_local_dir) and then check the logs.
 The default config looks like this:
 ```
 [general]
 monitor=DP-1
-[enabled]
-batteries=false
+[modules]
+right=media, volume, cpu, memory
+left=hyprland.workspaces, hyprland.window
+center=time
 ```
+
+### Modules
+Currently, those modules are available:
+- `cpu`, which shows the current CPU usage
+- `memory`, which shows the current Memory usage
+- `time`, which shows the date and time
+- `volume`, which shows the current Audio volume as reported by `wpctl` (updated by `pactl`)
+- `media`, which shows the currently playing Media as reported by `playerctl`
+- `hyprland.window`, which shows the currently focused window
+- `hyprland.workspaces`, which shows the names of the currently open workspaces
 
 ## Logs
 are saved to `/tmp/bar-rs.log` and should only contain anything if there is an error.

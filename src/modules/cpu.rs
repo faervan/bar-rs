@@ -1,37 +1,67 @@
-use std::{fs::File, io::{self, BufRead, BufReader, ErrorKind}, num, time::Duration};
+use std::{fs::File, io::{self, BufRead, BufReader, ErrorKind}, num, sync::Arc, time::Duration};
 
-use iced::{futures::{SinkExt, Stream}, stream};
+use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
 use tokio::time::sleep;
 
-use crate::Message;
+use crate::{Message, NERD_FONT};
 
-pub fn cpu_usage() -> impl Stream<Item = Message> {
-    stream::channel(1, |mut sender| async move {
-        loop {
-            let (mut active, mut total) = (vec![], vec![]);
-            for _ in 0..3 {
-                sleep(Duration::from_secs(1)).await;
-                let (a, t) = read_stats()
-                    .unwrap_or_else(|e|
-                        panic!("Failed to read cpu stats from /proc/stat ... err: {e:?}"));
-                active.push(a);
-                total.push(t);
-            }
+use super::Module;
 
-            let delta_active = (active[1] - active[0]) + (active[2] - active[1]);
-            let delta_total = (total[1] - total[0]) + (total[2] - total[1]);
+#[derive(Debug, Default)]
+pub struct CpuMod {
+    usage: usize
+}
 
-            let average = match delta_total == 0 {
-                true => 0.,
-                false => (delta_active as f32 / delta_total as f32) * 100.0
-            };
+impl Module for CpuMod {
+    fn id(&self) -> String {
+        "cpu".to_string()
+    }
 
-            sender.send(Message::CPU(average as usize)).await
-                .unwrap_or_else(|err| {
-                    eprintln!("Trying to send cpu_usage failed with err: {err}");
-                });
-        }
-    })
+    fn view(&self) -> iced::Element<Message> {
+        row![
+            text!("󰻠")
+                .center().height(Fill).size(20).font(NERD_FONT),
+            text![
+                "{}%", self.usage
+            ].center().height(Fill),
+        ].spacing(10).into()
+    }
+
+    fn subscription(&self) -> Option<iced::Subscription<Message>> {
+        Some(Subscription::run(||
+            stream::channel(1, |mut sender| async move {
+                loop {
+                    let (mut active, mut total) = (vec![], vec![]);
+                    for _ in 0..3 {
+                        sleep(Duration::from_secs(1)).await;
+                        let (a, t) = read_stats()
+                            .unwrap_or_else(|e|
+                                panic!("Failed to read cpu stats from /proc/stat ... err: {e:?}"));
+                        active.push(a);
+                        total.push(t);
+                    }
+
+                    let delta_active = (active[1] - active[0]) + (active[2] - active[1]);
+                    let delta_total = (total[1] - total[0]) + (total[2] - total[1]);
+
+                    let average = match delta_total == 0 {
+                        true => 0.,
+                        false => (delta_active as f32 / delta_total as f32) * 100.0
+                    };
+
+                    sender.send(Message::UpdateModule {
+                            id: "cpu".to_string(),
+                            data: Arc::new(CpuMod {usage: (average as usize)})
+                        })
+                        .await
+                        .unwrap_or_else(|err| {
+                            eprintln!("Trying to send cpu_usage failed with err: {err}");
+                        });
+                }
+            })
+        ))
+    }
+    
 }
 
 fn read_stats() -> Result<(u32, u32), ReadError> {
