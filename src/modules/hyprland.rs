@@ -2,9 +2,9 @@ use std::{sync::Arc, time::Duration};
 
 use hyprland::{data::{Client, Monitor, Workspace, Workspaces}, event_listener::AsyncEventListener, keyword::Keyword, shared::{HyprData, HyprDataActive, HyprDataActiveOptional, HyprDataVec}};
 use iced::{futures::{channel::mpsc::Sender, SinkExt}, stream, widget::{row, text, text::{Rich, Span}}, Background, Border, Color, Length::Fill, Padding, Subscription};
-use tokio::{sync::mpsc, time::sleep};
+use tokio::time::sleep;
 
-use crate::{Message, BAR_HEIGHT, NERD_FONT};
+use crate::{config::get_config, Message, BAR_HEIGHT, NERD_FONT};
 
 use super::Module;
 
@@ -66,15 +66,7 @@ impl Module for HyprWorkspaceMod {
         Some(Subscription::run(||
             stream::channel(1, |mut sender| async move {
 
-                let (sx, mut rx) = mpsc::channel(1);
-                sender.send(Message::GetConfig(sx))
-                    .await
-                    .unwrap_or_else(|err| {
-                        eprintln!("Trying to request config failed with err: {err}");
-                    });
-                let Some(config) = rx.recv().await else {
-                    panic!("Something went wrong! No config was returned");
-                };
+                let config = get_config(&mut sender).await.1;
 
                 update_workspaces(&mut sender, None).await;
                 if let Ok(window) = Client::get_active() {

@@ -1,17 +1,32 @@
-use std::{fs::{create_dir_all, File}, path::PathBuf};
+use std::{fs::{create_dir_all, File}, path::PathBuf, sync::Arc};
 
 use configparser::ini::Ini;
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
+use iced::{futures::{channel::mpsc::Sender, SinkExt}, Subscription};
+use reload::config_changed;
+use tokio::sync::mpsc;
 
-use crate::modules::hyprland::get_monitor_name;
+use crate::{modules::hyprland::get_monitor_name, Message};
 
 mod enabled_modules;
+pub mod reload;
 
 #[derive(Default, Debug)]
 pub struct Config {
+    pub hot_reload: bool,
     pub enabled_modules: EnabledModules,
     pub monitor: String,
+}
+
+impl Config {
+    pub fn subscriptions(&self) -> impl Iterator<Item = Subscription<Message>> {
+        let mut subs = vec![];
+        if self.hot_reload {
+            subs.push(config_changed());
+        }
+        subs.into_iter()
+    }
 }
 
 
@@ -27,6 +42,7 @@ pub fn get_config_dir() -> PathBuf {
 
     if File::create_new(&config_file).is_ok() {
         let mut ini = Ini::new();
+        ini.set("general", "hot_reloading", Some("true".to_string()));
         EnabledModules::default().write_to_ini(&mut ini);
         ini.set("general", "monitor", Some(get_monitor_name()));
         ini.write(&config_file)
@@ -48,9 +64,22 @@ pub fn read_config(path: &PathBuf) -> Config {
     (&ini).into()
 }
 
+pub async fn get_config(sender: &mut Sender<Message>) -> (Arc<PathBuf>, Arc<Config>) {
+    let (sx, mut rx) = mpsc::channel(1);
+    sender.send(Message::GetConfig(sx))
+        .await
+        .unwrap_or_else(|err| {
+            eprintln!("Trying to request config failed with err: {err}");
+        });
+    rx.recv().await.unwrap()
+}
+
 impl From<&Ini> for Config {
     fn from(ini: &Ini) -> Self {
         Self {
+            hot_reload: ini.get("general", "hot_reloading")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true),
             enabled_modules: ini.into(),
             monitor: ini.get("general", "monitor")
                 .unwrap_or(get_monitor_name()),

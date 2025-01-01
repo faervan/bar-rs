@@ -97,8 +97,9 @@ This term is a bit of a stretch here, currently the only configurable things are
 
 On Linux, the config file should be `~/.config/bar-rs/bar-rs.ini`. If it isn't, read [this](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html#method.config_local_dir) and then check the logs.
 The default config looks like this:
-```
+```ini
 [general]
+hot_reloading=true
 monitor=DP-1
 [modules]
 right=media, volume, cpu, memory

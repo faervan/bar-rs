@@ -20,6 +20,7 @@ fn main() -> iced::Result {
             |state| Subscription::batch(
                 state.get_modules(None)
                     .filter_map(|m| m.subscription())
+                    .chain(state.config.subscriptions())
             )
         )
         .run_with(Bar::new)
@@ -31,14 +32,15 @@ enum Message {
         id: String,
         data: Arc<dyn Module>,
     },
-    GetConfig(mpsc::Sender<Arc<Config>>),
+    GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
+    ReloadConfig,
     ToggleWindow,
     WindowOpened,
 }
 
 #[derive(Debug)]
 struct Bar {
-    _config_file: PathBuf,
+    config_file: Arc<PathBuf>,
     config: Arc<Config>,
     opened: bool,
     modules: HashMap<String, Arc<dyn Module>>,
@@ -62,7 +64,7 @@ impl Bar {
 
         (
             Self {
-                _config_file: config_file,
+                config_file: config_file.into(),
                 config: config.into(),
                 opened: true,
                 modules: all_modules(),
@@ -76,7 +78,14 @@ impl Bar {
             Message::UpdateModule { id, data } => {
                 *self.modules.get_mut(&id).unwrap() = data;
             }
-            Message::GetConfig(sx) => sx.try_send(self.config.clone()).unwrap(),
+            Message::GetConfig(sx) => sx.try_send((
+                self.config_file.clone(),
+                self.config.clone()
+            )).unwrap(),
+            Message::ReloadConfig => {
+                println!("Reloading config from {}", self.config_file.to_string_lossy());
+                self.config = read_config(&self.config_file).into();
+            }
             Message::ToggleWindow => {
                 self.opened = !self.opened;
                 return match self.opened {
@@ -90,9 +99,9 @@ impl Bar {
     }
 
     fn view(&self, _window_id: Id) -> Element<Message> {
-        let make_row = |get: fn(fn(&Vec<String>) -> Vec<&String>, &EnabledModules) -> Vec<&String>| row(
-            self.get_modules(Some(get))
-                .map(|m| m.view())
+        let make_row = |get: fn(fn(&Vec<String>) -> Vec<&String>, &EnabledModules) -> Vec<&String>|
+            row(self.get_modules(Some(get))
+                    .map(|m| m.view())
         );
         let left = make_row(|into, m| into(&m.left));
         let center = make_row(|into, m| into(&m.center));
