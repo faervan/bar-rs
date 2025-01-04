@@ -1,13 +1,17 @@
-use std::{collections::HashMap, path::PathBuf, process::exit, sync::Arc};
+use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc};
 
 use config::{get_config_dir, read_config, Config, EnabledModules};
 use hyprland::keyword::Keyword;
 use iced::{alignment::Horizontal::{Left, Right}, daemon, theme::Palette, widget::{container, row}, window::{self, settings::PlatformSpecific, Id, Level, Settings}, Alignment::Center, Color, Element, Font, Length::Fill, Size, Subscription, Task, Theme};
-use modules::{all_modules, hyprland::reserve_bar_space, Module};
+use listeners::register_listeners;
+use modules::{hyprland::reserve_bar_space, register_modules};
+use registry::Registry;
 use tokio::sync::mpsc;
 
 mod modules;
+mod listeners;
 mod config;
+mod registry;
 
 const BAR_HEIGHT: u16 = 30;
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
@@ -17,25 +21,48 @@ fn main() -> iced::Result {
         .theme(Bar::theme)
         .font(include_bytes!("../assets/3270/3270NerdFont-Regular.ttf"))
         .subscription(
-            |state| Subscription::batch(
-                state.get_modules(None)
-                    .filter_map(|m| m.subscription())
-                    .chain(state.config.subscriptions())
-            )
+            |state| Subscription::batch({
+                state.registry
+                    .get_modules(
+                        state.config.enabled_modules.get_all()
+                    )
+                    .filter_map(|m|
+                        state.config.enabled_modules
+                            .contains(&m.id())
+                            .then(|| m.subscription())
+                    )
+                    .flatten()
+                    .chain(
+                        state.registry
+                            .get_listeners(&state.config.enabled_listeners)
+                            .map(|l| l.subscription())
+                    )
+            })
         )
         .run_with(Bar::new)
 }
 
+#[derive(Clone)]
+struct UpdateFn(Arc<Box<dyn FnOnce(&mut Registry) + Send + Sync>>);
+impl Debug for UpdateFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Arc<Box<dyn FnOnce(&mut Registry)>> can't be displayed")
+    }
+}
+
 #[derive(Debug, Clone)]
 enum Message {
-    UpdateModule {
-        id: String,
-        data: Arc<dyn Module>,
-    },
+    Update(UpdateFn),
+    Perform(fn(&mut Registry, &Arc<Config>, &mut bool) -> Task<Message>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     ReloadConfig,
-    ToggleWindow,
     WindowOpened,
+}
+
+impl Message {
+    fn update(closure: Box<dyn FnOnce(&mut Registry) + Send + Sync>) -> Self {
+        Message::Update(UpdateFn(Arc::new(closure)))
+    }
 }
 
 #[derive(Debug)]
@@ -43,13 +70,17 @@ struct Bar {
     config_file: Arc<PathBuf>,
     config: Arc<Config>,
     opened: bool,
-    modules: HashMap<String, Arc<dyn Module>>,
+    registry: Registry,
 }
 
 impl Bar {
     fn new() -> (Self, Task<Message>) {
-        let config_file = get_config_dir();
-        let config = read_config(&config_file);
+        let mut registry = Registry::default();
+        register_modules(&mut registry);
+        register_listeners(&mut registry);
+
+        let config_file = get_config_dir(&registry);
+        let config = read_config(&config_file, &registry);
 
         let monitor = config.monitor.clone();
         reserve_bar_space(&monitor);
@@ -67,7 +98,7 @@ impl Bar {
                 config_file: config_file.into(),
                 config: config.into(),
                 opened: true,
-                modules: all_modules(),
+                registry,
             },
             task.map(|_| Message::WindowOpened)
         )
@@ -75,23 +106,17 @@ impl Bar {
 
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
-            Message::UpdateModule { id, data } => {
-                *self.modules.get_mut(&id).unwrap() = data;
+            Message::Update(task) => {
+                Arc::into_inner(task.0).unwrap()(&mut self.registry);
             }
+            Message::Perform(task) => return task(&mut self.registry, &self.config, &mut self.opened),
             Message::GetConfig(sx) => sx.try_send((
                 self.config_file.clone(),
                 self.config.clone()
             )).unwrap(),
             Message::ReloadConfig => {
                 println!("Reloading config from {}", self.config_file.to_string_lossy());
-                self.config = read_config(&self.config_file).into();
-            }
-            Message::ToggleWindow => {
-                self.opened = !self.opened;
-                return match self.opened {
-                    true => Self::open_window().1.map(|_| Message::WindowOpened),
-                    false => window::get_latest().and_then(window::close)
-                }
+                self.config = read_config(&self.config_file, &self.registry).into();
             }
             Message::WindowOpened => {}
         }
@@ -99,13 +124,16 @@ impl Bar {
     }
 
     fn view(&self, _window_id: Id) -> Element<Message> {
-        let make_row = |get: fn(fn(&Vec<String>) -> Vec<&String>, &EnabledModules) -> Vec<&String>|
-            row(self.get_modules(Some(get))
-                    .map(|m| m.view())
-        );
-        let left = make_row(|into, m| into(&m.left));
-        let center = make_row(|into, m| into(&m.center));
-        let right = make_row(|into, m| into(&m.right));
+        let make_row = |field: fn(&EnabledModules) -> &Vec<String>|
+            row(self.registry
+                .get_modules(
+                    field(&self.config.enabled_modules).iter()
+                )
+                .map(|m| m.view())
+            );
+        let left = make_row(|m| &m.left);
+        let center = make_row(|m| &m.center);
+        let right = make_row(|m| &m.right);
         row(
             [
                 (left, Left),
@@ -146,20 +174,6 @@ impl Bar {
             success: Color::WHITE,
             danger: Color::BLACK,
         })
-    }
-
-    // I like it :)
-    fn get_modules(&self, get: Option<fn(fn(&Vec<String>) -> Vec<&String>, &EnabledModules) -> Vec<&String>>)
-        -> impl Iterator<Item = &Arc<dyn Module>> {
-        get.unwrap_or(|_, m| m.get_all().collect())(
-            |list| list.iter().collect(),
-            &self.config.enabled_modules
-        ).into_iter()
-            .filter_map(|module|
-                self.modules
-                    .get(module)
-                    .map_none(|| eprintln!("No module with name {module} found!"))
-            )
     }
 }
 

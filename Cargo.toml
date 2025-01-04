@@ -14,6 +14,8 @@ notify = "7.0.0"
 system-tray = "0.5.0"
 tokio = { version = "1.42.0", features = ["io-util", "macros", "process", "sync"] }
 udev = { version = "0.9.1", features = ["mio"] }
+bar-rs_derive = { path = "crates/bar-rs_derive"}
+downcast-rs = "1.2.1"
 
 [profile.dev.package."*"]
 opt-level = 3

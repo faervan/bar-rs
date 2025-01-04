@@ -1,12 +1,13 @@
 use std::process::Command;
 
+use bar_rs_derive::Builder;
 use iced::{widget::{row, text}, Length::Fill};
 
 use crate::NERD_FONT;
 
 use super::Module;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Builder)]
 pub struct MemoryMod;
 
 impl Module for MemoryMod {

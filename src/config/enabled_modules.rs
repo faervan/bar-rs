@@ -33,7 +33,7 @@ impl Default for EnabledModules {
 
 impl From<&Ini> for EnabledModules {
     fn from(ini: &Ini) -> Self {
-        let get = move |field: &str|
+        let get = |field: &str|
             ini.get("modules", field)
                 .map(|value| value.split(',')
                     .map(|v| v.trim().to_string())
@@ -63,5 +63,9 @@ impl EnabledModules {
         ini.set("modules", "left", Some(self.left.join(", ")));
         ini.set("modules", "center", Some(self.center.join(", ")));
         ini.set("modules", "right", Some(self.right.join(", ")));
+    }
+
+    pub fn contains(&self, x: &String) -> bool {
+        self.left.contains(x) || self.center.contains(x) || self.right.contains(x)
     }
 }

@@ -1,5 +1,6 @@
-use std::{fs::File, io::{self, BufRead, BufReader, ErrorKind}, num, sync::Arc, time::Duration};
+use std::{fs::File, io::{self, BufRead, BufReader, ErrorKind}, num, time::Duration};
 
+use bar_rs_derive::Builder;
 use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
 use tokio::time::sleep;
 
@@ -7,7 +8,7 @@ use crate::{Message, NERD_FONT};
 
 use super::Module;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Builder)]
 pub struct CpuMod {
     usage: usize
 }
@@ -33,7 +34,7 @@ impl Module for CpuMod {
                 loop {
                     let (mut active, mut total) = (vec![], vec![]);
                     for _ in 0..3 {
-                        sleep(Duration::from_secs(1)).await;
+                        sleep(Duration::from_millis(1000 / 3)).await;
                         let (a, t) = read_stats()
                             .unwrap_or_else(|e|
                                 panic!("Failed to read cpu stats from /proc/stat ... err: {e:?}"));
@@ -49,19 +50,19 @@ impl Module for CpuMod {
                         false => (delta_active as f32 / delta_total as f32) * 100.0
                     };
 
-                    sender.send(Message::UpdateModule {
-                            id: "cpu".to_string(),
-                            data: Arc::new(CpuMod {usage: (average as usize)})
-                        })
+                    sender.send(Message::update(Box::new(
+                            move |reg| reg.get_module_mut::<CpuMod>().usage = average as usize
+                        )))
                         .await
                         .unwrap_or_else(|err| {
                             eprintln!("Trying to send cpu_usage failed with err: {err}");
                         });
+
+                    sleep(Duration::from_secs(2)).await;
                 }
             })
         ))
     }
-    
 }
 
 fn read_stats() -> Result<(u32, u32), ReadError> {

@@ -1,5 +1,6 @@
-use std::{collections::HashMap, path::Path, sync::Arc, thread, time::Duration};
+use std::{collections::HashMap, path::Path, thread, time::Duration};
 
+use bar_rs_derive::Builder;
 use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
 use tokio::{runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
@@ -8,7 +9,7 @@ use crate::{Message, NERD_FONT};
 
 use super::Module;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Builder)]
 pub struct BatteryMod {
     capacity: u16,
     hours: u16,
@@ -70,10 +71,9 @@ impl Module for BatteryMod {
             stream::channel(1, |mut sender| async move {
                 tokio::spawn(async move {
                     loop {
-                        sender.send(Message::UpdateModule {
-                                id: "battery".to_string(),
-                                data: Arc::new(get_stats())
-                            })
+                        sender.send(Message::update(Box::new(
+                                move |reg| *reg.get_module_mut::<BatteryMod>() = get_stats()
+                            )))
                             .await
                             .unwrap_or_else(|err| {
                                 eprintln!("Trying to send battery_stats failed with err: {err}");
@@ -90,6 +90,8 @@ impl Module for BatteryMod {
 }
 
 fn get_stats() -> BatteryMod {
+    // the batteries should be fetched dynamically
+    // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
     let batteries = vec!["BAT0", "BAT1"];
     let properties = vec!["energy_now", "energy_full", "power_now", "voltage_now", "status"];
     let batteries = loop {

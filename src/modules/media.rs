@@ -1,5 +1,6 @@
-use std::{process::Stdio, sync::Arc};
+use std::process::Stdio;
 
+use bar_rs_derive::Builder;
 use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
 use tokio::{io::{AsyncBufReadExt, BufReader}, process::Command};
 
@@ -10,7 +11,7 @@ use super::Module;
 const MAX_LENGTH: usize = 35;
 const MAX_TITLE_LENGTH: usize = 20;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Builder)]
 pub struct MediaMod {
     title: String,
     artist: Option<String>,
@@ -69,17 +70,16 @@ impl Module for MediaMod {
                                     artist.push_str("...");
                                 }
                             }
-                            sender.send(Message::UpdateModule {
-                                    id: "media".to_string(),
-                                    data: Arc::new(MediaMod {
+                            sender.send(Message::update(Box::new(
+                                    move |reg| *reg.get_module_mut::<MediaMod>() = MediaMod {
                                         title,
                                         artist: match artist.as_str() == "" {
                                             true => None,
                                             false => Some(artist)
                                         },
                                         icon: ""
-                                    })
-                                })
+                                    }
+                                )))
                                 .await
                                 .unwrap_or_else(|err| {
                                     eprintln!("Trying to send cpu_usage failed with err: {err}");

@@ -1,5 +1,6 @@
-use std::{process::Stdio, sync::Arc};
+use std::process::Stdio;
 
+use bar_rs_derive::Builder;
 use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
 use tokio::{io::{AsyncBufReadExt, BufReader}, process::Command};
 
@@ -7,7 +8,7 @@ use crate::{Message, NERD_FONT};
 
 use super::Module;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Builder)]
 pub struct VolumeMod {
     level: u16,
     icon: &'static str,
@@ -32,10 +33,9 @@ impl Module for VolumeMod {
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(||
             stream::channel(1, |mut sender| async move {
-                let volume = || Message::UpdateModule {
-                    id: "volume".to_string(),
-                    data: Arc::new(get_volume())
-                };
+                let volume = || Message::update(Box::new(
+                    move |reg| *reg.get_module_mut::<VolumeMod>() = get_volume()
+                ));
 
                 sender.send(volume())
                     .await

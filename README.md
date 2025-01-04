@@ -21,6 +21,7 @@ For a list of currently supported modules, see [Configuration#Modules](#modules)
 3. [Hyprland configuration](#hyprland-configuration)
 4. [Usage](#usage)
 5. [Configuration](#configuration)
+   - [Modules](#modules)
 6. [Logs](#logs)
 7. [Extra credits](#extra-credits)
 
@@ -66,6 +67,11 @@ windowrule = move 0 0, bar-rs
 windowrule = decorate 0, bar-rs
 windowrule = rounding 0, bar-rs
 ```
+You might want to add rules similar to these, if you set `close_on_fullscreen` to false (see [Configuration](#configuration)):
+```
+windowrulev2 = opacity 0, onworkspace:f[0], class:(bar-rs)
+windowrulev2 = noblur 1, onworkspace:f[0], class:(bar-rs)
+```
 
 Also, add this line to launch bar-rs on startup:
 ```
@@ -93,13 +99,14 @@ bar-rs open
 ```
 
 ## Configuration
-This term is a bit of a stretch here, currently the only configurable things are the enabled modules (and their order) and the monitor to use.
+This term is a bit of a stretch here, currently the only configurable things are the enabled modules (and their order).
 
 On Linux, the config file should be `~/.config/bar-rs/bar-rs.ini`. If it isn't, read [this](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html#method.config_local_dir) and then check the logs.
 The default config looks like this:
 ```ini
 [general]
 hot_reloading=true
+close_on_fullscreen=true
 monitor=DP-1
 [modules]
 right=media, volume, cpu, memory
@@ -112,6 +119,7 @@ Currently, those modules are available:
 - `cpu`, which shows the current CPU usage
 - `memory`, which shows the current Memory usage
 - `time`, which shows the date and time
+- `battery`, which should work well if you have two batteries named BAT0 and BAT1, I will rewrite it soon to work as it should
 - `volume`, which shows the current Audio volume as reported by `wpctl` (updated by `pactl`)
 - `media`, which shows the currently playing Media as reported by `playerctl`
 - `hyprland.window`, which shows the currently focused window

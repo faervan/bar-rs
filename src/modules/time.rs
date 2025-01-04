@@ -1,3 +1,4 @@
+use bar_rs_derive::Builder;
 use chrono::Local;
 use iced::{widget::{row, text}, Length::Fill};
 
@@ -5,7 +6,7 @@ use crate::NERD_FONT;
 
 use super::Module;
 
-#[derive(Debug)]
+#[derive(Debug, Builder)]
 pub struct TimeMod;
 
 impl Module for TimeMod {
@@ -28,5 +29,4 @@ impl Module for TimeMod {
             ].center().height(Fill),
         ].spacing(10).into()
     }
-    
 }
