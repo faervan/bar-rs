@@ -1,16 +1,32 @@
-use std::{fs::File, io::{self, BufRead, BufReader, ErrorKind}, num, time::Duration};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{self, BufRead, BufReader, ErrorKind},
+    num,
+    time::Duration,
+};
 
 use bar_rs_derive::Builder;
-use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
+use iced::{
+    futures::SinkExt,
+    stream,
+    widget::{row, text},
+    Length::Fill,
+    Subscription,
+};
 use tokio::time::sleep;
 
-use crate::{Message, NERD_FONT};
+use crate::{
+    config::module_config::{LocalModuleConfig, ModuleConfigOverride},
+    Message, NERD_FONT,
+};
 
 use super::Module;
 
 #[derive(Debug, Default, Builder)]
 pub struct CpuMod {
-    usage: usize
+    usage: usize,
+    cfg_override: ModuleConfigOverride,
 }
 
 impl Module for CpuMod {
@@ -18,26 +34,38 @@ impl Module for CpuMod {
         "cpu".to_string()
     }
 
-    fn view(&self) -> iced::Element<Message> {
+    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
         row![
             text!("󰻠")
-                .center().height(Fill).size(20).font(NERD_FONT),
-            text![
-                "{}%", self.usage
-            ].center().height(Fill),
-        ].spacing(10).into()
+                .center()
+                .height(Fill)
+                .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                .font(NERD_FONT),
+            text!["{}%", self.usage]
+                .center()
+                .height(Fill)
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
+        ]
+        .spacing(10)
+        .into()
+    }
+
+    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        self.cfg_override = config.into();
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
-        Some(Subscription::run(||
+        Some(Subscription::run(|| {
             stream::channel(1, |mut sender| async move {
                 loop {
                     let (mut active, mut total) = (vec![], vec![]);
                     for _ in 0..3 {
                         sleep(Duration::from_millis(1000 / 3)).await;
-                        let (a, t) = read_stats()
-                            .unwrap_or_else(|e|
-                                panic!("Failed to read cpu stats from /proc/stat ... err: {e:?}"));
+                        let (a, t) = read_stats().unwrap_or_else(|e| {
+                            panic!("Failed to read cpu stats from /proc/stat ... err: {e:?}")
+                        });
                         active.push(a);
                         total.push(t);
                     }
@@ -47,12 +75,13 @@ impl Module for CpuMod {
 
                     let average = match delta_total == 0 {
                         true => 0.,
-                        false => (delta_active as f32 / delta_total as f32) * 100.0
+                        false => (delta_active as f32 / delta_total as f32) * 100.0,
                     };
 
-                    sender.send(Message::update(Box::new(
-                            move |reg| reg.get_module_mut::<CpuMod>().usage = average as usize
-                        )))
+                    sender
+                        .send(Message::update(Box::new(move |reg| {
+                            reg.get_module_mut::<CpuMod>().usage = average as usize
+                        })))
                         .await
                         .unwrap_or_else(|err| {
                             eprintln!("Trying to send cpu_usage failed with err: {err}");
@@ -61,14 +90,16 @@ impl Module for CpuMod {
                     sleep(Duration::from_secs(2)).await;
                 }
             })
-        ))
+        }))
     }
 }
 
 fn read_stats() -> Result<(u32, u32), ReadError> {
     let file = File::open("/proc/stat")?;
     let reader = BufReader::new(file);
-    let line = reader.lines().next()
+    let line = reader
+        .lines()
+        .next()
         .ok_or(io::Error::new(ErrorKind::UnexpectedEof, "shit"))??;
 
     let parts: Vec<&str> = line.split_whitespace().collect();

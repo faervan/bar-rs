@@ -12,6 +12,9 @@ pub fn get_monitor_name() -> String {
 }
 
 pub fn reserve_bar_space(monitor: &String) {
-    Keyword::set("monitor", format!("{monitor}, addreserved, {BAR_HEIGHT}, 0, 0, 0"))
-        .expect("Failed to set reserved space using hyprctl");
+    Keyword::set(
+        "monitor",
+        format!("{monitor}, addreserved, {BAR_HEIGHT}, 0, 0, 0"),
+    )
+    .expect("Failed to set reserved space using hyprctl");
 }

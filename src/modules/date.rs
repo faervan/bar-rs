@@ -1,6 +1,7 @@
-use std::{collections::HashMap, process::Command};
+use std::collections::HashMap;
 
 use bar_rs_derive::Builder;
+use chrono::Local;
 use iced::{
     widget::{row, text},
     Length::Fill,
@@ -14,39 +15,25 @@ use crate::{
 use super::Module;
 
 #[derive(Debug, Default, Builder)]
-pub struct MemoryMod {
+pub struct DateMod {
     cfg_override: ModuleConfigOverride,
 }
 
-impl Module for MemoryMod {
+impl Module for DateMod {
     fn id(&self) -> String {
-        "memory".to_string()
+        "date".to_string()
     }
 
     fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
-        let usage = Command::new("sh")
-            .arg("-c")
-            .arg("free | grep Mem | awk '{printf \"%.0f\", $3/$2 * 100.0}'")
-            .output()
-            .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
-            .unwrap_or_else(|e| {
-                eprintln!("Failed to get memory usage. err: {e}");
-                "0".to_string()
-            })
-            .parse()
-            .unwrap_or_else(|e| {
-                eprintln!("Failed to parse memory usage (output from free), e: {e}");
-                999
-            });
-
+        let time = Local::now();
         row![
-            text!("󰍛")
+            text!("")
                 .center()
                 .height(Fill)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                 .font(NERD_FONT),
-            text!["{}%", usage]
+            text![" {}", time.format("%a, %d. %b  ")]
                 .center()
                 .height(Fill)
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))

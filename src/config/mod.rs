@@ -1,20 +1,32 @@
-use std::{any::TypeId, collections::HashSet, fs::{create_dir_all, File}, path::PathBuf, sync::Arc};
+use std::{
+    any::TypeId,
+    collections::HashSet,
+    fs::{create_dir_all, File},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use configparser::ini::Ini;
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
 use iced::futures::{channel::mpsc::Sender, SinkExt};
+use module_config::ModuleConfig;
 use tokio::sync::mpsc;
 
 use crate::{modules::hyprland::get_monitor_name, registry::Registry, Message};
+pub use thrice::Thrice;
 
 mod enabled_modules;
+pub mod module_config;
+pub mod parse;
+mod thrice;
 
 #[derive(Debug)]
 pub struct Config {
     pub close_on_fullscreen: bool,
     pub enabled_modules: EnabledModules,
     pub enabled_listeners: HashSet<TypeId>,
+    pub module_config: ModuleConfig,
     pub monitor: String,
 }
 
@@ -23,26 +35,26 @@ impl Config {
         let enabled_modules = EnabledModules::default();
         Self {
             close_on_fullscreen: true,
-            enabled_listeners: registry.enabled_listeners(&enabled_modules)
+            enabled_listeners: registry
+                .enabled_listeners(&enabled_modules)
                 .chain(
-                    registry.all_listeners()
-                        .flat_map(|(l_id, l)|
-                            l.config()
-                                .into_iter()
-                                .map(move |option| (l_id, option))
-                        )
-                        .filter_map(|(l_id, option)|
-                            option.default.then_some(*l_id)
-                        )
-                ).collect(),
+                    registry
+                        .all_listeners()
+                        .flat_map(|(l_id, l)| {
+                            l.config().into_iter().map(move |option| (l_id, option))
+                        })
+                        .filter_map(|(l_id, option)| option.default.then_some(*l_id)),
+                )
+                .collect(),
             enabled_modules,
+            module_config: ModuleConfig::default(),
             monitor: get_monitor_name(),
         }
     }
 }
 
 pub fn get_config_dir(registry: &Registry) -> PathBuf {
-    let config_dir = ProjectDirs::from("fun.killarchive", "faervan foss", "bar-rs")
+    let config_dir = ProjectDirs::from("fun.killarchive", "faervan", "bar-rs")
         .map(|dirs| dirs.config_local_dir().to_path_buf())
         .unwrap_or_else(|| {
             eprintln!("Failed to get config directory");
@@ -54,66 +66,56 @@ pub fn get_config_dir(registry: &Registry) -> PathBuf {
     if File::create_new(&config_file).is_ok() {
         let mut ini = Ini::new();
         let config = Config::default(registry);
-        registry.get_listeners(&config.enabled_listeners)
+        registry
+            .get_listeners(&config.enabled_listeners)
             .flat_map(|l| l.config().into_iter())
             .for_each(|option| {
-                ini.set(&option.section, &option.name, Some(option.default.to_string()));
+                ini.set(
+                    &option.section,
+                    &option.name,
+                    Some(option.default.to_string()),
+                );
             });
         config.enabled_modules.write_to_ini(&mut ini);
-        ini.set("general", "monitor",
-            Some(config.monitor));
-        ini.write(&config_file)
-            .unwrap_or_else(|e|
-                panic!("Couldn't persist default config to {}: {e}",
-                    config_file.to_string_lossy())
-            );
+        ini.set("general", "monitor", Some(config.monitor));
+        ini.write(&config_file).unwrap_or_else(|e| {
+            panic!(
+                "Couldn't persist default config to {}: {e}",
+                config_file.to_string_lossy()
+            )
+        });
     }
 
     config_file
 }
 
-pub fn read_config(path: &PathBuf, registry: &Registry) -> Config {
+pub fn read_config(path: &PathBuf, registry: &mut Registry) -> Config {
     let mut ini = Ini::new();
     let Ok(_) = ini.load(path) else {
         eprintln!("Failed to read config from {}", path.to_string_lossy());
         return Config::default(registry);
     };
-    (&ini, registry).into()
+    let config: Config = (&ini, &*registry).into();
+    registry
+        .get_modules_mut(config.enabled_modules.get_all())
+        .filter_map(|m| {
+            ini.get_map_ref()
+                .get(&format!("module:{}", m.id()))
+                .map(|map| (m, map))
+        })
+        .for_each(|(m, map)| m.read_config(map));
+    config
 }
 
 pub async fn get_config(sender: &mut Sender<Message>) -> (Arc<PathBuf>, Arc<Config>) {
     let (sx, mut rx) = mpsc::channel(1);
-    sender.send(Message::GetConfig(sx))
+    sender
+        .send(Message::GetConfig(sx))
         .await
         .unwrap_or_else(|err| {
             eprintln!("Trying to request config failed with err: {err}");
         });
     rx.recv().await.unwrap()
-}
-
-impl From<(&Ini, &Registry)> for Config {
-    fn from((ini, registry): (&Ini, &Registry)) -> Self {
-        let enabled_modules = ini.into();
-        Self {
-            close_on_fullscreen: ini.get("general", "close_on_fullscreen")
-                .as_bool(true),
-            enabled_listeners: registry.all_listeners()
-                .fold(vec![], |mut acc, (id, l)| {
-                    l.config().into_iter().for_each(
-                        |option| if ini.get(&option.section, &option.name).as_bool(option.default) {
-                            acc.push(*id);
-                        }
-                    );
-                    acc
-                })
-                .into_iter()
-                .chain(registry.enabled_listeners(&enabled_modules))
-                .collect(),
-            enabled_modules,
-            monitor: ini.get("general", "monitor")
-                .unwrap_or(get_monitor_name()),
-        }
-    }
 }
 
 pub struct ConfigEntry {
@@ -129,20 +131,5 @@ impl ConfigEntry {
             name: name.to_string(),
             default,
         }
-    }
-}
-
-trait StringExt {
-    fn as_bool(self, default: bool) -> bool;
-}
-
-impl StringExt for Option<String> {
-    fn as_bool(self, default: bool) -> bool {
-        self.and_then(|v| match v.to_lowercase().as_str() {
-            "0" | "f" | "false" | "disabled" | "disable" | "off" => Some(false),
-            "1" | "t" | "true" | "enabled" | "enable" | "on" => Some(true),
-            _ => None
-        })
-        .unwrap_or(default)
     }
 }

@@ -9,10 +9,11 @@ pub fn derive_builder(input: TokenStream) -> TokenStream {
     let default = match input.data {
         Data::Struct(data) => match data.fields {
             Fields::Unit => Some(quote! {#ident}),
-            _ => None
-        }
-        _ => None
-    }.unwrap_or_else(|| quote! {#ident::default()});
+            _ => None,
+        },
+        _ => None,
+    }
+    .unwrap_or_else(|| quote! {#ident::default()});
     quote! {
         impl crate::registry::Builder for #ident {
             type Output = Self;
@@ -20,5 +21,6 @@ pub fn derive_builder(input: TokenStream) -> TokenStream {
                 #default
             }
         }
-    }.into()
+    }
+    .into()
 }

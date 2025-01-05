@@ -3,7 +3,6 @@ use iced::{futures::Stream, stream};
 
 use crate::Message;
 
-
 pub fn _system_tray() -> impl Stream<Item = Message> {
     stream::channel(1, |mut _sender| async move {
         /*let client = Client::new().await.unwrap();

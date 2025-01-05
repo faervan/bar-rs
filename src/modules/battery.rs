@@ -1,11 +1,17 @@
 use std::{collections::HashMap, path::Path, thread, time::Duration};
 
 use bar_rs_derive::Builder;
-use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
+use iced::{
+    futures::SinkExt,
+    stream,
+    widget::{row, text},
+    Length::Fill,
+    Subscription,
+};
 use tokio::{runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
-use crate::{Message, NERD_FONT};
+use crate::{config::module_config::LocalModuleConfig, Message, NERD_FONT};
 
 use super::Module;
 
@@ -22,17 +28,24 @@ impl Module for BatteryMod {
         "battery".to_string()
     }
 
-    fn view(&self) -> iced::Element<Message> {
+    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
         row![
             text!("{}", self.icon)
-                .center().height(Fill).size(20).font(NERD_FONT),
+                .center()
+                .height(Fill)
+                .size(config.icon_size)
+                .font(NERD_FONT),
             text![
                 " {}% ({}h {}min left)",
                 self.capacity,
                 self.hours,
                 self.minutes
-            ].center().height(Fill)
-        ].into()
+            ]
+            .center()
+            .height(Fill)
+            .size(config.font_size)
+        ]
+        .into()
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
@@ -64,16 +77,19 @@ impl Module for BatteryMod {
                             sleep(Duration::from_secs(1)).await;
                             sx.send(()).await.expect("mpsc channel closed");
                         }
-                    }).await.unwrap();
+                    })
+                    .await
+                    .unwrap();
                 }));
             });
 
             stream::channel(1, |mut sender| async move {
                 tokio::spawn(async move {
                     loop {
-                        sender.send(Message::update(Box::new(
-                                move |reg| *reg.get_module_mut::<BatteryMod>() = get_stats()
-                            )))
+                        sender
+                            .send(Message::update(Box::new(move |reg| {
+                                *reg.get_module_mut::<BatteryMod>() = get_stats()
+                            })))
                             .await
                             .unwrap_or_else(|err| {
                                 eprintln!("Trying to send battery_stats failed with err: {err}");
@@ -92,41 +108,48 @@ impl Module for BatteryMod {
 fn get_stats() -> BatteryMod {
     // the batteries should be fetched dynamically
     // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
-    let batteries = vec!["BAT0", "BAT1"];
-    let properties = vec!["energy_now", "energy_full", "power_now", "voltage_now", "status"];
+    let batteries = ["BAT0", "BAT1"];
+    let properties = vec![
+        "energy_now",
+        "energy_full",
+        "power_now",
+        "voltage_now",
+        "status",
+    ];
     let batteries = loop {
         let bats = batteries.iter().fold(vec![], |mut acc, bat| {
-            let Ok(bat) = Device::from_syspath(
-                Path::new(&format!("/sys/class/power_supply/{bat}"))
-            ) else {
+            let Ok(bat) =
+                Device::from_syspath(Path::new(&format!("/sys/class/power_supply/{bat}")))
+            else {
                 println!("Battery {bat} could not be found");
                 return acc;
             };
 
             let mut map = HashMap::new();
             for prop in &properties {
-                map.insert(prop, bat
-                    .property_value(format!("POWER_SUPPLY_{}", prop.to_uppercase()))
-                    .and_then(|v| v.to_str())
-                    .map(|v| {
-                        // Charging status is the only text value, so we map it to bool (0 or 1)
-                        match *prop == "status" {
-                            true => match v {
-                                "Charging" => "1",
-                                _ => "0"
-                            },
-                            false => v
-                        }
-                    })
-                    .and_then(|v| v.parse::<f32>().ok())
-                    .unwrap_or(0.)
+                map.insert(
+                    prop,
+                    bat.property_value(format!("POWER_SUPPLY_{}", prop.to_uppercase()))
+                        .and_then(|v| v.to_str())
+                        .map(|v| {
+                            // Charging status is the only text value, so we map it to bool (0 or 1)
+                            match *prop == "status" {
+                                true => match v {
+                                    "Charging" => "1",
+                                    _ => "0",
+                                },
+                                false => v,
+                            }
+                        })
+                        .and_then(|v| v.parse::<f32>().ok())
+                        .unwrap_or(0.),
                 );
             }
 
             acc.push(map);
             acc
         });
-        if bats.iter().find(|bat| *bat.get(&"power_now").unwrap() != 0.).is_some() {
+        if bats.iter().any(|bat| *bat.get(&"power_now").unwrap() != 0.) {
             thread::sleep(Duration::from_secs(1));
             break bats;
         }
@@ -150,31 +173,36 @@ fn get_stats() -> BatteryMod {
         });
 
     let capacity = (100. / energy_full * energy_now).round() as u16;
-    let charging = batteries.iter()
-        .find(|bat| *bat.get(&"status").unwrap() == 1.)
-        .is_some();
+    let charging = batteries
+        .iter()
+        .any(|bat| *bat.get(&"status").unwrap() == 1.);
     let time_remaining = match charging {
-        true => (energy_full - energy_now) / 1000000. / (( power_now / 1000000. ) * ( voltage_now / 1000000. )) * 12.55,
+        true => {
+            (energy_full - energy_now)
+                / 1000000.
+                / ((power_now / 1000000.) * (voltage_now / 1000000.))
+                * 12.55
+        }
         false => energy_now / power_now,
     };
 
     BatteryMod {
         capacity,
         hours: time_remaining.floor() as u16,
-        minutes: ((time_remaining - time_remaining.floor()) *60.) as u16,
+        minutes: ((time_remaining - time_remaining.floor()) * 60.) as u16,
         icon: match charging {
             false => match capacity {
                 n if n >= 80 => "󱊣",
                 n if n >= 60 => "󱊢",
                 n if n >= 25 => "󱊡",
-                _ => "󰂎"
+                _ => "󰂎",
             },
             true => match capacity {
                 n if n >= 80 => "󱊦 ",
                 n if n >= 60 => "󱊥 ",
                 n if n >= 25 => "󱊤 ",
-                _ => "󰢟"
-            }
+                _ => "󰢟",
+            },
         },
     }
 }
@@ -182,11 +210,11 @@ fn get_stats() -> BatteryMod {
 /*
     How upower calculates remaining time (upower/src/up-daemon.c):
     /* calculate a quick and dirty time remaining value
-	 * NOTE: Keep in sync with per-battery estimation code! */
-	if (energy_rate_total > 0) {
-		if (state_total == UP_DEVICE_STATE_DISCHARGING)
-			time_to_empty_total = SECONDS_PER_HOUR * (energy_total / energy_rate_total);
-		else if (state_total == UP_DEVICE_STATE_CHARGING)
-			time_to_full_total = SECONDS_PER_HOUR * ((energy_full_total - energy_total) / energy_rate_total);
-	}
+     * NOTE: Keep in sync with per-battery estimation code! */
+    if (energy_rate_total > 0) {
+        if (state_total == UP_DEVICE_STATE_DISCHARGING)
+            time_to_empty_total = SECONDS_PER_HOUR * (energy_total / energy_rate_total);
+        else if (state_total == UP_DEVICE_STATE_CHARGING)
+            time_to_full_total = SECONDS_PER_HOUR * ((energy_full_total - energy_total) / energy_rate_total);
+    }
 */

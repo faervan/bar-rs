@@ -10,18 +10,16 @@ A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (
 ![2024-12-29_17-16](https://github.com/user-attachments/assets/199452ec-b5bc-4ac3-ac35-ef7aed732c2f)
 
 
-
-Not (yet?) configurable and currently only working on [hyprland](https://github.com/hyprwm/Hyprland/).
+Currently supports only a bare minimum of configuration and is only working on [hyprland](https://github.com/hyprwm/Hyprland/).
 
 For a list of currently supported modules, see [Configuration#Modules](#modules)
 
 ## ToC
 1. [Installation](#installation)
 2. [Extra dependencies](#extra-dependencies)
-3. [Hyprland configuration](#hyprland-configuration)
-4. [Usage](#usage)
-5. [Configuration](#configuration)
-   - [Modules](#modules)
+3. [Configuration](#configuration)
+4. [Hyprland configuration](#hyprland-configuration)
+5. [Usage](#usage)
 6. [Logs](#logs)
 7. [Extra credits](#extra-credits)
 
@@ -52,6 +50,9 @@ bar-rs depends on the following cli utilities:
 - pactl
 - wpctl
 - playerctl
+
+## Configuration
+See [the Wiki](https://github.com/Faervan/bar-rs/wiki)
 
 ## Hyprland configuration
 [iced-rs](https://github.com/iced-rs/iced/) uses [winit](https://github.com/rust-windowing/winit/) as it's windowing shell, which has no support for the [`wlr layer shell protocol`](https://wayland.app/protocols/wlr-layer-shell-unstable-v1) yet, though there is [effort](https://github.com/rust-windowing/winit/pull/4044) made to implement it
@@ -97,33 +98,6 @@ or using the `bar-rs` script (after installing it using the `install.sh` script)
 ```sh
 bar-rs open
 ```
-
-## Configuration
-This term is a bit of a stretch here, currently the only configurable things are the enabled modules (and their order).
-
-On Linux, the config file should be `~/.config/bar-rs/bar-rs.ini`. If it isn't, read [this](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html#method.config_local_dir) and then check the logs.
-The default config looks like this:
-```ini
-[general]
-hot_reloading=true
-close_on_fullscreen=true
-monitor=DP-1
-[modules]
-right=media, volume, cpu, memory
-left=hyprland.workspaces, hyprland.window
-center=time
-```
-
-### Modules
-Currently, those modules are available:
-- `cpu`, which shows the current CPU usage
-- `memory`, which shows the current Memory usage
-- `time`, which shows the date and time
-- `battery`, which should work well if you have two batteries named BAT0 and BAT1, I will rewrite it soon to work as it should
-- `volume`, which shows the current Audio volume as reported by `wpctl` (updated by `pactl`)
-- `media`, which shows the currently playing Media as reported by `playerctl`
-- `hyprland.window`, which shows the currently focused window
-- `hyprland.workspaces`, which shows the names of the currently open workspaces
 
 ## Logs
 are saved to `/tmp/bar-rs.log` and should only contain anything if there is an error.

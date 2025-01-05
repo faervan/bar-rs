@@ -1,10 +1,22 @@
-use std::process::Stdio;
+use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
-use iced::{futures::SinkExt, stream, widget::{row, text}, Length::Fill, Subscription};
-use tokio::{io::{AsyncBufReadExt, BufReader}, process::Command};
+use iced::{
+    futures::SinkExt,
+    stream,
+    widget::{row, text},
+    Length::Fill,
+    Subscription,
+};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
+};
 
-use crate::{Message, NERD_FONT};
+use crate::{
+    config::module_config::{LocalModuleConfig, ModuleConfigOverride},
+    Message, NERD_FONT,
+};
 
 use super::Module;
 
@@ -15,7 +27,7 @@ const MAX_TITLE_LENGTH: usize = 20;
 pub struct MediaMod {
     title: String,
     artist: Option<String>,
-    icon: &'static str,
+    cfg_override: ModuleConfigOverride,
 }
 
 impl Module for MediaMod {
@@ -23,22 +35,37 @@ impl Module for MediaMod {
         "media".to_string()
     }
 
-    fn view(&self) -> iced::Element<Message> {
+    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
         row![
-            text!("{}", self.icon)
-                .center().height(Fill).size(20).font(NERD_FONT),
+            text!("")
+                .center()
+                .height(Fill)
+                .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                .font(NERD_FONT),
             text![
                 "{}{}",
                 self.title,
-                self.artist.as_ref()
+                self.artist
+                    .as_ref()
                     .map(|name| format!(" - {name}"))
                     .unwrap_or("".to_string())
-            ].center().height(Fill)
-        ].spacing(15).into()
+            ]
+            .center()
+            .height(Fill)
+            .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+            .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
+        ]
+        .spacing(15)
+        .into()
+    }
+
+    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        self.cfg_override = config.into();
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
-        Some(Subscription::run(||
+        Some(Subscription::run(|| {
             stream::channel(1, |mut sender| async move {
                 let mut child = Command::new("sh")
                     .arg("-c")
@@ -57,7 +84,7 @@ impl Module for MediaMod {
                 while let Some(line) = reader.next_line().await.unwrap() {
                     if let Some((mut title, artist)) = line.split_once('¾') {
                         title = title.trim();
-                        if title != "" {
+                        if !title.is_empty() {
                             let mut title = title.to_string();
                             let mut artist = artist.to_string();
                             if title.len() + artist.len() + 3 > MAX_LENGTH {
@@ -70,16 +97,15 @@ impl Module for MediaMod {
                                     artist.push_str("...");
                                 }
                             }
-                            sender.send(Message::update(Box::new(
-                                    move |reg| *reg.get_module_mut::<MediaMod>() = MediaMod {
-                                        title,
-                                        artist: match artist.as_str() == "" {
-                                            true => None,
-                                            false => Some(artist)
-                                        },
-                                        icon: ""
-                                    }
-                                )))
+                            sender
+                                .send(Message::update(Box::new(move |reg| {
+                                    let media = reg.get_module_mut::<MediaMod>();
+                                    media.title = title;
+                                    media.artist = match artist.as_str() == "" {
+                                        true => None,
+                                        false => Some(artist),
+                                    };
+                                })))
                                 .await
                                 .unwrap_or_else(|err| {
                                     eprintln!("Trying to send cpu_usage failed with err: {err}");
@@ -88,6 +114,6 @@ impl Module for MediaMod {
                     }
                 }
             })
-        ))
+        }))
     }
 }
