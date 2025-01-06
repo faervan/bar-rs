@@ -12,16 +12,18 @@ A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (
 
 Currently supports only a bare minimum of configuration and is only working on [hyprland](https://github.com/hyprwm/Hyprland/).
 
-For a list of currently supported modules, see [Configuration#Modules](#modules)
+For a list of currently supported modules, see [the Wiki](https://github.com/Faervan/bar-rs/wiki#modules)
 
 ## ToC
-1. [Installation](#installation)
-2. [Extra dependencies](#extra-dependencies)
-3. [Configuration](#configuration)
-4. [Hyprland configuration](#hyprland-configuration)
-5. [Usage](#usage)
-6. [Logs](#logs)
-7. [Extra credits](#extra-credits)
+- [Installation](#installation)
+- [Extra dependencies](#extra-dependencies)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Hyprland configuration](#hyprland-configuration)
+- [Logs](#logs)
+- [Recommendations + feature requests](#recommendations-+-feature-requests)
+- [Contributing](#contributing)
+- [Extra credits](#extra-credits)
 
 ## Installation
 To use bar-rs you have to build the project yourself (very straight forward on an up-to-date system like Arch, harder on "stable" ones like Debian due to outdated system libraries)
@@ -50,6 +52,20 @@ bar-rs depends on the following cli utilities:
 - pactl
 - wpctl
 - playerctl
+
+## Usage
+Either launch bar-rs directly:
+
+```sh
+./target/release/bar-rs
+# or using cargo:
+cargo run --release
+```
+
+or using the `bar-rs` script (after installing it using the `install.sh` script)
+```sh
+bar-rs open
+```
 
 ## Configuration
 See [the Wiki](https://github.com/Faervan/bar-rs/wiki)
@@ -85,23 +101,15 @@ workspace = 1, defaultName:󰈹
 ```
 Find some nice icons to use [here](https://www.nerdfonts.com/cheat-sheet)
 
-## Usage
-Either launch bar-rs directly:
-
-```sh
-./target/release/bar-rs
-# or using cargo:
-cargo run --release
-```
-
-or using the `bar-rs` script (after installing it using the `install.sh` script)
-```sh
-bar-rs open
-```
-
 ## Logs
-are saved to `/tmp/bar-rs.log` and should only contain anything if there is an error.
+If bar-rs is launched via the `bar-rs` script, it's logs are saved to `/tmp/bar-rs.log` and should only contain anything if there is an error.
 If an error occurs and all dependencies are installed on your system, please feel free to open an [issue](https://github.com/faervan/bar-rs/issues)
+
+## Recommendations + feature requests
+If you have an idea on what could improve bar-rs, or you would like to see a specific feature implemented, please open an [issue](https://github.com/faervan/bar-rs/issues).
+
+## Contributing
+If you want to contribute, create an [issue](https://github.com/faervan/bar-rs/issues) about the feature you'd like to implement or comment on an existing one. You may also contact me on [discord](https://discord.com/users/738658712620630076).
 
 ## Extra credits
 Next to all the great crates this projects depends on (see `Cargo.toml`) and the cli utils listed in [Extra dependencies](#extra-dependencies), bar-rs also uses [NerdFont](https://www.nerdfonts.com/) (see `assets/3270`)

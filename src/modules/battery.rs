@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, thread, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use bar_rs_derive::Builder;
 use iced::{
@@ -8,7 +8,7 @@ use iced::{
     Length::Fill,
     Subscription,
 };
-use tokio::{runtime, select, sync::mpsc, task, time::sleep};
+use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
 use crate::{config::module_config::LocalModuleConfig, Message, NERD_FONT};
@@ -86,9 +86,10 @@ impl Module for BatteryMod {
             stream::channel(1, |mut sender| async move {
                 tokio::spawn(async move {
                     loop {
+                        let stats = get_stats().await.unwrap();
                         sender
                             .send(Message::update(Box::new(move |reg| {
-                                *reg.get_module_mut::<BatteryMod>() = get_stats()
+                                *reg.get_module_mut::<BatteryMod>() = stats
                             })))
                             .await
                             .unwrap_or_else(|err| {
@@ -105,10 +106,18 @@ impl Module for BatteryMod {
     }
 }
 
-fn get_stats() -> BatteryMod {
-    // the batteries should be fetched dynamically
-    // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
-    let batteries = ["BAT0", "BAT1"];
+async fn get_stats() -> Result<BatteryMod, io::Error> {
+    let mut entries = fs::read_dir("/sys/class/power_supply").await?;
+    let mut batteries = vec![];
+    while let Ok(Some(dev_name)) = entries.next_entry().await {
+        if let Ok(dev_type) =
+            fs::read_to_string(&format!("{}/type", dev_name.path().to_string_lossy())).await
+        {
+            if dev_type.trim() == "Battery" {
+                batteries.push(dev_name.path());
+            }
+        }
+    }
     let properties = vec![
         "energy_now",
         "energy_full",
@@ -118,10 +127,11 @@ fn get_stats() -> BatteryMod {
     ];
     let batteries = loop {
         let bats = batteries.iter().fold(vec![], |mut acc, bat| {
-            let Ok(bat) =
-                Device::from_syspath(Path::new(&format!("/sys/class/power_supply/{bat}")))
-            else {
-                println!("Battery {bat} could not be found");
+            let Ok(bat) = Device::from_syspath(bat) else {
+                println!(
+                    "Battery {} could not be turned into a udev Device",
+                    bat.to_string_lossy()
+                );
                 return acc;
             };
 
@@ -150,7 +160,7 @@ fn get_stats() -> BatteryMod {
             acc
         });
         if bats.iter().any(|bat| *bat.get(&"power_now").unwrap() != 0.) {
-            thread::sleep(Duration::from_secs(1));
+            sleep(Duration::from_secs(1)).await;
             break bats;
         }
     };
@@ -167,7 +177,7 @@ fn get_stats() -> BatteryMod {
         .iter()
         .filter(|bat| *bat.get(&"power_now").unwrap_or(&0.) != 0.)
         .fold((0., 0.), |mut acc, bat| {
-            acc.0 += bat.get(&"power_now").expect("funny huh");
+            acc.0 += bat.get(&"power_now").unwrap();
             acc.1 += bat.get(&"voltage_now").unwrap_or(&0.);
             acc
         });
@@ -186,7 +196,7 @@ fn get_stats() -> BatteryMod {
         false => energy_now / power_now,
     };
 
-    BatteryMod {
+    Ok(BatteryMod {
         capacity,
         hours: time_remaining.floor() as u16,
         minutes: ((time_remaining - time_remaining.floor()) * 60.) as u16,
@@ -204,7 +214,7 @@ fn get_stats() -> BatteryMod {
                 _ => "󰢟",
             },
         },
-    }
+    })
 }
 
 /*

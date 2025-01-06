@@ -45,6 +45,8 @@ jobs:
           - beta
     steps:
       - uses: actions/checkout@v4
+      - name: Install libudev
+        run: sudo apt-get install -y  libudev-dev
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - run: rustup component add clippy
       - run: cargo clippy --verbose
@@ -59,5 +61,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      - run: rustup component add rustfmt
       - run: cargo fmt --check --verbose
       
