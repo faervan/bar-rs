@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use anchor::BarAnchor;
 use configparser::ini::Ini;
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
@@ -13,9 +14,10 @@ use iced::futures::{channel::mpsc::Sender, SinkExt};
 use module_config::ModuleConfig;
 use tokio::sync::mpsc;
 
-use crate::{modules::hyprland::get_monitor_name, registry::Registry, Message};
+use crate::{registry::Registry, Message};
 pub use thrice::Thrice;
 
+pub mod anchor;
 mod enabled_modules;
 pub mod module_config;
 pub mod parse;
@@ -23,18 +25,18 @@ mod thrice;
 
 #[derive(Debug)]
 pub struct Config {
-    pub close_on_fullscreen: bool,
     pub enabled_modules: EnabledModules,
     pub enabled_listeners: HashSet<TypeId>,
     pub module_config: ModuleConfig,
-    pub monitor: String,
+    pub bar_height: u32,
+    pub bar_width: u32,
+    pub anchor: BarAnchor,
 }
 
 impl Config {
     fn default(registry: &Registry) -> Self {
         let enabled_modules = EnabledModules::default();
         Self {
-            close_on_fullscreen: true,
             enabled_listeners: registry
                 .enabled_listeners(&enabled_modules)
                 .chain(
@@ -48,8 +50,17 @@ impl Config {
                 .collect(),
             enabled_modules,
             module_config: ModuleConfig::default(),
-            monitor: get_monitor_name(),
+            bar_width: 1920,
+            bar_height: 30,
+            anchor: BarAnchor::default(),
         }
+    }
+
+    pub fn exclusive_zone(&self) -> i32 {
+        (match self.anchor {
+            BarAnchor::Left | BarAnchor::Right => self.bar_width,
+            BarAnchor::Top | BarAnchor::Bottom => self.bar_height,
+        }) as i32
     }
 }
 
@@ -76,8 +87,10 @@ pub fn get_config_dir(registry: &Registry) -> PathBuf {
                     Some(option.default.to_string()),
                 );
             });
+        ini.set("general", "height", Some(config.bar_height.to_string()));
+        ini.set("general", "width", Some(config.bar_width.to_string()));
+        ini.set("general", "anchor", Some(config.anchor.into()));
         config.enabled_modules.write_to_ini(&mut ini);
-        ini.set("general", "monitor", Some(config.monitor));
         ini.write(&config_file).unwrap_or_else(|e| {
             panic!(
                 "Couldn't persist default config to {}: {e}",

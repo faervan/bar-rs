@@ -9,7 +9,11 @@ configparser = "3.1.0"
 ctrlc = "3.4.5"
 directories = "5.0.1"
 hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
-iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = ["tokio"] }
+iced = { git = "https://github.com/pop-os/iced.git", branch = "master", features = [
+    "tokio",
+    "wayland",
+    "winit"
+] }
 notify = "7.0.0"
 system-tray = "0.5.0"
 tokio = { version = "1.42.0", features = ["io-util", "macros", "process", "sync"] }

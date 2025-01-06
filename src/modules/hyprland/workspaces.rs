@@ -6,10 +6,7 @@ use hyprland::{
     shared::{HyprData, HyprDataActive, HyprDataVec},
 };
 use iced::{
-    widget::{
-        row,
-        text::{Rich, Span},
-    },
+    widget::{rich_text, row, span},
     Background, Border, Color,
     Length::Fill,
     Padding,
@@ -55,13 +52,13 @@ impl Module for HyprWorkspaceMod {
 
     fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
         row(self.open.iter().enumerate().map(|(id, (ws, _))| {
-            let mut span = Span::new(ws)
+            let mut span = span(ws)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                 .padding(Padding {
-                    top: -3.,
-                    bottom: 0.,
-                    right: 10.,
+                    top: -1.,
+                    bottom: -1.,
+                    right: 12.,
                     left: 5.,
                 })
                 .font(NERD_FONT);
@@ -71,7 +68,7 @@ impl Module for HyprWorkspaceMod {
                     .border(Border::default().rounded(8))
                     .color(self.active_color);
             }
-            Rich::with_spans([span]).center().height(Fill).into()
+            rich_text![span].height(Fill).into()
         }))
         .spacing(15)
         .into()

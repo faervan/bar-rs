@@ -128,7 +128,7 @@ async fn get_stats() -> Result<BatteryMod, io::Error> {
     let batteries = loop {
         let bats = batteries.iter().fold(vec![], |mut acc, bat| {
             let Ok(bat) = Device::from_syspath(bat) else {
-                println!(
+                eprintln!(
                     "Battery {} could not be turned into a udev Device",
                     bat.to_string_lossy()
                 );
