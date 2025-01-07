@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::PathBuf, sync::Arc};
+use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc};
 
 use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
 use iced::{
@@ -7,7 +7,7 @@ use iced::{
     platform_specific::shell::commands::layer_surface::{
         get_layer_surface, KeyboardInteractivity, Layer,
     },
-    runtime::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings,
+    runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     theme::Palette,
     widget::container,
     window::Id,
@@ -27,6 +27,7 @@ mod list;
 mod listeners;
 mod modules;
 mod registry;
+mod wayland;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
@@ -91,6 +92,12 @@ impl Bar {
         let config_file = get_config_dir(&registry);
         let config = read_config(&config_file, &mut registry);
 
+        ctrlc::set_handler(|| {
+            println!("Received exit signal...Exiting");
+            exit(0);
+        })
+        .unwrap();
+
         let bar = Self {
             config_file: config_file.into(),
             config: config.into(),
@@ -147,6 +154,9 @@ impl Bar {
     }
 
     fn surface_settings(&self) -> SctkLayerSurfaceSettings {
+        let monitor = "DP-1".to_string();
+
+        let output = wayland::get_wl_output(&monitor).unwrap();
         SctkLayerSurfaceSettings {
             id: Id::unique(),
             layer: Layer::Top,
@@ -155,6 +165,7 @@ impl Bar {
             exclusive_zone: self.config.exclusive_zone(),
             size: Some((Some(self.config.bar_width), Some(self.config.bar_height))),
             namespace: "bar-rs".to_string(),
+            //output: IcedOutput::Output(output),
             ..Default::default()
         }
     }

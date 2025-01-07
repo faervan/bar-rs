@@ -21,6 +21,7 @@ udev = { version = "0.9.1", features = ["mio"] }
 bar-rs_derive = { path = "crates/bar-rs_derive"}
 downcast-rs = "1.2.1"
 csscolorparser = "0.7.0"
+smithay-client-toolkit = "0.19.2"
 
 [profile.dev.package."*"]
 opt-level = 3

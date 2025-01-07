@@ -485,6 +485,7 @@ dependencies = [
  "hyprland",
  "iced",
  "notify",
+ "smithay-client-toolkit",
  "system-tray",
  "tokio",
  "udev",
