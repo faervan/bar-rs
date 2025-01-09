@@ -14,7 +14,7 @@ hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch =
 #    "wayland",
 #    "winit"
 #] }
-iced = { path = "../iced_pop-os", features = [
+iced = { git = "https://github.com/Faervan/iced_pop-os.git", branch = "master", features = [
     "tokio",
     "wayland",
     "winit"
