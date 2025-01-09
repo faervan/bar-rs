@@ -9,7 +9,12 @@ configparser = "3.1.0"
 ctrlc = "3.4.5"
 directories = "5.0.1"
 hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
-iced = { git = "https://github.com/pop-os/iced.git", branch = "master", features = [
+#iced = { git = "https://github.com/pop-os/iced.git", branch = "master", features = [
+#    "tokio",
+#    "wayland",
+#    "winit"
+#] }
+iced = { path = "../iced_pop-os", features = [
     "tokio",
     "wayland",
     "winit"
@@ -21,7 +26,6 @@ udev = { version = "0.9.1", features = ["mio"] }
 bar-rs_derive = { path = "crates/bar-rs_derive"}
 downcast-rs = "1.2.1"
 csscolorparser = "0.7.0"
-smithay-client-toolkit = "0.19.2"
 
 [profile.dev.package."*"]
 opt-level = 3

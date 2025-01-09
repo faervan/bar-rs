@@ -40,6 +40,7 @@ impl From<(&Ini, &Registry)> for Config {
                 .get("general", "anchor")
                 .into_anchor()
                 .unwrap_or(default.anchor),
+            monitor: ini.get("general", "monitor"),
         }
     }
 }

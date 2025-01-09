@@ -31,6 +31,7 @@ pub struct Config {
     pub bar_height: u32,
     pub bar_width: u32,
     pub anchor: BarAnchor,
+    pub monitor: Option<String>,
 }
 
 impl Config {
@@ -53,6 +54,7 @@ impl Config {
             bar_width: 1920,
             bar_height: 30,
             anchor: BarAnchor::default(),
+            monitor: None,
         }
     }
 

@@ -1,13 +1,15 @@
-use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc};
+use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
 use iced::{
     alignment::Horizontal::{Left, Right},
     daemon,
-    platform_specific::shell::commands::layer_surface::{
-        get_layer_surface, KeyboardInteractivity, Layer,
+    platform_specific::shell::commands::{
+        layer_surface::{get_layer_surface, KeyboardInteractivity, Layer},
+        output::get_output,
     },
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
+    stream,
     theme::Palette,
     widget::container,
     window::Id,
@@ -20,14 +22,13 @@ use list::list;
 use listeners::register_listeners;
 use modules::register_modules;
 use registry::Registry;
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, time::sleep};
 
 mod config;
 mod list;
 mod listeners;
 mod modules;
 mod registry;
-mod wayland;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
@@ -68,6 +69,7 @@ enum Message {
     Update(Arc<UpdateFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     ReloadConfig,
+    GotOutput(Option<IcedOutput>),
 }
 
 impl Message {
@@ -103,9 +105,12 @@ impl Bar {
             config: config.into(),
             registry,
         };
-        let surface = bar.surface_settings();
+        let task = match &bar.config.monitor {
+            Some(_) => bar.try_get_outputs(),
+            None => get_layer_surface(bar.surface_settings(IcedOutput::Active)),
+        };
 
-        (bar, get_layer_surface(surface))
+        (bar, task)
     }
 
     fn update(&mut self, msg: Message) -> Task<Message> {
@@ -122,6 +127,15 @@ impl Bar {
                     self.config_file.to_string_lossy()
                 );
                 self.config = read_config(&self.config_file, &mut self.registry).into();
+            }
+            Message::GotOutput(optn) => {
+                return match optn {
+                    Some(output) => get_layer_surface(self.surface_settings(output)),
+                    None => Task::stream(stream::channel(1, |_| async {
+                        sleep(Duration::from_millis(500)).await;
+                    }))
+                    .chain(self.try_get_outputs()),
+                }
             }
         }
         Task::none()
@@ -153,10 +167,7 @@ impl Bar {
         .into()
     }
 
-    fn surface_settings(&self) -> SctkLayerSurfaceSettings {
-        let monitor = "DP-1".to_string();
-
-        let output = wayland::get_wl_output(&monitor).unwrap();
+    fn surface_settings(&self, output: IcedOutput) -> SctkLayerSurfaceSettings {
         SctkLayerSurfaceSettings {
             id: Id::unique(),
             layer: Layer::Top,
@@ -165,9 +176,25 @@ impl Bar {
             exclusive_zone: self.config.exclusive_zone(),
             size: Some((Some(self.config.bar_width), Some(self.config.bar_height))),
             namespace: "bar-rs".to_string(),
-            //output: IcedOutput::Output(output),
+            output,
             ..Default::default()
         }
+    }
+
+    fn try_get_outputs(&self) -> Task<Message> {
+        let monitor = self.config.monitor.clone();
+        get_output(move |output_state| {
+            output_state
+                .outputs()
+                .find(|o| {
+                    output_state
+                        .info(o)
+                        .map(|info| info.name == monitor)
+                        .unwrap_or(false)
+                })
+                .clone()
+        })
+        .map(|optn| Message::GotOutput(optn.map(IcedOutput::Output)))
     }
 
     fn theme(&self, _window_id: Id) -> Theme {
