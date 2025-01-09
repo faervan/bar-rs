@@ -70,6 +70,7 @@ enum Message {
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     ReloadConfig,
     GotOutput(Option<IcedOutput>),
+    GotOutputInfo(Option<Ca>)
 }
 
 impl Message {
