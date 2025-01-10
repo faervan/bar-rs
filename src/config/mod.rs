@@ -2,6 +2,7 @@ use std::{
     any::TypeId,
     collections::HashSet,
     fs::{create_dir_all, File},
+    io::Write,
     path::PathBuf,
     sync::Arc,
 };
@@ -66,7 +67,7 @@ impl Config {
     }
 }
 
-pub fn get_config_dir(registry: &Registry) -> PathBuf {
+pub fn get_config_dir() -> PathBuf {
     let config_dir = ProjectDirs::from("fun.killarchive", "faervan", "bar-rs")
         .map(|dirs| dirs.config_local_dir().to_path_buf())
         .unwrap_or_else(|| {
@@ -76,27 +77,14 @@ pub fn get_config_dir(registry: &Registry) -> PathBuf {
     let _ = create_dir_all(&config_dir);
     let config_file = config_dir.join("bar-rs.ini");
 
-    if File::create_new(&config_file).is_ok() {
-        let mut ini = Ini::new();
-        let config = Config::default(registry);
-        registry
-            .get_listeners(&config.enabled_listeners)
-            .flat_map(|l| l.config().into_iter())
-            .for_each(|option| {
-                ini.set(
-                    &option.section,
-                    &option.name,
-                    Some(option.default.to_string()),
-                );
+    if let Ok(mut file) = File::create_new(&config_file) {
+        file.write_all(include_bytes!("../../default_config/horizontal.ini"))
+            .unwrap_or_else(|e| {
+                eprintln!(
+                    "Failed to write default config to {}: {e}",
+                    config_file.to_string_lossy()
+                )
             });
-        ini.set("general", "anchor", Some(config.anchor.into()));
-        config.enabled_modules.write_to_ini(&mut ini);
-        ini.write(&config_file).unwrap_or_else(|e| {
-            panic!(
-                "Couldn't persist default config to {}: {e}",
-                config_file.to_string_lossy()
-            )
-        });
     }
 
     config_file

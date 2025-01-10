@@ -44,12 +44,6 @@ impl EnabledModules {
             .chain(self.right.iter())
     }
 
-    pub fn write_to_ini(&self, ini: &mut Ini) {
-        ini.set("modules", "left", Some(self.left.join(", ")));
-        ini.set("modules", "center", Some(self.center.join(", ")));
-        ini.set("modules", "right", Some(self.right.join(", ")));
-    }
-
     pub fn contains(&self, x: &String) -> bool {
         self.left.contains(x) || self.center.contains(x) || self.right.contains(x)
     }

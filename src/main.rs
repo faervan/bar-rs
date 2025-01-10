@@ -96,7 +96,7 @@ impl Bar {
         register_modules(&mut registry);
         register_listeners(&mut registry);
 
-        let config_file = get_config_dir(&registry);
+        let config_file = get_config_dir();
         let config = read_config(&config_file, &mut registry);
 
         ctrlc::set_handler(|| {

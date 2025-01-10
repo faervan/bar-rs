@@ -72,6 +72,7 @@ bar-rs open
 ```
 
 ## Configuration
+Example configurations can be found in [default_config](https://github.com/Faervan/bar-rs/tree/main/default_config).
 See [the Wiki](https://github.com/Faervan/bar-rs/wiki)
 
 ## Hyprland configuration
