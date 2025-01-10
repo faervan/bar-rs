@@ -7,17 +7,15 @@ use std::{
 };
 
 use bar_rs_derive::Builder;
-use iced::{
-    futures::SinkExt,
-    stream,
-    widget::{row, text},
-    Length::Fill,
-    Subscription,
-};
+use iced::{futures::SinkExt, stream, widget::text, Subscription};
 use tokio::time::sleep;
 
 use crate::{
-    config::module_config::{LocalModuleConfig, ModuleConfigOverride},
+    config::{
+        anchor::BarAnchor,
+        module_config::{LocalModuleConfig, ModuleConfigOverride},
+    },
+    fill::FillExt,
     Message, NERD_FONT,
 };
 
@@ -34,17 +32,16 @@ impl Module for CpuMod {
         "cpu".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
-        row![
+    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+        list![
+            anchor,
             text!("󰻠")
-                .center()
-                .height(Fill)
+                .fill(anchor)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                 .font(NERD_FONT),
             text!["{}%", self.usage]
-                .center()
-                .height(Fill)
+                .fill(anchor)
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
         ]
@@ -79,9 +76,9 @@ impl Module for CpuMod {
                     };
 
                     sender
-                        .send(Message::update(Box::new(move |reg| {
+                        .send(Message::update(move |reg| {
                             reg.get_module_mut::<CpuMod>().usage = average as usize
-                        })))
+                        }))
                         .await
                         .unwrap_or_else(|err| {
                             eprintln!("Trying to send cpu_usage failed with err: {err}");

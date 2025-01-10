@@ -9,10 +9,14 @@ A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (
 
 ![2024-12-29_17-16](https://github.com/user-attachments/assets/199452ec-b5bc-4ac3-ac35-ef7aed732c2f)
 
+Vertical status bars are only experimentally supported right now...
+![2025-01-10_14-56](https://github.com/user-attachments/assets/f7bc78e5-56df-4c92-ba4d-f26180baea9b)
 
-Currently supports only a bare minimum of configuration and is only working on [hyprland](https://github.com/hyprwm/Hyprland/).
+---
 
-For a list of currently supported modules, see [the Wiki](https://github.com/Faervan/bar-rs/wiki#modules)
+Currently bar-rs supports only a bare minimum of configuration. It works on Wayland compositors implementing the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1#compositor-support), but only features [hyprland](https://github.com/hyprwm/Hyprland/) modules for active workspace and window display.
+
+For a list of all currently supported modules, see [the Wiki](https://github.com/Faervan/bar-rs/wiki#modules)
 
 ## ToC
 - [Installation](#installation)
@@ -21,7 +25,7 @@ For a list of currently supported modules, see [the Wiki](https://github.com/Fae
 - [Configuration](#configuration)
 - [Hyprland configuration](#hyprland-configuration)
 - [Logs](#logs)
-- [Recommendations + feature requests](#recommendations-+-feature-requests)
+- [Recommendations + feature requests](#recommendations--feature-requests)
 - [Contributing](#contributing)
 - [Extra credits](#extra-credits)
 
@@ -68,29 +72,11 @@ bar-rs open
 ```
 
 ## Configuration
+Example configurations can be found in [default_config](https://github.com/Faervan/bar-rs/tree/main/default_config).
 See [the Wiki](https://github.com/Faervan/bar-rs/wiki)
 
 ## Hyprland configuration
-[iced-rs](https://github.com/iced-rs/iced/) uses [winit](https://github.com/rust-windowing/winit/) as it's windowing shell, which has no support for the [`wlr layer shell protocol`](https://wayland.app/protocols/wlr-layer-shell-unstable-v1) yet, though there is [effort](https://github.com/rust-windowing/winit/pull/4044) made to implement it
-
-For this reason, some hyprland rules are needed to make bar-rs behave as it should:
-```
-windowrule = monitor DP-1, bar-rs # replace with your monitor name
-windowrule = pin, bar-rs
-windowrule = float, bar-rs
-windowrule = nofocus, bar-rs
-windowrule = noborder, bar-rs
-windowrule = move 0 0, bar-rs
-windowrule = decorate 0, bar-rs
-windowrule = rounding 0, bar-rs
-```
-You might want to add rules similar to these, if you set `close_on_fullscreen` to false (see [Configuration](#configuration)):
-```
-windowrulev2 = opacity 0, onworkspace:f[0], class:(bar-rs)
-windowrulev2 = noblur 1, onworkspace:f[0], class:(bar-rs)
-```
-
-Also, add this line to launch bar-rs on startup:
+Add this line to your `~/.config/hypr/hyprland.conf` to launch bar-rs on startup:
 ```
 exec-once = bar-rs open
 ```

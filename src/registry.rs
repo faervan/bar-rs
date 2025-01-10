@@ -18,6 +18,7 @@ pub struct Registry {
     module_names: HashMap<String, TypeId>,
 }
 
+#[allow(dead_code)]
 impl Registry {
     pub fn register_module<T: Builder>(&mut self)
     where

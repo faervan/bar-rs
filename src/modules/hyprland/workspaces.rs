@@ -6,21 +6,19 @@ use hyprland::{
     shared::{HyprData, HyprDataActive, HyprDataVec},
 };
 use iced::{
-    widget::{
-        row,
-        text::{Rich, Span},
-    },
-    Background, Border, Color,
-    Length::Fill,
-    Padding,
+    widget::{rich_text, span},
+    Background, Border, Color, Padding,
 };
 use tokio::time::sleep;
 
 use crate::{
     config::{
+        anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
         parse::StringExt,
     },
+    fill::FillExt,
+    list::list,
     listeners::hyprland::HyprListener,
     modules::{require_listener, Module},
     Message, NERD_FONT,
@@ -53,26 +51,35 @@ impl Module for HyprWorkspaceMod {
         "hyprland.workspaces".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
-        row(self.open.iter().enumerate().map(|(id, (ws, _))| {
-            let mut span = Span::new(ws)
-                .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
-                .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                .padding(Padding {
-                    top: -3.,
-                    bottom: 0.,
-                    right: 10.,
-                    left: 5.,
-                })
-                .font(NERD_FONT);
-            if id == self.active {
-                span = span
-                    .background(Background::Color(self.active_background))
-                    .border(Border::default().rounded(8))
-                    .color(self.active_color);
-            }
-            Rich::with_spans([span]).center().height(Fill).into()
-        }))
+    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+        list(
+            anchor,
+            self.open.iter().enumerate().map(|(id, (ws, _))| {
+                let mut span = span(ws)
+                    .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                    .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                    .padding(Padding {
+                        top: -1.,
+                        bottom: -1.,
+                        right: 12.,
+                        left: 5.,
+                    })
+                    .font(NERD_FONT);
+                if id == self.active {
+                    span = span
+                        .background(Background::Color(self.active_background))
+                        .border(Border::default().rounded(8))
+                        .color(self.active_color);
+                }
+                rich_text![span].fill(anchor).into()
+            }),
+        )
+        .padding(Padding {
+            top: -1.,
+            bottom: -1.,
+            right: 12.,
+            left: 5.,
+        })
         .spacing(15)
         .into()
     }

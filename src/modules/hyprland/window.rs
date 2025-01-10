@@ -3,12 +3,14 @@ use std::{any::TypeId, collections::HashMap};
 use bar_rs_derive::Builder;
 use iced::{
     futures::{channel::mpsc::Sender, SinkExt},
-    widget::{row, text},
-    Length::Fill,
+    widget::text,
 };
 
 use crate::{
-    config::module_config::{LocalModuleConfig, ModuleConfigOverride},
+    config::{
+        anchor::BarAnchor,
+        module_config::{LocalModuleConfig, ModuleConfigOverride},
+    },
     listeners::hyprland::HyprListener,
     modules::{require_listener, Message, Module},
 };
@@ -24,12 +26,14 @@ impl Module for HyprWindowMod {
         "hyprland.window".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
-        row![text!["{}", self.window.as_ref().unwrap_or(&"".to_string())]
-            .center()
-            .height(Fill)
-            .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-            .color(self.cfg_override.text_color.unwrap_or(config.text_color))]
+    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+        list![
+            anchor,
+            text!["{}", self.window.as_ref().unwrap_or(&"".to_string())]
+                .center()
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+        ]
         .into()
     }
 
@@ -44,9 +48,9 @@ impl Module for HyprWindowMod {
 
 pub async fn update_window(sender: &mut Sender<Message>, window: Option<String>) {
     sender
-        .send(Message::update(Box::new(move |reg| {
+        .send(Message::update(move |reg| {
             reg.get_module_mut::<HyprWindowMod>().window = window
-        })))
+        }))
         .await
         .unwrap_or_else(|err| {
             eprintln!("Trying to send workspaces failed with err: {err}");

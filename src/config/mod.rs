@@ -2,10 +2,12 @@ use std::{
     any::TypeId,
     collections::HashSet,
     fs::{create_dir_all, File},
+    io::Write,
     path::PathBuf,
     sync::Arc,
 };
 
+use anchor::BarAnchor;
 use configparser::ini::Ini;
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
@@ -13,9 +15,10 @@ use iced::futures::{channel::mpsc::Sender, SinkExt};
 use module_config::ModuleConfig;
 use tokio::sync::mpsc;
 
-use crate::{modules::hyprland::get_monitor_name, registry::Registry, Message};
+use crate::{registry::Registry, Message};
 pub use thrice::Thrice;
 
+pub mod anchor;
 mod enabled_modules;
 pub mod module_config;
 pub mod parse;
@@ -23,18 +26,19 @@ mod thrice;
 
 #[derive(Debug)]
 pub struct Config {
-    pub close_on_fullscreen: bool,
     pub enabled_modules: EnabledModules,
     pub enabled_listeners: HashSet<TypeId>,
     pub module_config: ModuleConfig,
-    pub monitor: String,
+    pub bar_height: Option<u32>,
+    pub bar_width: Option<u32>,
+    pub anchor: BarAnchor,
+    pub monitor: Option<String>,
 }
 
 impl Config {
     fn default(registry: &Registry) -> Self {
         let enabled_modules = EnabledModules::default();
         Self {
-            close_on_fullscreen: true,
             enabled_listeners: registry
                 .enabled_listeners(&enabled_modules)
                 .chain(
@@ -48,12 +52,22 @@ impl Config {
                 .collect(),
             enabled_modules,
             module_config: ModuleConfig::default(),
-            monitor: get_monitor_name(),
+            bar_width: None,
+            bar_height: None,
+            anchor: BarAnchor::default(),
+            monitor: None,
         }
+    }
+
+    pub fn exclusive_zone(&self) -> i32 {
+        (match self.anchor {
+            BarAnchor::Left | BarAnchor::Right => self.bar_width.unwrap_or(30),
+            BarAnchor::Top | BarAnchor::Bottom => self.bar_height.unwrap_or(30),
+        }) as i32
     }
 }
 
-pub fn get_config_dir(registry: &Registry) -> PathBuf {
+pub fn get_config_dir() -> PathBuf {
     let config_dir = ProjectDirs::from("fun.killarchive", "faervan", "bar-rs")
         .map(|dirs| dirs.config_local_dir().to_path_buf())
         .unwrap_or_else(|| {
@@ -63,27 +77,14 @@ pub fn get_config_dir(registry: &Registry) -> PathBuf {
     let _ = create_dir_all(&config_dir);
     let config_file = config_dir.join("bar-rs.ini");
 
-    if File::create_new(&config_file).is_ok() {
-        let mut ini = Ini::new();
-        let config = Config::default(registry);
-        registry
-            .get_listeners(&config.enabled_listeners)
-            .flat_map(|l| l.config().into_iter())
-            .for_each(|option| {
-                ini.set(
-                    &option.section,
-                    &option.name,
-                    Some(option.default.to_string()),
-                );
+    if let Ok(mut file) = File::create_new(&config_file) {
+        file.write_all(include_bytes!("../../default_config/horizontal.ini"))
+            .unwrap_or_else(|e| {
+                eprintln!(
+                    "Failed to write default config to {}: {e}",
+                    config_file.to_string_lossy()
+                )
             });
-        config.enabled_modules.write_to_ini(&mut ini);
-        ini.set("general", "monitor", Some(config.monitor));
-        ini.write(&config_file).unwrap_or_else(|e| {
-            panic!(
-                "Couldn't persist default config to {}: {e}",
-                config_file.to_string_lossy()
-            )
-        });
     }
 
     config_file

@@ -1,15 +1,15 @@
 use configparser::ini::Ini;
 use iced::Color;
 
-use crate::{modules::hyprland::get_monitor_name, registry::Registry, OptionExt};
+use crate::{registry::Registry, OptionExt};
 
-use super::{Config, Thrice};
+use super::{anchor::BarAnchor, Config, Thrice};
 
 impl From<(&Ini, &Registry)> for Config {
     fn from((ini, registry): (&Ini, &Registry)) -> Self {
         let enabled_modules = ini.into();
+        let default = Self::default(registry);
         Self {
-            close_on_fullscreen: ini.get("general", "close_on_fullscreen").into_bool(true),
             enabled_listeners: registry
                 .all_listeners()
                 .fold(vec![], |mut acc, (id, l)| {
@@ -28,7 +28,13 @@ impl From<(&Ini, &Registry)> for Config {
                 .collect(),
             enabled_modules,
             module_config: ini.into(),
-            monitor: ini.get("general", "monitor").unwrap_or(get_monitor_name()),
+            bar_height: ini.get("general", "height").and_then(|v| v.parse().ok()),
+            bar_width: ini.get("general", "width").and_then(|v| v.parse().ok()),
+            anchor: ini
+                .get("general", "anchor")
+                .into_anchor()
+                .unwrap_or(default.anchor),
+            monitor: ini.get("general", "monitor"),
         }
     }
 }
@@ -38,6 +44,7 @@ pub trait StringExt {
     fn into_color(self) -> Option<Color>;
     fn into_float(self) -> Option<f32>;
     fn into_thrice_float(self) -> Option<Thrice<f32>>;
+    fn into_anchor(self) -> Option<BarAnchor>;
 }
 
 impl StringExt for &Option<String> {
@@ -75,6 +82,15 @@ impl StringExt for &Option<String> {
                 value.parse::<f32>().ok().map(|all| all.into())
             }
             .map_none(|| eprintln!("Failed to parse value as float"))
+        })
+    }
+    fn into_anchor(self) -> Option<BarAnchor> {
+        self.as_ref().and_then(|value| match value.as_str() {
+            "top" => Some(BarAnchor::Top),
+            "bottom" => Some(BarAnchor::Bottom),
+            "left" => Some(BarAnchor::Left),
+            "right" => Some(BarAnchor::Right),
+            _ => None,
         })
     }
 }

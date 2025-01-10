@@ -16,7 +16,10 @@ use time::TimeMod;
 use volume::VolumeMod;
 
 use crate::{
-    config::module_config::LocalModuleConfig, listeners::Listener, registry::Registry, Message,
+    config::{anchor::BarAnchor, module_config::LocalModuleConfig},
+    listeners::Listener,
+    registry::Registry,
+    Message,
 };
 
 pub mod battery;
@@ -31,7 +34,7 @@ pub mod volume;
 
 pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn id(&self) -> String;
-    fn view(&self, config: &LocalModuleConfig) -> Element<Message>;
+    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> Element<Message>;
     fn subscription(&self) -> Option<Subscription<Message>> {
         None
     }

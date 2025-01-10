@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use bar_rs_derive::Builder;
 use chrono::Local;
-use iced::{
-    widget::{row, text},
-    Length::Fill,
-};
+use iced::widget::text;
 
 use crate::{
-    config::module_config::{LocalModuleConfig, ModuleConfigOverride},
+    config::{
+        anchor::BarAnchor,
+        module_config::{LocalModuleConfig, ModuleConfigOverride},
+    },
+    fill::FillExt,
     Message, NERD_FONT,
 };
 
@@ -24,18 +25,17 @@ impl Module for DateMod {
         "date".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
+    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
         let time = Local::now();
-        row![
+        list![
+            anchor,
             text!("")
-                .center()
-                .height(Fill)
+                .fill(anchor)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                 .font(NERD_FONT),
             text![" {}", time.format("%a, %d. %b  ")]
-                .center()
-                .height(Fill)
+                .fill(anchor)
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
         ]

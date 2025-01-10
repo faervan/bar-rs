@@ -1,29 +1,34 @@
-use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc};
+use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
-use hyprland::keyword::Keyword;
+use fill::FillExt;
 use iced::{
-    alignment::Horizontal::{Left, Right},
     daemon,
+    platform_specific::shell::commands::{
+        layer_surface::{get_layer_surface, KeyboardInteractivity, Layer},
+        output::{get_output, get_output_info, OutputInfo},
+    },
+    runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
+    stream,
     theme::Palette,
-    widget::{container, row},
-    window::{self, settings::PlatformSpecific, Id, Level, Settings},
-    Alignment::Center,
-    Color, Element, Font,
-    Length::Fill,
-    Size, Subscription, Task, Theme,
+    widget::container,
+    window::Id,
+    Alignment, Color, Element, Font, Subscription, Task, Theme,
 };
+use list::{list, DynamicAlign};
 use listeners::register_listeners;
-use modules::{hyprland::reserve_bar_space, register_modules};
+use modules::register_modules;
 use registry::Registry;
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, time::sleep};
 
 mod config;
+#[macro_use]
+mod list;
+mod fill;
 mod listeners;
 mod modules;
 mod registry;
 
-const BAR_HEIGHT: u16 = 30;
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
 fn main() -> iced::Result {
@@ -53,7 +58,7 @@ impl Debug for UpdateFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Box<dyn FnOnce(&mut Registry) + Send + Sync> can't be displayed"
+            "UpdateFn(Box<dyn FnOnce(&mut Registry) + Send + Sync>) can't be displayed"
         )
     }
 }
@@ -61,15 +66,18 @@ impl Debug for UpdateFn {
 #[derive(Debug, Clone)]
 enum Message {
     Update(Arc<UpdateFn>),
-    Perform(fn(&mut Registry, &Arc<Config>, &mut bool) -> Task<Message>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     ReloadConfig,
-    WindowOpened,
+    GotOutput(Option<IcedOutput>),
+    GotOutputInfo(Option<OutputInfo>),
 }
 
 impl Message {
-    fn update(closure: Box<dyn FnOnce(&mut Registry) + Send + Sync>) -> Self {
-        Message::Update(Arc::new(UpdateFn(closure)))
+    fn update<F>(f: F) -> Self
+    where
+        F: FnOnce(&mut Registry) + Send + Sync + 'static,
+    {
+        Message::Update(Arc::new(UpdateFn(Box::new(f))))
     }
 }
 
@@ -77,8 +85,9 @@ impl Message {
 struct Bar {
     config_file: Arc<PathBuf>,
     config: Arc<Config>,
-    opened: bool,
     registry: Registry,
+    logical_size: Option<(u32, u32)>,
+    output: IcedOutput,
 }
 
 impl Bar {
@@ -87,39 +96,34 @@ impl Bar {
         register_modules(&mut registry);
         register_listeners(&mut registry);
 
-        let config_file = get_config_dir(&registry);
+        let config_file = get_config_dir();
         let config = read_config(&config_file, &mut registry);
 
-        let monitor = config.monitor.clone();
-        reserve_bar_space(&monitor);
-
-        ctrlc::set_handler(move || {
-            Keyword::set("monitor", format!("{monitor}, addreserved, 0, 0, 0, 0"))
-                .expect("Failed to clear reserved space using hyprctl");
+        ctrlc::set_handler(|| {
+            println!("Received exit signal...Exiting");
             exit(0);
         })
-        .expect("Failed to exec exit handler");
+        .unwrap();
 
-        let (_window_id, task) = Self::open_window();
+        let bar = Self {
+            config_file: config_file.into(),
+            config: config.into(),
+            registry,
+            logical_size: None,
+            output: IcedOutput::Active,
+        };
+        let task = match &bar.config.monitor {
+            Some(_) => bar.try_get_output(),
+            None => bar.open(),
+        };
 
-        (
-            Self {
-                config_file: config_file.into(),
-                config: config.into(),
-                opened: true,
-                registry,
-            },
-            task.map(|_| Message::WindowOpened),
-        )
+        (bar, task)
     }
 
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
             Message::Update(task) => {
                 Arc::into_inner(task).unwrap().0(&mut self.registry);
-            }
-            Message::Perform(task) => {
-                return task(&mut self.registry, &self.config, &mut self.opened)
             }
             Message::GetConfig(sx) => sx
                 .try_send((self.config_file.clone(), self.config.clone()))
@@ -131,46 +135,122 @@ impl Bar {
                 );
                 self.config = read_config(&self.config_file, &mut self.registry).into();
             }
-            Message::WindowOpened => {}
+            Message::GotOutput(optn) => {
+                return match optn {
+                    Some(output) => {
+                        self.output = output;
+                        self.try_get_output_info()
+                    }
+                    None => Task::stream(stream::channel(1, |_| async {
+                        sleep(Duration::from_millis(500)).await;
+                    }))
+                    .chain(self.try_get_output()),
+                }
+            }
+            Message::GotOutputInfo(optn) => {
+                return match optn {
+                    Some(info) => {
+                        self.logical_size = info.logical_size.map(|(x, y)| (x as u32, y as u32));
+                        self.open()
+                    }
+                    None => Task::stream(stream::channel(1, |_| async {
+                        sleep(Duration::from_millis(500)).await;
+                    }))
+                    .chain(self.try_get_output_info()),
+                }
+            }
         }
         Task::none()
     }
 
     fn view(&self, _window_id: Id) -> Element<Message> {
-        let make_row = |spacing: fn(&Thrice<f32>) -> f32,
-                        field: fn(&EnabledModules) -> &Vec<String>| {
+        let make_list = |spacing: fn(&Thrice<f32>) -> f32,
+                         field: fn(&EnabledModules) -> &Vec<String>| {
             container(
-                row(self
-                    .registry
-                    .get_modules(field(&self.config.enabled_modules).iter())
-                    .map(|m| m.view(&self.config.module_config.local)))
+                list(
+                    &self.config.anchor,
+                    self.registry
+                        .get_modules(field(&self.config.enabled_modules).iter())
+                        .map(|m| m.view(&self.config.module_config.local, &self.config.anchor)),
+                )
                 .spacing(spacing(&self.config.module_config.global.spacing)),
             )
-            .width(Fill)
+            .fill(&self.config.anchor)
         };
-        let left = make_row(|s| s.left, |m| &m.left);
-        let center = make_row(|s| s.center, |m| &m.center);
-        let right = make_row(|s| s.right, |m| &m.right);
-        row([(left, Left), (center, Center.into()), (right, Right)]
-            .map(|(row, alignment)| row.align_x(alignment).into()))
-        .padding([0, 10])
+        let left = make_list(|s| s.left, |m| &m.left);
+        let center = make_list(|s| s.center, |m| &m.center);
+        let right = make_list(|s| s.right, |m| &m.right);
+        list(
+            &self.config.anchor,
+            [
+                (left, Alignment::Start),
+                (center, Alignment::Center),
+                (right, Alignment::End),
+            ]
+            .map(|(list, alignment)| list.align(&self.config.anchor, alignment).into()),
+        )
+        .padding(match self.config.anchor.vertical() {
+            true => [20, 5],
+            false => [0, 10],
+        })
         .into()
     }
 
-    fn open_window() -> (Id, Task<Id>) {
-        window::open(Settings {
-            transparent: true,
-            decorations: false,
-            icon: None,
-            resizable: false,
-            level: Level::AlwaysOnTop,
-            size: Size::new(1920., BAR_HEIGHT as f32),
-            platform_specific: PlatformSpecific {
-                application_id: "bar-rs".to_string(),
-                override_redirect: false,
-            },
+    fn open(&self) -> Task<Message> {
+        let (x, y) = self.logical_size.unwrap_or((1920, 1080));
+        let (width, height) = match self.config.anchor.vertical() {
+            true => (
+                self.config.bar_width.unwrap_or(30),
+                self.config.bar_height.unwrap_or(y),
+            ),
+            false => (
+                self.config.bar_width.unwrap_or(x),
+                self.config.bar_height.unwrap_or(30),
+            ),
+        };
+        get_layer_surface(SctkLayerSurfaceSettings {
+            layer: Layer::Top,
+            keyboard_interactivity: KeyboardInteractivity::OnDemand,
+            anchor: (&self.config.anchor).into(),
+            exclusive_zone: self.config.exclusive_zone(),
+            size: Some((Some(width), Some(height))),
+            namespace: "bar-rs".to_string(),
+            output: self.output.clone(),
             ..Default::default()
         })
+    }
+
+    fn try_get_output(&self) -> Task<Message> {
+        let monitor = self.config.monitor.clone();
+        get_output(move |output_state| {
+            output_state
+                .outputs()
+                .find(|o| {
+                    output_state
+                        .info(o)
+                        .map(|info| info.name == monitor)
+                        .unwrap_or(false)
+                })
+                .clone()
+        })
+        .map(|optn| Message::GotOutput(optn.map(IcedOutput::Output)))
+    }
+
+    fn try_get_output_info(&self) -> Task<Message> {
+        let monitor = self.config.monitor.clone();
+        get_output_info(move |output_state| {
+            output_state
+                .outputs()
+                .find(|o| {
+                    output_state
+                        .info(o)
+                        .map(|info| info.name == monitor)
+                        .unwrap_or(false)
+                })
+                .and_then(|o| output_state.info(&o))
+                .clone()
+        })
+        .map(Message::GotOutputInfo)
     }
 
     fn theme(&self, _window_id: Id) -> Theme {

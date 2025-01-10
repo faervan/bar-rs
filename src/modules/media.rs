@@ -1,20 +1,18 @@
 use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
-use iced::{
-    futures::SinkExt,
-    stream,
-    widget::{row, text},
-    Length::Fill,
-    Subscription,
-};
+use iced::{futures::SinkExt, stream, widget::text, Subscription};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
 };
 
 use crate::{
-    config::module_config::{LocalModuleConfig, ModuleConfigOverride},
+    config::{
+        anchor::BarAnchor,
+        module_config::{LocalModuleConfig, ModuleConfigOverride},
+    },
+    fill::FillExt,
     Message, NERD_FONT,
 };
 
@@ -35,11 +33,11 @@ impl Module for MediaMod {
         "media".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
-        row![
+    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+        list![
+            anchor,
             text!("")
-                .center()
-                .height(Fill)
+                .fill(anchor)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                 .font(NERD_FONT),
@@ -51,8 +49,7 @@ impl Module for MediaMod {
                     .map(|name| format!(" - {name}"))
                     .unwrap_or("".to_string())
             ]
-            .center()
-            .height(Fill)
+            .fill(anchor)
             .size(self.cfg_override.font_size.unwrap_or(config.font_size))
             .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
         ]
@@ -98,14 +95,14 @@ impl Module for MediaMod {
                                 }
                             }
                             sender
-                                .send(Message::update(Box::new(move |reg| {
+                                .send(Message::update(move |reg| {
                                     let media = reg.get_module_mut::<MediaMod>();
                                     media.title = title;
                                     media.artist = match artist.as_str() == "" {
                                         true => None,
                                         false => Some(artist),
                                     };
-                                })))
+                                }))
                                 .await
                                 .unwrap_or_else(|err| {
                                     eprintln!("Trying to send cpu_usage failed with err: {err}");
