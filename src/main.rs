@@ -1,8 +1,8 @@
 use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
+use fill::FillExt;
 use iced::{
-    alignment::Horizontal::{Left, Right},
     daemon,
     platform_specific::shell::commands::{
         layer_surface::{get_layer_surface, KeyboardInteractivity, Layer},
@@ -13,19 +13,18 @@ use iced::{
     theme::Palette,
     widget::container,
     window::Id,
-    Alignment::Center,
-    Color, Element, Font,
-    Length::Fill,
-    Subscription, Task, Theme,
+    Alignment, Color, Element, Font, Subscription, Task, Theme,
 };
-use list::list;
+use list::{list, DynamicAlign};
 use listeners::register_listeners;
 use modules::register_modules;
 use registry::Registry;
 use tokio::{sync::mpsc, time::sleep};
 
 mod config;
+#[macro_use]
 mod list;
+mod fill;
 mod listeners;
 mod modules;
 mod registry;
@@ -165,28 +164,35 @@ impl Bar {
     }
 
     fn view(&self, _window_id: Id) -> Element<Message> {
-        let make_row = |spacing: fn(&Thrice<f32>) -> f32,
-                        field: fn(&EnabledModules) -> &Vec<String>| {
+        let make_list = |spacing: fn(&Thrice<f32>) -> f32,
+                         field: fn(&EnabledModules) -> &Vec<String>| {
             container(
                 list(
                     &self.config.anchor,
                     self.registry
                         .get_modules(field(&self.config.enabled_modules).iter())
-                        .map(|m| m.view(&self.config.module_config.local)),
+                        .map(|m| m.view(&self.config.module_config.local, &self.config.anchor)),
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),
             )
-            .width(Fill)
+            .fill(&self.config.anchor)
         };
-        let left = make_row(|s| s.left, |m| &m.left);
-        let center = make_row(|s| s.center, |m| &m.center);
-        let right = make_row(|s| s.right, |m| &m.right);
+        let left = make_list(|s| s.left, |m| &m.left);
+        let center = make_list(|s| s.center, |m| &m.center);
+        let right = make_list(|s| s.right, |m| &m.right);
         list(
             &self.config.anchor,
-            [(left, Left), (center, Center.into()), (right, Right)]
-                .map(|(row, alignment)| row.align_x(alignment).into()),
+            [
+                (left, Alignment::Start),
+                (center, Alignment::Center),
+                (right, Alignment::End),
+            ]
+            .map(|(list, alignment)| list.align(&self.config.anchor, alignment).into()),
         )
-        .padding([0, 10])
+        .padding(match self.config.anchor.vertical() {
+            true => [20, 5],
+            false => [0, 10],
+        })
         .into()
     }
 

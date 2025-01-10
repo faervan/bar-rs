@@ -1,17 +1,15 @@
 use std::{collections::HashMap, time::Duration};
 
 use bar_rs_derive::Builder;
-use iced::{
-    futures::SinkExt,
-    stream,
-    widget::{row, text},
-    Length::Fill,
-    Subscription,
-};
+use iced::{futures::SinkExt, stream, widget::text, Subscription};
 use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
-use crate::{config::module_config::LocalModuleConfig, Message, NERD_FONT};
+use crate::{
+    config::{anchor::BarAnchor, module_config::LocalModuleConfig},
+    fill::FillExt,
+    Message, NERD_FONT,
+};
 
 use super::Module;
 
@@ -28,11 +26,11 @@ impl Module for BatteryMod {
         "battery".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig) -> iced::Element<Message> {
-        row![
+    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+        list![
+            anchor,
             text!("{}", self.icon)
-                .center()
-                .height(Fill)
+                .fill(anchor)
                 .size(config.icon_size)
                 .font(NERD_FONT),
             text![
@@ -41,8 +39,7 @@ impl Module for BatteryMod {
                 self.hours,
                 self.minutes
             ]
-            .center()
-            .height(Fill)
+            .fill(anchor)
             .size(config.font_size)
         ]
         .into()
