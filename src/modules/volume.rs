@@ -58,12 +58,12 @@ impl Module for VolumeMod {
         Some(Subscription::run(|| {
             stream::channel(1, |mut sender| async move {
                 let volume = || {
-                    Message::update(Box::new(move |reg| {
+                    Message::update(move |reg| {
                         let vmod = reg.get_module_mut::<VolumeMod>();
                         let volume = get_volume();
                         vmod.level = volume.0;
                         vmod.icon = volume.1;
-                    }))
+                    })
                 };
 
                 sender.send(volume()).await.unwrap_or_else(|err| {

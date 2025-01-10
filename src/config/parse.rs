@@ -28,14 +28,8 @@ impl From<(&Ini, &Registry)> for Config {
                 .collect(),
             enabled_modules,
             module_config: ini.into(),
-            bar_height: ini
-                .get("general", "height")
-                .into_u32()
-                .unwrap_or(default.bar_height),
-            bar_width: ini
-                .get("general", "width")
-                .into_u32()
-                .unwrap_or(default.bar_width),
+            bar_height: ini.get("general", "height").and_then(|v| v.parse().ok()),
+            bar_width: ini.get("general", "width").and_then(|v| v.parse().ok()),
             anchor: ini
                 .get("general", "anchor")
                 .into_anchor()
@@ -49,7 +43,6 @@ pub trait StringExt {
     fn into_bool(self, default: bool) -> bool;
     fn into_color(self) -> Option<Color>;
     fn into_float(self) -> Option<f32>;
-    fn into_u32(self) -> Option<u32>;
     fn into_thrice_float(self) -> Option<Thrice<f32>>;
     fn into_anchor(self) -> Option<BarAnchor>;
 }
@@ -73,9 +66,6 @@ impl StringExt for &Option<String> {
         })
     }
     fn into_float(self) -> Option<f32> {
-        self.as_ref().and_then(|v| v.parse().ok())
-    }
-    fn into_u32(self) -> Option<u32> {
         self.as_ref().and_then(|v| v.parse().ok())
     }
     fn into_thrice_float(self) -> Option<Thrice<f32>> {

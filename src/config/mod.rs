@@ -28,8 +28,8 @@ pub struct Config {
     pub enabled_modules: EnabledModules,
     pub enabled_listeners: HashSet<TypeId>,
     pub module_config: ModuleConfig,
-    pub bar_height: u32,
-    pub bar_width: u32,
+    pub bar_height: Option<u32>,
+    pub bar_width: Option<u32>,
     pub anchor: BarAnchor,
     pub monitor: Option<String>,
 }
@@ -51,8 +51,8 @@ impl Config {
                 .collect(),
             enabled_modules,
             module_config: ModuleConfig::default(),
-            bar_width: 1920,
-            bar_height: 30,
+            bar_width: None,
+            bar_height: None,
             anchor: BarAnchor::default(),
             monitor: None,
         }
@@ -60,8 +60,8 @@ impl Config {
 
     pub fn exclusive_zone(&self) -> i32 {
         (match self.anchor {
-            BarAnchor::Left | BarAnchor::Right => self.bar_width,
-            BarAnchor::Top | BarAnchor::Bottom => self.bar_height,
+            BarAnchor::Left | BarAnchor::Right => self.bar_width.unwrap_or(30),
+            BarAnchor::Top | BarAnchor::Bottom => self.bar_height.unwrap_or(30),
         }) as i32
     }
 }
@@ -89,8 +89,6 @@ pub fn get_config_dir(registry: &Registry) -> PathBuf {
                     Some(option.default.to_string()),
                 );
             });
-        ini.set("general", "height", Some(config.bar_height.to_string()));
-        ini.set("general", "width", Some(config.bar_width.to_string()));
         ini.set("general", "anchor", Some(config.anchor.into()));
         config.enabled_modules.write_to_ini(&mut ini);
         ini.write(&config_file).unwrap_or_else(|e| {

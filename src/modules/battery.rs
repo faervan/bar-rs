@@ -88,9 +88,9 @@ impl Module for BatteryMod {
                     loop {
                         let stats = get_stats().await.unwrap();
                         sender
-                            .send(Message::update(Box::new(move |reg| {
+                            .send(Message::update(move |reg| {
                                 *reg.get_module_mut::<BatteryMod>() = stats
-                            })))
+                            }))
                             .await
                             .unwrap_or_else(|err| {
                                 eprintln!("Trying to send battery_stats failed with err: {err}");

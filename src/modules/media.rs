@@ -98,14 +98,14 @@ impl Module for MediaMod {
                                 }
                             }
                             sender
-                                .send(Message::update(Box::new(move |reg| {
+                                .send(Message::update(move |reg| {
                                     let media = reg.get_module_mut::<MediaMod>();
                                     media.title = title;
                                     media.artist = match artist.as_str() == "" {
                                         true => None,
                                         false => Some(artist),
                                     };
-                                })))
+                                }))
                                 .await
                                 .unwrap_or_else(|err| {
                                     eprintln!("Trying to send cpu_usage failed with err: {err}");

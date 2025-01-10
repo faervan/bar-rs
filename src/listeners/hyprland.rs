@@ -25,11 +25,11 @@ impl Listener for HyprListener {
             stream::channel(1, |mut sender| async move {
                 let workspaces = get_workspaces(None).await;
                 sender
-                    .send(Message::update(Box::new(move |reg| {
+                    .send(Message::update(move |reg| {
                         let ws = reg.get_module_mut::<HyprWorkspaceMod>();
                         ws.active = workspaces.0;
                         ws.open = workspaces.1;
-                    })))
+                    }))
                     .await
                     .unwrap_or_else(|err| {
                         eprintln!("Trying to send workspaces failed with err: {err}");
@@ -64,11 +64,11 @@ impl Listener for HyprListener {
                     Box::pin(async move {
                         let workspaces = get_workspaces(Some(data.id)).await;
                         sender
-                            .send(Message::update(Box::new(move |reg| {
+                            .send(Message::update(move |reg| {
                                 let ws = reg.get_module_mut::<HyprWorkspaceMod>();
                                 ws.active = workspaces.0;
                                 ws.open = workspaces.1;
-                            })))
+                            }))
                             .await
                             .unwrap_or_else(|err| {
                                 eprintln!("Trying to send workspaces failed with err: {err}");

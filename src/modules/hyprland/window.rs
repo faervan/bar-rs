@@ -44,9 +44,9 @@ impl Module for HyprWindowMod {
 
 pub async fn update_window(sender: &mut Sender<Message>, window: Option<String>) {
     sender
-        .send(Message::update(Box::new(move |reg| {
+        .send(Message::update(move |reg| {
             reg.get_module_mut::<HyprWindowMod>().window = window
-        })))
+        }))
         .await
         .unwrap_or_else(|err| {
             eprintln!("Trying to send workspaces failed with err: {err}");

@@ -6,7 +6,7 @@ use iced::{
     daemon,
     platform_specific::shell::commands::{
         layer_surface::{get_layer_surface, KeyboardInteractivity, Layer},
-        output::get_output,
+        output::{get_output, get_output_info, OutputInfo},
     },
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     stream,
@@ -59,7 +59,7 @@ impl Debug for UpdateFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Box<dyn FnOnce(&mut Registry) + Send + Sync> can't be displayed"
+            "UpdateFn(Box<dyn FnOnce(&mut Registry) + Send + Sync>) can't be displayed"
         )
     }
 }
@@ -70,12 +70,15 @@ enum Message {
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     ReloadConfig,
     GotOutput(Option<IcedOutput>),
-    GotOutputInfo(Option<Ca>)
+    GotOutputInfo(Option<OutputInfo>),
 }
 
 impl Message {
-    fn update(closure: Box<dyn FnOnce(&mut Registry) + Send + Sync>) -> Self {
-        Message::Update(Arc::new(UpdateFn(closure)))
+    fn update<F>(f: F) -> Self
+    where
+        F: FnOnce(&mut Registry) + Send + Sync + 'static,
+    {
+        Message::Update(Arc::new(UpdateFn(Box::new(f))))
     }
 }
 
@@ -84,6 +87,8 @@ struct Bar {
     config_file: Arc<PathBuf>,
     config: Arc<Config>,
     registry: Registry,
+    logical_size: Option<(u32, u32)>,
+    output: IcedOutput,
 }
 
 impl Bar {
@@ -105,10 +110,12 @@ impl Bar {
             config_file: config_file.into(),
             config: config.into(),
             registry,
+            logical_size: None,
+            output: IcedOutput::Active,
         };
         let task = match &bar.config.monitor {
-            Some(_) => bar.try_get_outputs(),
-            None => get_layer_surface(bar.surface_settings(IcedOutput::Active)),
+            Some(_) => bar.try_get_output(),
+            None => bar.open(),
         };
 
         (bar, task)
@@ -131,11 +138,26 @@ impl Bar {
             }
             Message::GotOutput(optn) => {
                 return match optn {
-                    Some(output) => get_layer_surface(self.surface_settings(output)),
+                    Some(output) => {
+                        self.output = output;
+                        self.try_get_output_info()
+                    }
                     None => Task::stream(stream::channel(1, |_| async {
                         sleep(Duration::from_millis(500)).await;
                     }))
-                    .chain(self.try_get_outputs()),
+                    .chain(self.try_get_output()),
+                }
+            }
+            Message::GotOutputInfo(optn) => {
+                return match optn {
+                    Some(info) => {
+                        self.logical_size = info.logical_size.map(|(x, y)| (x as u32, y as u32));
+                        self.open()
+                    }
+                    None => Task::stream(stream::channel(1, |_| async {
+                        sleep(Duration::from_millis(500)).await;
+                    }))
+                    .chain(self.try_get_output_info()),
                 }
             }
         }
@@ -168,21 +190,31 @@ impl Bar {
         .into()
     }
 
-    fn surface_settings(&self, output: IcedOutput) -> SctkLayerSurfaceSettings {
-        SctkLayerSurfaceSettings {
-            id: Id::unique(),
+    fn open(&self) -> Task<Message> {
+        let (x, y) = self.logical_size.unwrap_or((1920, 1080));
+        let (width, height) = match self.config.anchor.vertical() {
+            true => (
+                self.config.bar_width.unwrap_or(30),
+                self.config.bar_height.unwrap_or(y),
+            ),
+            false => (
+                self.config.bar_width.unwrap_or(x),
+                self.config.bar_height.unwrap_or(30),
+            ),
+        };
+        get_layer_surface(SctkLayerSurfaceSettings {
             layer: Layer::Top,
             keyboard_interactivity: KeyboardInteractivity::OnDemand,
             anchor: (&self.config.anchor).into(),
             exclusive_zone: self.config.exclusive_zone(),
-            size: Some((Some(self.config.bar_width), Some(self.config.bar_height))),
+            size: Some((Some(width), Some(height))),
             namespace: "bar-rs".to_string(),
-            output,
+            output: self.output.clone(),
             ..Default::default()
-        }
+        })
     }
 
-    fn try_get_outputs(&self) -> Task<Message> {
+    fn try_get_output(&self) -> Task<Message> {
         let monitor = self.config.monitor.clone();
         get_output(move |output_state| {
             output_state
@@ -196,6 +228,23 @@ impl Bar {
                 .clone()
         })
         .map(|optn| Message::GotOutput(optn.map(IcedOutput::Output)))
+    }
+
+    fn try_get_output_info(&self) -> Task<Message> {
+        let monitor = self.config.monitor.clone();
+        get_output_info(move |output_state| {
+            output_state
+                .outputs()
+                .find(|o| {
+                    output_state
+                        .info(o)
+                        .map(|info| info.name == monitor)
+                        .unwrap_or(false)
+                })
+                .and_then(|o| output_state.info(&o))
+                .clone()
+        })
+        .map(Message::GotOutputInfo)
     }
 
     fn theme(&self, _window_id: Id) -> Theme {

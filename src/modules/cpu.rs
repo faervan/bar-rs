@@ -79,9 +79,9 @@ impl Module for CpuMod {
                     };
 
                     sender
-                        .send(Message::update(Box::new(move |reg| {
+                        .send(Message::update(move |reg| {
                             reg.get_module_mut::<CpuMod>().usage = average as usize
-                        })))
+                        }))
                         .await
                         .unwrap_or_else(|err| {
                             eprintln!("Trying to send cpu_usage failed with err: {err}");
