@@ -18,14 +18,47 @@ use crate::{
 
 use super::Module;
 
-const MAX_LENGTH: usize = 35;
-const MAX_TITLE_LENGTH: usize = 20;
-
-#[derive(Default, Debug, Builder)]
+#[derive(Debug, Builder)]
 pub struct MediaMod {
     title: String,
     artist: Option<String>,
     cfg_override: ModuleConfigOverride,
+    icon: Option<String>,
+    max_length: usize,
+    max_title_length: usize,
+}
+
+impl Default for MediaMod {
+    fn default() -> Self {
+        Self {
+            title: Default::default(),
+            artist: None,
+            cfg_override: Default::default(),
+            icon: None,
+            max_length: 35,
+            max_title_length: 20,
+        }
+    }
+}
+
+impl MediaMod {
+    fn update(&mut self, mut title: String, mut artist: String) {
+        if title.len() + artist.len() + 3 > self.max_length {
+            if title.len() > self.max_title_length {
+                title.truncate(self.max_title_length - 3);
+                title.push_str("...");
+            }
+            if title.len() + artist.len() + 3 > self.max_length {
+                artist.truncate(self.max_length - self.max_title_length - 6);
+                artist.push_str("...");
+            }
+        }
+        self.title = title;
+        self.artist = match artist.as_str() == "" {
+            true => None,
+            false => Some(artist),
+        };
+    }
 }
 
 impl Module for MediaMod {
@@ -36,7 +69,7 @@ impl Module for MediaMod {
     fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
         list![
             anchor,
-            text!("")
+            text!("{}", self.icon.as_ref().unwrap_or(&"".to_string()))
                 .fill(anchor)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
@@ -53,12 +86,22 @@ impl Module for MediaMod {
             .size(self.cfg_override.font_size.unwrap_or(config.font_size))
             .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
         ]
-        .spacing(15)
+        .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        let default = Self::default();
         self.cfg_override = config.into();
+        self.icon = config.get("icon").and_then(|v| v.clone());
+        self.max_length = config
+            .get("max_length")
+            .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
+            .unwrap_or(default.max_length);
+        self.max_title_length = config
+            .get("max_title_length")
+            .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
+            .unwrap_or(default.max_title_length);
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
@@ -82,26 +125,11 @@ impl Module for MediaMod {
                     if let Some((mut title, artist)) = line.split_once('¾') {
                         title = title.trim();
                         if !title.is_empty() {
-                            let mut title = title.to_string();
-                            let mut artist = artist.to_string();
-                            if title.len() + artist.len() + 3 > MAX_LENGTH {
-                                if title.len() > MAX_TITLE_LENGTH {
-                                    title.truncate(MAX_TITLE_LENGTH - 3);
-                                    title.push_str("...");
-                                }
-                                if title.len() + artist.len() + 3 > MAX_LENGTH {
-                                    artist.truncate(MAX_LENGTH - MAX_TITLE_LENGTH - 6);
-                                    artist.push_str("...");
-                                }
-                            }
+                            let title = title.to_string();
+                            let artist = artist.to_string();
                             sender
                                 .send(Message::update(move |reg| {
-                                    let media = reg.get_module_mut::<MediaMod>();
-                                    media.title = title;
-                                    media.artist = match artist.as_str() == "" {
-                                        true => None,
-                                        false => Some(artist),
-                                    };
+                                    reg.get_module_mut::<MediaMod>().update(title, artist)
                                 }))
                                 .await
                                 .unwrap_or_else(|err| {

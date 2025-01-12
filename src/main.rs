@@ -11,7 +11,7 @@ use iced::{
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     stream,
     theme::Palette,
-    widget::container,
+    widget::{container, stack},
     window::Id,
     Alignment, Color, Element, Font, Subscription, Task, Theme,
 };
@@ -164,6 +164,7 @@ impl Bar {
     }
 
     fn view(&self, _window_id: Id) -> Element<Message> {
+        let anchor = &self.config.anchor;
         let make_list = |spacing: fn(&Thrice<f32>) -> f32,
                          field: fn(&EnabledModules) -> &Vec<String>| {
             container(
@@ -175,20 +176,19 @@ impl Bar {
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),
             )
-            .fill(&self.config.anchor)
+            .fill(anchor)
         };
         let left = make_list(|s| s.left, |m| &m.left);
         let center = make_list(|s| s.center, |m| &m.center);
         let right = make_list(|s| s.right, |m| &m.right);
-        list(
-            &self.config.anchor,
-            [
-                (left, Alignment::Start),
-                (center, Alignment::Center),
-                (right, Alignment::End),
-            ]
-            .map(|(list, alignment)| list.align(&self.config.anchor, alignment).into()),
-        )
+        container(stack!(
+            center.align(anchor, Alignment::Center),
+            list(
+                anchor,
+                [(left, Alignment::Start), (right, Alignment::End)]
+                    .map(|(e, align)| e.align(anchor, align).into())
+            )
+        ))
         .padding(match self.config.anchor.vertical() {
             true => [20, 5],
             false => [0, 10],

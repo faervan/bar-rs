@@ -25,6 +25,7 @@ use super::Module;
 pub struct CpuMod {
     usage: usize,
     cfg_override: ModuleConfigOverride,
+    icon: Option<String>,
 }
 
 impl Module for CpuMod {
@@ -35,7 +36,7 @@ impl Module for CpuMod {
     fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
         list![
             anchor,
-            text!("󰻠")
+            text!("{}", self.icon.as_ref().unwrap_or(&"󰻠".to_string()))
                 .fill(anchor)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
@@ -45,12 +46,13 @@ impl Module for CpuMod {
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
         ]
-        .spacing(10)
+        .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
         self.cfg_override = config.into();
+        self.icon = config.get("icon").and_then(|v| v.clone());
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {

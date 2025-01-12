@@ -15,9 +15,21 @@ use crate::{
 
 use super::Module;
 
-#[derive(Debug, Default, Builder)]
+#[derive(Debug, Builder)]
 pub struct TimeMod {
     cfg_override: ModuleConfigOverride,
+    icon: String,
+    fmt: String,
+}
+
+impl Default for TimeMod {
+    fn default() -> Self {
+        Self {
+            cfg_override: Default::default(),
+            icon: "".to_string(),
+            fmt: "%H:%M".to_string(),
+        }
+    }
 }
 
 impl Module for TimeMod {
@@ -29,21 +41,30 @@ impl Module for TimeMod {
         let time = Local::now();
         list!(
             anchor,
-            text!("")
+            text!("{}", self.icon)
                 .fill(anchor)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                 .font(NERD_FONT),
-            text![" {}", time.format("%H:%M")]
+            text!["{}", time.format(&self.fmt)]
                 .fill(anchor)
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
         )
-        .spacing(10)
+        .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        let default = Self::default();
         self.cfg_override = config.into();
+        self.icon = config
+            .get("icon")
+            .and_then(|v| v.clone())
+            .unwrap_or(default.icon);
+        self.fmt = config
+            .get("format")
+            .and_then(|v| v.clone())
+            .unwrap_or(default.fmt);
     }
 }
