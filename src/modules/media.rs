@@ -62,7 +62,7 @@ impl MediaMod {
 }
 
 impl Module for MediaMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "media".to_string()
     }
 

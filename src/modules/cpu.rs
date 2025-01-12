@@ -29,7 +29,7 @@ pub struct CpuMod {
 }
 
 impl Module for CpuMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "cpu".to_string()
     }
 

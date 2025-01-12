@@ -46,7 +46,7 @@ impl HyprWindowMod {
 }
 
 impl Module for HyprWindowMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "hyprland.window".to_string()
     }
 

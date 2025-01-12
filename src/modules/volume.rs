@@ -26,7 +26,7 @@ pub struct VolumeMod {
 }
 
 impl Module for VolumeMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "volume".to_string()
     }
 

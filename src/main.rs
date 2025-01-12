@@ -40,7 +40,7 @@ fn main() -> iced::Result {
                 state
                     .registry
                     .get_modules(state.config.enabled_modules.get_all())
-                    .filter(|m| state.config.enabled_modules.contains(&m.id()))
+                    .filter(|m| state.config.enabled_modules.contains(&m.name()))
                     .filter_map(|m| m.subscription())
                     .chain(
                         state

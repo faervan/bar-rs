@@ -35,15 +35,23 @@ pub mod volume;
 pub mod wayfire;
 
 pub trait Module: Any + Debug + Send + Sync + Downcast {
-    fn id(&self) -> String;
+    /// The name used to enable the Module in the config
+    fn name(&self) -> String;
+    /// What the module actually shows.
+    /// See [widgets-and-elements](https://docs.iced.rs/iced/#widgets-and-elements).
     fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> Element<Message>;
+    /// The module may optionally have a subscription listening for external events.
+    /// See [passive-subscriptions](https://docs.iced.rs/iced/#passive-subscriptions).
     fn subscription(&self) -> Option<Subscription<Message>> {
         None
     }
+    /// Modules may require shared subscriptions. Add `require_listener::<SomeListener>()`
+    /// for every [Listener] this module requires.
     fn requires(&self) -> Vec<TypeId> {
         vec![]
     }
     #[allow(unused_variables)]
+    /// Read configuration options from the config section of this module
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {}
 }
 impl_downcast!(Module);

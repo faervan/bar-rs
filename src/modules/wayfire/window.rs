@@ -44,7 +44,7 @@ impl WayfireWindowMod {
 }
 
 impl Module for WayfireWindowMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "wayfire.window".to_string()
     }
 

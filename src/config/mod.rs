@@ -101,7 +101,7 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry) -> Config {
         .get_modules_mut(config.enabled_modules.get_all())
         .filter_map(|m| {
             ini.get_map_ref()
-                .get(&format!("module:{}", m.id()))
+                .get(&format!("module:{}", m.name()))
                 .map(|map| (m, map))
         })
         .for_each(|(m, map)| m.read_config(map));
