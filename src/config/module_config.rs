@@ -32,6 +32,7 @@ pub struct LocalModuleConfig {
     pub icon_color: Color,
     pub font_size: f32,
     pub icon_size: f32,
+    pub spacing: f32,
 }
 
 impl Default for LocalModuleConfig {
@@ -41,6 +42,7 @@ impl Default for LocalModuleConfig {
             icon_color: Color::WHITE,
             font_size: 16.,
             icon_size: 20.,
+            spacing: 10.,
         }
     }
 }
@@ -51,6 +53,7 @@ pub struct ModuleConfigOverride {
     pub icon_color: Option<Color>,
     pub font_size: Option<f32>,
     pub icon_size: Option<f32>,
+    pub spacing: Option<f32>,
 }
 
 impl From<&HashMap<String, Option<String>>> for ModuleConfigOverride {
@@ -60,6 +63,7 @@ impl From<&HashMap<String, Option<String>>> for ModuleConfigOverride {
             icon_color: map.get("icon_color").and_then(|s| s.into_color()),
             font_size: map.get("font_size").and_then(|s| s.into_float()),
             icon_size: map.get("icon_size").and_then(|s| s.into_float()),
+            spacing: map.get("spacing").and_then(|s| s.into_float()),
         }
     }
 }
@@ -97,6 +101,10 @@ impl From<&Ini> for ModuleConfig {
                     .get(section, "icon_size")
                     .into_float()
                     .unwrap_or(local.icon_size),
+                spacing: ini
+                    .get(section, "local_spacing")
+                    .into_float()
+                    .unwrap_or(local.spacing),
             },
         }
     }

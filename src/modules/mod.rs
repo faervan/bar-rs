@@ -14,6 +14,7 @@ use media::MediaMod;
 use memory::MemoryMod;
 use time::TimeMod;
 use volume::VolumeMod;
+use wayfire::{WayfireWindowMod, WayfireWorkspaceMod};
 
 use crate::{
     config::{anchor::BarAnchor, module_config::LocalModuleConfig},
@@ -31,6 +32,7 @@ pub mod memory;
 pub mod sys_tray;
 pub mod time;
 pub mod volume;
+pub mod wayfire;
 
 pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn id(&self) -> String;
@@ -63,4 +65,6 @@ pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<TimeMod>();
     registry.register_module::<HyprWindowMod>();
     registry.register_module::<HyprWorkspaceMod>();
+    registry.register_module::<WayfireWorkspaceMod>();
+    registry.register_module::<WayfireWindowMod>();
 }

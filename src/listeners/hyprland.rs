@@ -44,17 +44,7 @@ impl Listener for HyprListener {
                 listener.add_active_window_changed_handler(move |data| {
                     let mut sender = senderx.clone();
                     Box::pin(async move {
-                        update_window(
-                            &mut sender,
-                            data.map(|name| match name.title.len() > 25 {
-                                true => format!(
-                                    "{}...",
-                                    &name.title.chars().take(22).collect::<String>()
-                                ),
-                                false => name.title,
-                            }),
-                        )
-                        .await;
+                        update_window(&mut sender, data.map(|window| window.title)).await;
                     })
                 });
 

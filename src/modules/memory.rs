@@ -17,6 +17,7 @@ use super::Module;
 #[derive(Debug, Default, Builder)]
 pub struct MemoryMod {
     cfg_override: ModuleConfigOverride,
+    icon: Option<String>,
 }
 
 impl Module for MemoryMod {
@@ -42,7 +43,7 @@ impl Module for MemoryMod {
 
         list![
             anchor,
-            text!("󰍛")
+            text!("{}", self.icon.as_ref().unwrap_or(&"󰍛".to_string()))
                 .fill(anchor)
                 .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                 .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
@@ -52,11 +53,12 @@ impl Module for MemoryMod {
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
         ]
-        .spacing(10)
+        .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
         self.cfg_override = config.into();
+        self.icon = config.get("icon").and_then(|v| v.clone());
     }
 }

@@ -59,8 +59,8 @@ impl Module for HyprWorkspaceMod {
                     .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                     .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                     .padding(Padding {
-                        top: -1.,
-                        bottom: -1.,
+                        top: 0.,
+                        bottom: 0.,
                         right: 12.,
                         left: 5.,
                     })
@@ -75,12 +75,12 @@ impl Module for HyprWorkspaceMod {
             }),
         )
         .padding(Padding {
-            top: -1.,
-            bottom: -1.,
+            top: 0.,
+            bottom: 0.,
             right: 12.,
             left: 5.,
         })
-        .spacing(15)
+        .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
