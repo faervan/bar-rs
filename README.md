@@ -30,7 +30,7 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [ ] custom modules
 - [ ] additional modules (wifi, pacman updates...)
 - [ ] system tray support
-- [ ] plugin api
+- [ ] plugin api (for custom rust modules)
 - [ ] custom fonts
 - [ ] X11 support
 - [ ] Module interactivity (tooltips, popups, buttons)
@@ -40,7 +40,8 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 I am for a release on the `AUR` after the [first milestone](https://github.com/Faervan/bar-rs/milestone/1) is reached. For now, you have to build bar-rs yourself.
 
 <details>
-<summary>## Building</summary>
+<summary><h2>Building</h2></summary>
+  
 To use bar-rs you have to build the project yourself (very straight forward on an up-to-date system like Arch, harder on "stable" ones like Debian due to outdated system libraries)
 
 ```sh
@@ -60,7 +61,8 @@ find target/release/* ! -name bar-rs ! -name . -type d,f -exec rm -r {} +
 </details>
 
 <details>
-<summary>## Extra dependencies</summary>
+<summary><h2>Extra dependencies</h2></summary>
+  
 bar-rs depends on the following cli utilities:
 - free
 - grep
@@ -72,7 +74,8 @@ bar-rs depends on the following cli utilities:
 </details>
 
 <details>
-<summary>## Usage</summary>
+<summary><h2>Usage</h2></summary>
+  
 Launch bar-rs using the `bar-rs` script (after installing it using the `install.sh` script):
 ```sh
 bar-rs open
@@ -101,7 +104,8 @@ If you have an idea on what could improve bar-rs, or you would like to see a spe
 ## Contributing
 If you want to contribute, create an [issue](https://github.com/faervan/bar-rs/issues) about the feature you'd like to implement or comment on an existing one. You may also contact me on [discord](https://discord.com/users/738658712620630076).
 
-Contributing by creating new modules should be pretty easy and straight forward if you know a bit about rust. You just have to implement the `Module` and `Builder` traits for your new module and register it in `src/modules/mod.rs`. Take a look at [docs.iced.rs](https://docs.iced.rs/iced/) for info about what to place in the `view()` method of the `Module` trait.
+Contributing by creating new modules should be pretty easy and straight forward if you know a bit about rust. You just have to implement the `Module` and `Builder` traits for your new module and register it in `src/modules/mod.rs`.<br>
+Take a look at [docs.iced.rs](https://docs.iced.rs/iced/) for info about what to place in the `view()` method of the `Module` trait.
 
 ## Extra credits
 Next to all the great crates this projects depends on (see `Cargo.toml`) and the cli utils listed in [Extra dependencies](#extra-dependencies), bar-rs also uses [NerdFont](https://www.nerdfonts.com/) (see `assets/3270`)
