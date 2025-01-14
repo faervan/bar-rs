@@ -33,7 +33,7 @@ impl Default for TimeMod {
 }
 
 impl Module for TimeMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "time".to_string()
     }
 

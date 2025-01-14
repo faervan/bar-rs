@@ -32,7 +32,7 @@ struct BatteryStats {
 }
 
 impl Module for BatteryMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "battery".to_string()
     }
 

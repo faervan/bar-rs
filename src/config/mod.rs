@@ -8,7 +8,7 @@ use std::{
 };
 
 use anchor::BarAnchor;
-use configparser::ini::Ini;
+use configparser::ini::{Ini, IniDefault};
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
 use iced::futures::{channel::mpsc::Sender, SinkExt};
@@ -92,6 +92,9 @@ pub fn get_config_dir() -> PathBuf {
 
 pub fn read_config(path: &PathBuf, registry: &mut Registry) -> Config {
     let mut ini = Ini::new();
+    let mut defaults = IniDefault::default();
+    defaults.delimiters = vec!['='];
+    ini.load_defaults(defaults);
     let Ok(_) = ini.load(path) else {
         eprintln!("Failed to read config from {}", path.to_string_lossy());
         return Config::default(registry);
@@ -101,7 +104,7 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry) -> Config {
         .get_modules_mut(config.enabled_modules.get_all())
         .filter_map(|m| {
             ini.get_map_ref()
-                .get(&format!("module:{}", m.id()))
+                .get(&format!("module:{}", m.name()))
                 .map(|map| (m, map))
         })
         .for_each(|(m, map)| m.read_config(map));

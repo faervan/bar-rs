@@ -27,7 +27,7 @@ pub struct WayfireWorkspaceMod {
 }
 
 impl Module for WayfireWorkspaceMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "wayfire.workspaces".to_string()
     }
 

@@ -21,7 +21,7 @@ pub struct MemoryMod {
 }
 
 impl Module for MemoryMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "memory".to_string()
     }
 

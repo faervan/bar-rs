@@ -26,7 +26,7 @@ impl Registry {
     {
         let output = T::build();
         let type_id = TypeId::of::<T>();
-        self.module_names.insert(output.id(), type_id);
+        self.module_names.insert(output.name(), type_id);
         self.modules.insert(type_id, Box::new(output));
     }
 
@@ -97,7 +97,7 @@ impl Registry {
         let enabled: HashSet<&String> = enabled.collect();
         self.modules
             .values_mut()
-            .filter(move |m| enabled.contains(&m.id()))
+            .filter(move |m| enabled.contains(&m.name()))
     }
 
     pub fn get_listeners<'a>(

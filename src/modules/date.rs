@@ -33,7 +33,7 @@ impl Default for DateMod {
 }
 
 impl Module for DateMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "date".to_string()
     }
 

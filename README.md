@@ -3,7 +3,7 @@
   <img src="https://gist.githubusercontent.com/hecrj/ad7ecd38f6e47ff3688a38c79fd108f0/raw/74384875ecbad02ae2a926425e9bcafd0695bade/color.svg" width="130px">
 </a>
 
-A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/)
+A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (specifically the [pop-os fork](https://github.com/pop-os/iced/) of iced, which supports the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1))
 
 ![image](https://github.com/user-attachments/assets/29daa606-3189-4355-bc04-a21e8f245f6f)
 
@@ -12,7 +12,7 @@ A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/)
 Vertical status bars are only [experimentally supported](https://github.com/user-attachments/assets/f7bc78e5-56df-4c92-ba4d-f26180baea9b) right now
 
 
-Currently bar-rs supports only a bare minimum of configuration. It works on Wayland compositors implementing the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1#compositor-support), but right now only features [hyprland](https://github.com/hyprwm/Hyprland/) and [Wayfire](https://github.com/WayfireWM/wayfire/) modules for active workspace and window display.
+Currently bar-rs supports only a bare minimum of configuration. It works on Wayland compositors implementing the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1#compositor-support), but right now only features [hyprland](https://github.com/hyprwm/Hyprland/), [Niri](https://github.com/YaLTeR/niri/) and [Wayfire](https://github.com/WayfireWM/wayfire/) modules for active workspace and window display.
 
 For a list of all currently supported modules, see [the Wiki](https://github.com/Faervan/bar-rs/wiki#modules)
 
@@ -24,7 +24,7 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [x] a base set of useful modules
 - [x] hyprland workspace + window modules
 - [x] wayfire workspace + window modules
-- [ ] niri workspace + window modules
+- [x] niri workspace + window modules
 - [ ] sway workspace + window modules
 - [ ] deeper style customization
 - [ ] custom modules
@@ -37,7 +37,7 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - ...
 
 ## Installation
-I am for a release on the `AUR` after the [first milestone](https://github.com/Faervan/bar-rs/milestone/1) is reached. For now, you have to build bar-rs yourself.
+I aim for a release on the `AUR` after the [first milestone](https://github.com/Faervan/bar-rs/milestone/1) is reached. For now, you have to build bar-rs yourself.
 
 <details>
 <summary><h2>Building</h2></summary>

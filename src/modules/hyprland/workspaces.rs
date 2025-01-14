@@ -47,7 +47,7 @@ impl Default for HyprWorkspaceMod {
 }
 
 impl Module for HyprWorkspaceMod {
-    fn id(&self) -> String {
+    fn name(&self) -> String {
         "hyprland.workspaces".to_string()
     }
 
