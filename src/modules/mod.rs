@@ -12,6 +12,7 @@ use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
 use iced::{Element, Subscription};
 use media::MediaMod;
 use memory::MemoryMod;
+use niri::{NiriWindowMod, NiriWorkspaceMod};
 use time::TimeMod;
 use volume::VolumeMod;
 use wayfire::{WayfireWindowMod, WayfireWorkspaceMod};
@@ -29,6 +30,7 @@ pub mod date;
 pub mod hyprland;
 pub mod media;
 pub mod memory;
+pub mod niri;
 pub mod sys_tray;
 pub mod time;
 pub mod volume;
@@ -75,4 +77,6 @@ pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<HyprWorkspaceMod>();
     registry.register_module::<WayfireWorkspaceMod>();
     registry.register_module::<WayfireWindowMod>();
+    registry.register_module::<NiriWorkspaceMod>();
+    registry.register_module::<NiriWindowMod>();
 }
