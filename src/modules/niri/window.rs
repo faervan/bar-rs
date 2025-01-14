@@ -7,6 +7,7 @@ use crate::{
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
+        parse::StringExt,
     },
     fill::FillExt,
     listeners::niri::NiriListener,
@@ -20,6 +21,7 @@ pub struct NiriWindowMod {
     pub windows: HashMap<u64, (Option<String>, Option<String>)>,
     pub focused: Option<u64>,
     max_length: usize,
+    show_app_id: bool,
     cfg_override: ModuleConfigOverride,
 }
 
@@ -29,22 +31,30 @@ impl Default for NiriWindowMod {
             windows: HashMap::new(),
             focused: None,
             max_length: 25,
+            show_app_id: false,
             cfg_override: Default::default(),
         }
     }
 }
 
-/*impl NiriWindowMod {
-    pub fn set_title(&mut self, title: Option<String>) {
-        self.title = title.map(|title| match title.len() > self.max_length {
-            true => format!(
-                "{}...",
-                &title.chars().take(self.max_length - 3).collect::<String>()
-            ),
-            false => title,
-        });
+impl NiriWindowMod {
+    fn get_title(&self) -> Option<String> {
+        self.focused
+            .and_then(|id| {
+                self.windows.get(&id).and_then(|w| match self.show_app_id {
+                    true => w.1.as_ref(),
+                    false => w.0.as_ref(),
+                })
+            })
+            .map(|title| match title.len() > self.max_length {
+                true => format!(
+                    "{}...",
+                    &title.chars().take(self.max_length - 3).collect::<String>()
+                ),
+                false => title.to_string(),
+            })
     }
-}*/
+}
 
 impl Module for NiriWindowMod {
     fn name(&self) -> String {
@@ -54,15 +64,10 @@ impl Module for NiriWindowMod {
     fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
         list![
             anchor,
-            text![
-                "{}",
-                self.focused
-                    .and_then(|id| self.windows.get(&id).and_then(|w| w.0.as_ref()))
-                    .unwrap_or(&String::new())
-            ]
-            .fill(anchor)
-            .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-            .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+            text!["{}", self.get_title().unwrap_or_default()]
+                .fill(anchor)
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
         ]
         .into()
     }
@@ -78,6 +83,12 @@ impl Module for NiriWindowMod {
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
         {
             self.max_length = max_length;
+        }
+        if let Some(app_id_enabled) = config
+            .get("show_app_id")
+            .map(|v| v.into_bool(Self::default().show_app_id))
+        {
+            self.show_app_id = app_id_enabled;
         }
     }
 }

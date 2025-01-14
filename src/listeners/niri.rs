@@ -34,40 +34,38 @@ impl Listener for NiriListener {
                 socket.shutdown().await.unwrap();
                 let mut reader = BufReader::new(socket);
                 buf.clear();
-                while let Ok(_) = reader.read_line(&mut buf).await {
+                while reader.read_line(&mut buf).await.is_ok() {
                     let reply = serde_json::from_str::<Event>(&buf);
-                    let msg: Option<Box<dyn FnOnce(&mut Registry) + Send + Sync>> = match reply {
+                    type F = Box<dyn FnOnce(&mut Registry) + Send + Sync>;
+                    let msg: Option<F> = match reply {
                         Ok(event) => match event {
-                            Event::WorkspacesChanged { workspaces } => {
-                                println!("workspaces changed! {workspaces:#?}");
-                                Some(Box::new(move |reg| {
-                                    reg.get_module_mut::<NiriWorkspaceMod>().workspaces = workspaces
-                                        .into_iter()
-                                        .fold(HashMap::new(), |mut acc, ws| {
-                                            match acc.get_mut(
-                                                ws.output.as_ref().unwrap_or(&String::new()),
-                                            ) {
-                                                Some(workspaces) => workspaces.push(ws),
-                                                None => {
-                                                    acc.insert(
-                                                        ws.output.clone().unwrap_or(String::new()),
-                                                        vec![ws],
-                                                    );
-                                                }
+                            Event::WorkspacesChanged { workspaces } => Some(Box::new(move |reg| {
+                                let mut workspaces: HashMap<String, Vec<niri_ipc::Workspace>> =
+                                    workspaces.into_iter().fold(HashMap::new(), |mut acc, ws| {
+                                        match acc
+                                            .get_mut(ws.output.as_ref().unwrap_or(&String::new()))
+                                        {
+                                            Some(workspaces) => workspaces.push(ws),
+                                            None => {
+                                                acc.insert(
+                                                    ws.output.clone().unwrap_or_default(),
+                                                    vec![ws],
+                                                );
                                             }
-                                            acc
-                                        })
-                                }))
-                            }
-                            Event::WorkspaceActivated { id, focused } => {
-                                println!("workspace activated! id: {id}, focused: {focused}");
-                                match focused {
-                                    true => Some(Box::new(move |reg| {
-                                        reg.get_module_mut::<NiriWorkspaceMod>().focused = id
-                                    })),
-                                    false => None,
+                                        }
+                                        acc
+                                    });
+                                for (_, workspaces) in workspaces.iter_mut() {
+                                    workspaces.sort_by(|a, b| a.idx.cmp(&b.idx));
                                 }
-                            }
+                                reg.get_module_mut::<NiriWorkspaceMod>().workspaces = workspaces
+                            })),
+                            Event::WorkspaceActivated { id, focused } => match focused {
+                                true => Some(Box::new(move |reg| {
+                                    reg.get_module_mut::<NiriWorkspaceMod>().focused = id
+                                })),
+                                false => None,
+                            },
                             Event::WindowsChanged { windows } => Some(Box::new(move |reg| {
                                 let window_mod = reg.get_module_mut::<NiriWindowMod>();
                                 window_mod.focused =
