@@ -28,7 +28,7 @@ downcast-rs = "1.2.1"
 csscolorparser = "0.7.0"
 wayfire-rs = "0.2.2"
 serde_json = "1.0.135"
-niri-ipc = "0.1.10"
+niri-ipc = "=0.1.10"
 
 [profile.dev.package."*"]
 opt-level = 3

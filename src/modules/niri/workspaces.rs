@@ -120,23 +120,25 @@ impl Module for NiriWorkspaceMod {
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        let default = Self::default();
         self.cfg_override = config.into();
-        if let Some(color) = config.get("active_color").and_then(|v| v.into_color()) {
-            self.active_color = color;
-        }
-        if let Some(color) = config.get("active_background").and_then(|v| v.into_color()) {
-            self.active_background = color;
-        }
-        if let Some(icon) = config.get("fallback_icon").and_then(|v| v.clone()) {
-            self.fallback_icon = icon;
-        }
-        if let Some(order) = config
+        self.active_color = config
+            .get("active_color")
+            .and_then(|v| v.into_color())
+            .unwrap_or(default.active_color);
+        self.active_background = config
+            .get("active_background")
+            .and_then(|v| v.into_color())
+            .unwrap_or(default.active_background);
+        self.fallback_icon = config
+            .get("fallback_icon")
+            .and_then(|v| v.clone())
+            .unwrap_or(default.fallback_icon);
+        self.output_order = config
             .get("output_order")
             .and_then(|v| v.clone())
             .map(|v| v.split(',').map(|v| v.trim().to_string()).collect())
-        {
-            self.output_order = order;
-        }
+            .unwrap_or(default.output_order);
         config.iter().for_each(|(key, val)| {
             let Some(val) = val.clone() else {
                 return;

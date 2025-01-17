@@ -77,18 +77,15 @@ impl Module for NiriWindowMod {
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        let default = Self::default();
         self.cfg_override = config.into();
-        if let Some(max_length) = config
+        self.max_length = config
             .get("max_length")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
-        {
-            self.max_length = max_length;
-        }
-        if let Some(app_id_enabled) = config
+            .unwrap_or(default.max_length);
+        self.show_app_id = config
             .get("show_app_id")
-            .map(|v| v.into_bool(Self::default().show_app_id))
-        {
-            self.show_app_id = app_id_enabled;
-        }
+            .map(|v| v.into_bool(default.show_app_id))
+            .unwrap_or(default.show_app_id);
     }
 }

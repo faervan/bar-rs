@@ -1,6 +1,6 @@
 use std::{
     any::TypeId,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{create_dir_all, File},
     io::Write,
     path::PathBuf,
@@ -40,7 +40,7 @@ impl Config {
         let enabled_modules = EnabledModules::default();
         Self {
             enabled_listeners: registry
-                .enabled_listeners(&enabled_modules)
+                .enabled_listeners(&enabled_modules, &None)
                 .chain(
                     registry
                         .all_listeners()
@@ -100,12 +100,15 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry) -> Config {
         return Config::default(registry);
     };
     let config: Config = (&ini, &*registry).into();
+    let empty_map = HashMap::new();
     registry
-        .get_modules_mut(config.enabled_modules.get_all())
-        .filter_map(|m| {
-            ini.get_map_ref()
+        .get_modules_mut(config.enabled_modules.get_all(), &config)
+        .map(|m| {
+            let map = ini
+                .get_map_ref()
                 .get(&format!("module:{}", m.name()))
-                .map(|map| (m, map))
+                .unwrap_or(&empty_map);
+            (m, map)
         })
         .for_each(|(m, map)| m.read_config(map));
     config

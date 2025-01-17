@@ -27,7 +27,7 @@ async fn send_first_values(
     let workspace = socket.get_focused_output().await?.workspace;
     sender
         .send(Message::update(move |reg| {
-            reg.get_module_mut::<WayfireWindowMod>().set_active(title);
+            reg.get_module_mut::<WayfireWindowMod>().title = title;
             reg.get_module_mut::<WayfireWorkspaceMod>().active = (workspace.x, workspace.y);
         }))
         .await?;
@@ -82,7 +82,7 @@ impl Listener for WayfireListener {
                                 sender
                                     .send(Message::update(move |reg| {
                                         reg.get_module_mut::<WayfireWorkspaceMod>().active = (x, y);
-                                        reg.get_module_mut::<WayfireWindowMod>().set_active(title)
+                                        reg.get_module_mut::<WayfireWindowMod>().title = title
                                     }))
                                     .await
                                     .unwrap();
@@ -105,8 +105,7 @@ impl Listener for WayfireListener {
                             }
                             sender
                                 .send(Message::update(move |reg| {
-                                    reg.get_module_mut::<WayfireWindowMod>()
-                                        .set_active(Some(title))
+                                    reg.get_module_mut::<WayfireWindowMod>().title = Some(title)
                                 }))
                                 .await
                                 .unwrap();
@@ -135,7 +134,7 @@ impl Listener for WayfireListener {
                                 }
                                 sender
                                     .send(Message::update(move |reg| {
-                                        reg.get_module_mut::<WayfireWindowMod>().set_active(title)
+                                        reg.get_module_mut::<WayfireWindowMod>().title = title
                                     }))
                                     .await
                                     .unwrap();

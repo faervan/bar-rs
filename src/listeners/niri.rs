@@ -40,6 +40,9 @@ impl Listener for NiriListener {
                     let msg: Option<F> = match reply {
                         Ok(event) => match event {
                             Event::WorkspacesChanged { workspaces } => Some(Box::new(move |reg| {
+                                let active_ws = workspaces
+                                    .iter()
+                                    .find_map(|ws| ws.is_focused.then_some(ws.id));
                                 let mut workspaces: HashMap<String, Vec<niri_ipc::Workspace>> =
                                     workspaces.into_iter().fold(HashMap::new(), |mut acc, ws| {
                                         match acc
@@ -58,7 +61,9 @@ impl Listener for NiriListener {
                                 for (_, workspaces) in workspaces.iter_mut() {
                                     workspaces.sort_by(|a, b| a.idx.cmp(&b.idx));
                                 }
-                                reg.get_module_mut::<NiriWorkspaceMod>().workspaces = workspaces
+                                let ws_mod = reg.get_module_mut::<NiriWorkspaceMod>();
+                                ws_mod.focused = active_ws.unwrap();
+                                ws_mod.workspaces = workspaces
                             })),
                             Event::WorkspaceActivated { id, focused } => match focused {
                                 true => Some(Box::new(move |reg| {

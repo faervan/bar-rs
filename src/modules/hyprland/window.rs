@@ -34,14 +34,16 @@ impl Default for HyprWindowMod {
 }
 
 impl HyprWindowMod {
-    pub fn set_title(&mut self, title: Option<String>) {
-        self.title = title.map(|title| match title.len() > self.max_length {
-            true => format!(
-                "{}...",
-                &title.chars().take(self.max_length - 3).collect::<String>()
-            ),
-            false => title,
-        });
+    pub fn get_title(&self) -> Option<String> {
+        self.title
+            .as_ref()
+            .map(|title| match title.len() > self.max_length {
+                true => format!(
+                    "{}...",
+                    title.chars().take(self.max_length - 3).collect::<String>()
+                ),
+                false => title.to_string(),
+            })
     }
 }
 
@@ -53,7 +55,7 @@ impl Module for HyprWindowMod {
     fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
         list![
             anchor,
-            text!["{}", self.title.as_ref().unwrap_or(&String::new())]
+            text!["{}", self.get_title().unwrap_or_default()]
                 .fill(anchor)
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color))
@@ -67,19 +69,17 @@ impl Module for HyprWindowMod {
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
         self.cfg_override = config.into();
-        if let Some(max_length) = config
+        self.max_length = config
             .get("max_length")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
-        {
-            self.max_length = max_length;
-        }
+            .unwrap_or(Self::default().max_length);
     }
 }
 
 pub async fn update_window(sender: &mut Sender<Message>, title: Option<String>) {
     sender
         .send(Message::update(move |reg| {
-            reg.get_module_mut::<HyprWindowMod>().set_title(title)
+            reg.get_module_mut::<HyprWindowMod>().title = title
         }))
         .await
         .unwrap_or_else(|err| {
