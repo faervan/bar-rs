@@ -5,9 +5,9 @@
 
 A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (specifically the [pop-os fork](https://github.com/pop-os/iced/) of iced, which supports the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1))
 
-![image](https://github.com/user-attachments/assets/29daa606-3189-4355-bc04-a21e8f245f6f)
-
 ![2024-12-29_17-16](https://github.com/user-attachments/assets/199452ec-b5bc-4ac3-ac35-ef7aed732c2f)
+
+![image](https://github.com/user-attachments/assets/aa1d3ead-a511-4418-ac59-d1d59bdd8a52)
 
 Vertical status bars are only [experimentally supported](https://github.com/user-attachments/assets/f7bc78e5-56df-4c92-ba4d-f26180baea9b) right now
 
