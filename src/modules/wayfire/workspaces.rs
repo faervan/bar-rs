@@ -50,6 +50,7 @@ impl Module for WayfireWorkspaceMod {
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        self.cfg_override = config.into();
         config.iter().for_each(|(key, val)| {
             if let Some(key) = key
                 .strip_prefix('(')
@@ -65,6 +66,5 @@ impl Module for WayfireWorkspaceMod {
                 self.icons.insert(key, val.clone().unwrap_or(String::new()));
             }
         });
-        self.cfg_override = config.into();
     }
 }

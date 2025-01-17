@@ -19,6 +19,7 @@ use list::{list, DynamicAlign};
 use listeners::register_listeners;
 use modules::register_modules;
 use registry::Registry;
+use resolvers::register_resolvers;
 use tokio::{sync::mpsc, time::sleep};
 
 mod config;
@@ -28,6 +29,7 @@ mod fill;
 mod listeners;
 mod modules;
 mod registry;
+mod resolvers;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
@@ -39,7 +41,7 @@ fn main() -> iced::Result {
             Subscription::batch({
                 state
                     .registry
-                    .get_modules(state.config.enabled_modules.get_all())
+                    .get_modules(state.config.enabled_modules.get_all(), &state.config)
                     .filter(|m| state.config.enabled_modules.contains(&m.name()))
                     .filter_map(|m| m.subscription())
                     .chain(
@@ -95,6 +97,7 @@ impl Bar {
         let mut registry = Registry::default();
         register_modules(&mut registry);
         register_listeners(&mut registry);
+        register_resolvers(&mut registry);
 
         let config_file = get_config_dir();
         let config = read_config(&config_file, &mut registry);
@@ -171,7 +174,7 @@ impl Bar {
                 list(
                     &self.config.anchor,
                     self.registry
-                        .get_modules(field(&self.config.enabled_modules).iter())
+                        .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
                         .map(|m| m.view(&self.config.module_config.local, &self.config.anchor)),
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),

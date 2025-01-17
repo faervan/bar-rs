@@ -16,7 +16,7 @@ use crate::{
 
 #[derive(Debug, Builder)]
 pub struct WayfireWindowMod {
-    active: Option<String>,
+    pub title: Option<String>,
     max_length: usize,
     cfg_override: ModuleConfigOverride,
 }
@@ -24,7 +24,7 @@ pub struct WayfireWindowMod {
 impl Default for WayfireWindowMod {
     fn default() -> Self {
         Self {
-            active: None,
+            title: None,
             max_length: 25,
             cfg_override: Default::default(),
         }
@@ -32,14 +32,16 @@ impl Default for WayfireWindowMod {
 }
 
 impl WayfireWindowMod {
-    pub fn set_active(&mut self, active: Option<String>) {
-        self.active = active.map(|title| match title.len() > self.max_length {
-            true => format!(
-                "{}...",
-                &title.chars().take(self.max_length - 3).collect::<String>()
-            ),
-            false => title,
-        });
+    pub fn get_title(&self) -> Option<String> {
+        self.title
+            .as_ref()
+            .map(|title| match title.len() > self.max_length {
+                true => format!(
+                    "{}...",
+                    title.chars().take(self.max_length - 3).collect::<String>()
+                ),
+                false => title.to_string(),
+            })
     }
 }
 
@@ -49,7 +51,7 @@ impl Module for WayfireWindowMod {
     }
 
     fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
-        text!("{}", self.active.as_ref().unwrap_or(&String::new()))
+        text!("{}", self.get_title().unwrap_or_default())
             .fill(anchor)
             .size(self.cfg_override.font_size.unwrap_or(config.font_size))
             .color(self.cfg_override.text_color.unwrap_or(config.text_color))
@@ -62,11 +64,9 @@ impl Module for WayfireWindowMod {
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
         self.cfg_override = config.into();
-        if let Some(max_length) = config
+        self.max_length = config
             .get("max_length")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
-        {
-            self.max_length = max_length;
-        }
+            .unwrap_or(Self::default().max_length);
     }
 }

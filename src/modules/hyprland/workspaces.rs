@@ -89,13 +89,16 @@ impl Module for HyprWorkspaceMod {
     }
 
     fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+        let default = Self::default();
         self.cfg_override = config.into();
-        if let Some(color) = config.get("active_color").and_then(|v| v.into_color()) {
-            self.active_color = color;
-        }
-        if let Some(color) = config.get("active_background").and_then(|v| v.into_color()) {
-            self.active_background = color;
-        }
+        self.active_color = config
+            .get("active_color")
+            .and_then(|v| v.into_color())
+            .unwrap_or(default.active_color);
+        self.active_background = config
+            .get("active_background")
+            .and_then(|v| v.into_color())
+            .unwrap_or(default.active_background);
     }
 }
 

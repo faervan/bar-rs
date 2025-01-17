@@ -24,7 +24,7 @@ impl From<(&Ini, &Registry)> for Config {
                     acc
                 })
                 .into_iter()
-                .chain(registry.enabled_listeners(&enabled_modules))
+                .chain(registry.enabled_listeners(&enabled_modules, &None))
                 .collect(),
             enabled_modules,
             module_config: ini.into(),
