@@ -11,7 +11,10 @@ use anchor::BarAnchor;
 use configparser::ini::{Ini, IniDefault};
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
-use iced::futures::{channel::mpsc::Sender, SinkExt};
+use iced::{
+    futures::{channel::mpsc::Sender, SinkExt},
+    runtime::platform_specific::wayland::layer_surface::IcedMargin,
+};
 use module_config::ModuleConfig;
 use tokio::sync::mpsc;
 
@@ -23,6 +26,7 @@ mod enabled_modules;
 pub mod module_config;
 pub mod parse;
 mod thrice;
+mod insets;
 
 #[derive(Debug)]
 pub struct Config {
@@ -33,6 +37,7 @@ pub struct Config {
     pub bar_width: Option<u32>,
     pub anchor: BarAnchor,
     pub monitor: Option<String>,
+    pub margin: IcedMargin,
 }
 
 impl Config {
@@ -56,6 +61,7 @@ impl Config {
             bar_height: None,
             anchor: BarAnchor::default(),
             monitor: None,
+            margin: IcedMargin::default(),
         }
     }
 

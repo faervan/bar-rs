@@ -9,7 +9,8 @@ use cpu::CpuMod;
 use date::DateMod;
 use downcast_rs::{impl_downcast, Downcast};
 use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
-use iced::{Element, Subscription};
+use iced::widget::container;
+use iced::{widget::container::Style, Element, Subscription};
 use media::MediaMod;
 use memory::MemoryMod;
 use niri::{NiriWindowMod, NiriWorkspaceMod};
@@ -42,6 +43,24 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     /// What the module actually shows.
     /// See [widgets-and-elements](https://docs.iced.rs/iced/#widgets-and-elements).
     fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> Element<Message>;
+    /// The wrapper around this module, which defines things like background color or border for
+    /// this module.
+    #[allow(unused_variables)]
+    fn wrapper<'a>(
+        &self,
+        config: &'a LocalModuleConfig,
+        anchor: &BarAnchor,
+        content: Element<'a, Message>,
+    ) -> Element<'a, Message> {
+        container(content)
+            .padding(config.padding)
+            .style(|_| Style {
+                background: config.background,
+                border: config.border,
+                ..Default::default()
+            })
+            .into()
+    }
     /// The module may optionally have a subscription listening for external events.
     /// See [passive-subscriptions](https://docs.iced.rs/iced/#passive-subscriptions).
     fn subscription(&self) -> Option<Subscription<Message>> {

@@ -1,9 +1,9 @@
 use configparser::ini::Ini;
-use iced::Color;
+use iced::{Background, Color};
 
 use crate::{registry::Registry, OptionExt};
 
-use super::{anchor::BarAnchor, Config, Thrice};
+use super::{anchor::BarAnchor, insets::Insets, Config, Thrice};
 
 impl From<(&Ini, &Registry)> for Config {
     fn from((ini, registry): (&Ini, &Registry)) -> Self {
@@ -35,6 +35,11 @@ impl From<(&Ini, &Registry)> for Config {
                 .into_anchor()
                 .unwrap_or(default.anchor),
             monitor: ini.get("general", "monitor"),
+            margin: ini
+                .get("general", "margin")
+                .into_insets()
+                .map(|i| i.into())
+                .unwrap_or(default.margin),
         }
     }
 }
@@ -45,6 +50,8 @@ pub trait StringExt {
     fn into_float(self) -> Option<f32>;
     fn into_thrice_float(self) -> Option<Thrice<f32>>;
     fn into_anchor(self) -> Option<BarAnchor>;
+    fn into_insets(self) -> Option<Insets>;
+    fn into_background(self) -> Option<Background>;
 }
 
 impl StringExt for &Option<String> {
@@ -92,6 +99,28 @@ impl StringExt for &Option<String> {
             "right" => Some(BarAnchor::Right),
             _ => None,
         })
+    }
+    fn into_insets(self) -> Option<Insets> {
+        self.as_ref().and_then(|value| {
+            let values = value
+                .split(',')
+                .filter_map(|i| i.trim().parse::<f32>().ok())
+                .collect::<Vec<f32>>();
+            match values[..] {
+                [all] => Some(Insets::new(all, all, all, all)),
+                [vertical, horizontal] => {
+                    Some(Insets::new(vertical, horizontal, vertical, horizontal))
+                }
+                [top, right, bottom, left] => Some(Insets::new(top, right, bottom, left)),
+                _ => {
+                    eprintln!("Failed to parse value as insets");
+                    None
+                }
+            }
+        })
+    }
+    fn into_background(self) -> Option<Background> {
+        self.into_color().map(|c| Background::Color(c))
     }
 }
 

@@ -175,7 +175,13 @@ impl Bar {
                     &self.config.anchor,
                     self.registry
                         .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
-                        .map(|m| m.view(&self.config.module_config.local, &self.config.anchor)),
+                        .map(|m| {
+                            m.wrapper(
+                                &self.config.module_config.local,
+                                anchor,
+                                m.view(&self.config.module_config.local, &self.config.anchor),
+                            )
+                        }),
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),
             )
@@ -219,6 +225,7 @@ impl Bar {
             size: Some((Some(width), Some(height))),
             namespace: "bar-rs".to_string(),
             output: self.output.clone(),
+            margin: self.config.margin,
             ..Default::default()
         })
     }

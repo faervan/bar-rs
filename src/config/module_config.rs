@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use configparser::ini::Ini;
-use iced::Color;
+use iced::{Background, Border, Color, Padding};
 
 use super::{parse::StringExt, Thrice};
 
@@ -33,6 +33,9 @@ pub struct LocalModuleConfig {
     pub font_size: f32,
     pub icon_size: f32,
     pub spacing: f32,
+    pub padding: Padding,
+    pub background: Option<Background>,
+    pub border: Border,
 }
 
 impl Default for LocalModuleConfig {
@@ -43,6 +46,9 @@ impl Default for LocalModuleConfig {
             font_size: 16.,
             icon_size: 20.,
             spacing: 10.,
+            padding: Padding::default(),
+            background: None,
+            border: Border::default(),
         }
     }
 }
@@ -73,6 +79,7 @@ impl From<&Ini> for ModuleConfig {
         let global = Self::default().global;
         let local = Self::default().local;
         let section = "style";
+        let module_section = "module_style";
         ModuleConfig {
             global: GlobalModuleConfig {
                 background_color: ini
@@ -86,25 +93,51 @@ impl From<&Ini> for ModuleConfig {
             },
             local: LocalModuleConfig {
                 text_color: ini
-                    .get(section, "text_color")
+                    .get(module_section, "text_color")
                     .into_color()
                     .unwrap_or(local.text_color),
                 icon_color: ini
-                    .get(section, "icon_color")
+                    .get(module_section, "icon_color")
                     .into_color()
                     .unwrap_or(local.icon_color),
                 font_size: ini
-                    .get(section, "font_size")
+                    .get(module_section, "font_size")
                     .into_float()
                     .unwrap_or(local.font_size),
                 icon_size: ini
-                    .get(section, "icon_size")
+                    .get(module_section, "icon_size")
                     .into_float()
                     .unwrap_or(local.icon_size),
                 spacing: ini
-                    .get(section, "local_spacing")
+                    .get(module_section, "spacing")
                     .into_float()
                     .unwrap_or(local.spacing),
+                padding: ini
+                    .get(module_section, "padding")
+                    .into_insets()
+                    .map(|i| i.into())
+                    .unwrap_or(local.padding),
+                background: ini.get(module_section, "background").into_background(),
+                border: {
+                    let color = ini
+                        .get(module_section, "border_color")
+                        .into_color()
+                        .unwrap_or_default();
+                    let width = ini
+                        .get(module_section, "border_width")
+                        .into_float()
+                        .unwrap_or(1.);
+                    let radius = ini
+                        .get(module_section, "border_radius")
+                        .into_insets()
+                        .map(|i| i.into())
+                        .unwrap_or_default();
+                    Border {
+                        color,
+                        width,
+                        radius,
+                    }
+                },
             },
         }
     }
