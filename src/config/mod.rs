@@ -11,6 +11,7 @@ use anchor::BarAnchor;
 use configparser::ini::{Ini, IniDefault};
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
+use handlebars::Handlebars;
 use iced::futures::{channel::mpsc::Sender, SinkExt};
 use module_config::ModuleConfig;
 use tokio::sync::mpsc;
@@ -20,17 +21,17 @@ pub use thrice::Thrice;
 
 pub mod anchor;
 mod enabled_modules;
+mod insets;
 pub mod module_config;
 pub mod parse;
 mod thrice;
 
 #[derive(Debug)]
 pub struct Config {
+    pub hard_reload: bool,
     pub enabled_modules: EnabledModules,
     pub enabled_listeners: HashSet<TypeId>,
     pub module_config: ModuleConfig,
-    pub bar_height: Option<u32>,
-    pub bar_width: Option<u32>,
     pub anchor: BarAnchor,
     pub monitor: Option<String>,
 }
@@ -39,6 +40,7 @@ impl Config {
     fn default(registry: &Registry) -> Self {
         let enabled_modules = EnabledModules::default();
         Self {
+            hard_reload: false,
             enabled_listeners: registry
                 .enabled_listeners(&enabled_modules, &None)
                 .chain(
@@ -52,8 +54,6 @@ impl Config {
                 .collect(),
             enabled_modules,
             module_config: ModuleConfig::default(),
-            bar_width: None,
-            bar_height: None,
             anchor: BarAnchor::default(),
             monitor: None,
         }
@@ -61,8 +61,8 @@ impl Config {
 
     pub fn exclusive_zone(&self) -> i32 {
         (match self.anchor {
-            BarAnchor::Left | BarAnchor::Right => self.bar_width.unwrap_or(30),
-            BarAnchor::Top | BarAnchor::Bottom => self.bar_height.unwrap_or(30),
+            BarAnchor::Left | BarAnchor::Right => self.module_config.global.width.unwrap_or(30),
+            BarAnchor::Top | BarAnchor::Bottom => self.module_config.global.height.unwrap_or(30),
         }) as i32
     }
 }
@@ -90,7 +90,7 @@ pub fn get_config_dir() -> PathBuf {
     config_file
 }
 
-pub fn read_config(path: &PathBuf, registry: &mut Registry) -> Config {
+pub fn read_config(path: &PathBuf, registry: &mut Registry, templates: &mut Handlebars) -> Config {
     let mut ini = Ini::new();
     let mut defaults = IniDefault::default();
     defaults.delimiters = vec!['='];
@@ -110,7 +110,7 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry) -> Config {
                 .unwrap_or(&empty_map);
             (m, map)
         })
-        .for_each(|(m, map)| m.read_config(map));
+        .for_each(|(m, map)| m.read_config(map, templates));
     config
 }
 

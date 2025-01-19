@@ -1,13 +1,14 @@
 use std::{any::TypeId, collections::HashMap, time::Duration};
 
 use bar_rs_derive::Builder;
+use handlebars::Handlebars;
 use hyprland::{
     data::{Workspace, Workspaces},
     shared::{HyprData, HyprDataActive, HyprDataVec},
 };
 use iced::{
-    widget::{rich_text, span},
-    Background, Border, Color, Padding,
+    widget::{container, rich_text, span},
+    Background, Border, Color, Element, Padding,
 };
 use tokio::time::sleep;
 
@@ -18,6 +19,7 @@ use crate::{
         parse::StringExt,
     },
     fill::FillExt,
+    impl_wrapper,
     list::list,
     listeners::hyprland::HyprListener,
     modules::{require_listener, Module},
@@ -30,18 +32,30 @@ pub struct HyprWorkspaceMod {
     // (Name, Fullscreen state)
     pub open: Vec<(String, bool)>,
     cfg_override: ModuleConfigOverride,
+    icon_padding: Padding,
+    icon_background: Option<Background>,
+    icon_border: Border,
+    active_padding: Option<Padding>,
+    active_size: f32,
     active_color: Color,
-    active_background: Color,
+    active_background: Option<Background>,
+    active_icon_border: Border,
 }
 
 impl Default for HyprWorkspaceMod {
     fn default() -> Self {
         Self {
-            active_color: Color::BLACK,
-            active_background: Color::WHITE.scale_alpha(0.5),
             active: 0,
             open: vec![],
             cfg_override: ModuleConfigOverride::default(),
+            icon_padding: Padding::default(),
+            icon_background: None,
+            icon_border: Border::default(),
+            active_padding: None,
+            active_size: 20.,
+            active_color: Color::WHITE,
+            active_background: None,
+            active_icon_border: Border::default().rounded(8),
         }
     }
 }
@@ -51,54 +65,113 @@ impl Module for HyprWorkspaceMod {
         "hyprland.workspaces".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        _handlebars: &Handlebars,
+    ) -> Element<Message> {
         list(
             anchor,
             self.open.iter().enumerate().map(|(id, (ws, _))| {
                 let mut span = span(ws)
+                    .padding(self.icon_padding)
                     .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                     .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                    .padding(Padding {
-                        top: 0.,
-                        bottom: 0.,
-                        right: 12.,
-                        left: 5.,
-                    })
+                    .background_maybe(self.icon_background)
+                    .border(self.icon_border)
                     .font(NERD_FONT);
                 if id == self.active {
                     span = span
-                        .background(Background::Color(self.active_background))
-                        .border(Border::default().rounded(8))
-                        .color(self.active_color);
+                        .padding(self.active_padding.unwrap_or(self.icon_padding))
+                        .size(self.active_size)
+                        .color(self.active_color)
+                        .background_maybe(self.active_background)
+                        .border(self.active_icon_border);
                 }
-                rich_text![span].fill(anchor).into()
+                container(rich_text![span].fill(anchor))
+                    .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
+                    .into()
             }),
         )
-        .padding(Padding {
-            top: 0.,
-            bottom: 0.,
-            right: 12.,
-            left: 5.,
-        })
+        .padding(self.cfg_override.padding.unwrap_or(config.padding))
         .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
+
+    impl_wrapper!();
 
     fn requires(&self) -> Vec<TypeId> {
         vec![require_listener::<HyprListener>()]
     }
 
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        _templates: &mut Handlebars,
+    ) {
         let default = Self::default();
         self.cfg_override = config.into();
+        self.icon_padding = config
+            .get("icon_padding")
+            .and_then(|v| v.into_insets().map(|i| i.into()))
+            .unwrap_or(default.icon_padding);
+        self.icon_background = config
+            .get("icon_background")
+            .map(|v| v.into_background())
+            .unwrap_or(default.icon_background);
+        self.icon_border = {
+            let color = config.get("icon_border_color").and_then(|s| s.into_color());
+            let width = config.get("icon_border_width").and_then(|s| s.into_float());
+            let radius = config
+                .get("icon_border_radius")
+                .and_then(|s| s.into_insets().map(|i| i.into()));
+            if color.is_some() || width.is_some() || radius.is_some() {
+                Border {
+                    color: color.unwrap_or_default(),
+                    width: width.unwrap_or(1.),
+                    radius: radius.unwrap_or(8_f32.into()),
+                }
+            } else {
+                default.active_icon_border
+            }
+        };
+        self.active_padding = config
+            .get("active_padding")
+            .map(|v| v.into_insets().map(|i| i.into()))
+            .unwrap_or(default.active_padding);
+        self.active_size = config
+            .get("active_size")
+            .and_then(|v| v.into_float())
+            .unwrap_or(default.active_size);
         self.active_color = config
             .get("active_color")
             .and_then(|v| v.into_color())
             .unwrap_or(default.active_color);
         self.active_background = config
             .get("active_background")
-            .and_then(|v| v.into_color())
+            .map(|v| v.into_background())
             .unwrap_or(default.active_background);
+        self.active_icon_border = {
+            let color = config
+                .get("active_border_color")
+                .and_then(|s| s.into_color());
+            let width = config
+                .get("active_border_width")
+                .and_then(|s| s.into_float());
+            let radius = config
+                .get("active_border_radius")
+                .and_then(|s| s.into_insets().map(|i| i.into()));
+            if color.is_some() || width.is_some() || radius.is_some() {
+                Border {
+                    color: color.unwrap_or_default(),
+                    width: width.unwrap_or(1.),
+                    radius: radius.unwrap_or(8_f32.into()),
+                }
+            } else {
+                default.active_icon_border
+            }
+        };
     }
 }
 

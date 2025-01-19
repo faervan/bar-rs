@@ -1,8 +1,12 @@
 use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
-use iced::widget::text;
+use handlebars::Handlebars;
+use iced::widget::{container, rich_text, span, text};
+use iced::Element;
 
+use crate::impl_wrapper;
+use crate::tooltip::tooltip;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -38,14 +42,17 @@ impl Default for NiriWindowMod {
 }
 
 impl NiriWindowMod {
-    fn get_title(&self) -> Option<String> {
-        self.focused
-            .and_then(|id| {
-                self.windows.get(&id).and_then(|w| match self.show_app_id {
-                    true => w.1.as_ref(),
-                    false => w.0.as_ref(),
-                })
+    fn get_title(&self) -> Option<&String> {
+        self.focused.and_then(|id| {
+            self.windows.get(&id).and_then(|w| match self.show_app_id {
+                true => w.1.as_ref(),
+                false => w.0.as_ref(),
             })
+        })
+    }
+
+    fn trimmed_title(&self) -> String {
+        self.get_title()
             .map(|title| match title.len() > self.max_length {
                 true => format!(
                     "{}...",
@@ -53,6 +60,7 @@ impl NiriWindowMod {
                 ),
                 false => title.to_string(),
             })
+            .unwrap_or_default()
     }
 }
 
@@ -61,22 +69,36 @@ impl Module for NiriWindowMod {
         "niri.window".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
-        list![
-            anchor,
-            text!["{}", self.get_title().unwrap_or_default()]
-                .fill(anchor)
-                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
-        ]
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        _handlebars: &Handlebars,
+    ) -> Element<Message> {
+        tooltip(
+            container(
+                rich_text([span(self.trimmed_title())
+                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
+                .fill(anchor),
+            )
+            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
+            text!("{}", self.get_title().unwrap_or(&String::new())).size(12),
+        )
         .into()
     }
+
+    impl_wrapper!();
 
     fn requires(&self) -> Vec<TypeId> {
         vec![require_listener::<NiriListener>()]
     }
 
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        _templates: &mut Handlebars,
+    ) {
         let default = Self::default();
         self.cfg_override = config.into();
         self.max_length = config

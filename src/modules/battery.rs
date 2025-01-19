@@ -1,10 +1,14 @@
+use std::collections::BTreeMap;
 use std::{collections::HashMap, time::Duration};
 
 use bar_rs_derive::Builder;
-use iced::{futures::SinkExt, stream, widget::text, Subscription};
+use handlebars::Handlebars;
+use iced::widget::container;
+use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
+use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -36,33 +40,59 @@ impl Module for BatteryMod {
         "battery".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        handlebars: &Handlebars,
+    ) -> Element<Message> {
+        let mut ctx = BTreeMap::new();
+        ctx.insert("capacity", self.stats.capacity);
+        ctx.insert("hours", self.stats.hours);
+        ctx.insert("minutes", self.stats.minutes);
         list![
             anchor,
-            text!("{}", self.stats.icon)
+            container(
+                text!("{}", self.stats.icon)
+                    .fill(anchor)
+                    .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                    .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                    .font(NERD_FONT)
+            )
+            .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
+            container(
+                match self.stats.power_now_is_zero {
+                    true => text!["{}% - ?", self.stats.capacity],
+                    false => text!["{}", handlebars.render("battery", &ctx).unwrap_or_default()],
+                }
                 .fill(anchor)
-                .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
-                .font(NERD_FONT),
-            match self.stats.power_now_is_zero {
-                true => text!["{}% (unknown)", self.stats.capacity],
-                false => text![
-                    "{}% ({}h {}min left)",
-                    self.stats.capacity,
-                    self.stats.hours,
-                    self.stats.minutes
-                ],
-            }
-            .fill(anchor)
-            .color(self.cfg_override.text_color.unwrap_or(config.text_color))
-            .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+            )
+            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
         ]
         .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+    impl_wrapper!();
+
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        templates: &mut Handlebars,
+    ) {
         self.cfg_override = config.into();
+        templates
+            .register_template_string(
+                "battery",
+                config
+                    .get("format")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or("{{capacity}}% ({{hours}}h {{minutes}}min left)".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery format: {e}"));
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
@@ -92,7 +122,9 @@ impl Module for BatteryMod {
                                 continue;
                             }
                             sleep(Duration::from_secs(1)).await;
-                            sx.send(()).await.expect("mpsc channel closed");
+                            if sx.send(()).await.is_err() {
+                                return;
+                            }
                         }
                     })
                     .await
@@ -104,14 +136,15 @@ impl Module for BatteryMod {
                 tokio::spawn(async move {
                     loop {
                         let stats = get_stats().await.unwrap();
-                        sender
+                        if sender
                             .send(Message::update(move |reg| {
                                 reg.get_module_mut::<BatteryMod>().stats = stats
                             }))
                             .await
-                            .unwrap_or_else(|err| {
-                                eprintln!("Trying to send battery_stats failed with err: {err}");
-                            });
+                            .is_err()
+                        {
+                            return;
+                        }
                         select! {
                             _ = sleep(Duration::from_secs(30)) => {}
                             _ = rx.recv() => {}

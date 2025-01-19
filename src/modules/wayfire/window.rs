@@ -1,8 +1,11 @@
 use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
-use iced::widget::text;
+use handlebars::Handlebars;
+use iced::widget::{container, rich_text, span};
+use iced::Element;
 
+use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -50,19 +53,33 @@ impl Module for WayfireWindowMod {
         "wayfire.window".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
-        text!("{}", self.get_title().unwrap_or_default())
-            .fill(anchor)
-            .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-            .color(self.cfg_override.text_color.unwrap_or(config.text_color))
-            .into()
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        _handlebars: &Handlebars,
+    ) -> Element<Message> {
+        container(
+            rich_text([span(self.get_title().unwrap_or_default())
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
+            .fill(anchor),
+        )
+        .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
+        .into()
     }
+
+    impl_wrapper!();
 
     fn requires(&self) -> Vec<std::any::TypeId> {
         vec![TypeId::of::<WayfireListener>()]
     }
 
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        _templates: &mut Handlebars,
+    ) {
         self.cfg_override = config.into();
         self.max_length = config
             .get("max_length")
