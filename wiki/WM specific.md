@@ -20,3 +20,9 @@ Add this to your `~/.config/wayfire.ini` to launch bar-rs on startup:
 [autostart]
 bar = bar-rs open
 ```
+
+## Niri
+Add this to your `~/.config/niri/config.kdl` to launch bar-rs on startup:
+```kdl
+spawn-at-startup "bar-rs" "open"
+```
