@@ -10,6 +10,9 @@ impl From<(&Ini, &Registry)> for Config {
         let enabled_modules = ini.into();
         let default = Self::default(registry);
         Self {
+            hard_reload: ini
+                .get("general", "hard_reloading")
+                .into_bool(default.hard_reload),
             enabled_listeners: registry
                 .all_listeners()
                 .fold(vec![], |mut acc, (id, l)| {
@@ -28,18 +31,11 @@ impl From<(&Ini, &Registry)> for Config {
                 .collect(),
             enabled_modules,
             module_config: ini.into(),
-            bar_height: ini.get("general", "height").and_then(|v| v.parse().ok()),
-            bar_width: ini.get("general", "width").and_then(|v| v.parse().ok()),
             anchor: ini
                 .get("general", "anchor")
                 .into_anchor()
                 .unwrap_or(default.anchor),
             monitor: ini.get("general", "monitor"),
-            margin: ini
-                .get("general", "margin")
-                .into_insets()
-                .map(|i| i.into())
-                .unwrap_or(default.margin),
         }
     }
 }
@@ -77,9 +73,7 @@ impl StringExt for &Option<String> {
     }
     fn into_thrice_float(self) -> Option<Thrice<f32>> {
         self.as_ref().and_then(|value| {
-            if let [left, center, right] =
-                value.split(',').map(|i| i.trim()).collect::<Vec<&str>>()[..]
-            {
+            if let [left, center, right] = value.split_whitespace().collect::<Vec<&str>>()[..] {
                 left.parse()
                     .and_then(|l| center.parse().map(|c| (l, c)))
                     .and_then(|(l, c)| right.parse().map(|r| (l, c, r)))
@@ -103,8 +97,8 @@ impl StringExt for &Option<String> {
     fn into_insets(self) -> Option<Insets> {
         self.as_ref().and_then(|value| {
             let values = value
-                .split(',')
-                .filter_map(|i| i.trim().parse::<f32>().ok())
+                .split_whitespace()
+                .filter_map(|i| i.parse::<f32>().ok())
                 .collect::<Vec<f32>>();
             match values[..] {
                 [all] => Some(Insets::new(all, all, all, all)),
@@ -120,7 +114,7 @@ impl StringExt for &Option<String> {
         })
     }
     fn into_background(self) -> Option<Background> {
-        self.into_color().map(|c| Background::Color(c))
+        self.into_color().map(Background::Color)
     }
 }
 

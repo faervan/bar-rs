@@ -1,8 +1,11 @@
 use std::{collections::HashMap, process::Command};
 
 use bar_rs_derive::Builder;
-use iced::widget::text;
+use handlebars::Handlebars;
+use iced::widget::container;
+use iced::{widget::text, Element};
 
+use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -25,7 +28,12 @@ impl Module for MemoryMod {
         "memory".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        _handlebars: &Handlebars,
+    ) -> Element<Message> {
         let usage = Command::new("sh")
             .arg("-c")
             .arg("free | grep Mem | awk '{printf \"%.0f\", $3/$2 * 100.0}'")
@@ -43,21 +51,33 @@ impl Module for MemoryMod {
 
         list![
             anchor,
-            text!("{}", self.icon.as_ref().unwrap_or(&"󰍛".to_string()))
-                .fill(anchor)
-                .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
-                .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                .font(NERD_FONT),
-            text!["{}%", usage]
-                .fill(anchor)
-                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
+            container(
+                text!("{}", self.icon.as_ref().unwrap_or(&"󰍛".to_string()))
+                    .fill(anchor)
+                    .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                    .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                    .font(NERD_FONT)
+            )
+            .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
+            container(
+                text!["{}%", usage]
+                    .fill(anchor)
+                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+            )
+            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
         ]
         .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+    impl_wrapper!();
+
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        _templates: &mut Handlebars,
+    ) {
         self.cfg_override = config.into();
         self.icon = config.get("icon").and_then(|v| v.clone());
     }

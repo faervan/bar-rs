@@ -8,6 +8,7 @@ use battery::BatteryMod;
 use cpu::CpuMod;
 use date::DateMod;
 use downcast_rs::{impl_downcast, Downcast};
+use handlebars::Handlebars;
 use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
 use iced::widget::container;
 use iced::{widget::container::Style, Element, Subscription};
@@ -20,6 +21,7 @@ use wayfire::{WayfireWindowMod, WayfireWorkspaceMod};
 
 use crate::{
     config::{anchor::BarAnchor, module_config::LocalModuleConfig},
+    fill::FillExt,
     listeners::Listener,
     registry::Registry,
     Message,
@@ -42,24 +44,33 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn name(&self) -> String;
     /// What the module actually shows.
     /// See [widgets-and-elements](https://docs.iced.rs/iced/#widgets-and-elements).
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> Element<Message>;
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        template: &Handlebars,
+    ) -> Element<Message>;
     /// The wrapper around this module, which defines things like background color or border for
     /// this module.
-    #[allow(unused_variables)]
     fn wrapper<'a>(
-        &self,
+        &'a self,
         config: &'a LocalModuleConfig,
-        anchor: &BarAnchor,
         content: Element<'a, Message>,
+        anchor: &BarAnchor,
     ) -> Element<'a, Message> {
-        container(content)
-            .padding(config.padding)
-            .style(|_| Style {
-                background: config.background,
-                border: config.border,
-                ..Default::default()
-            })
-            .into()
+        container(
+            container(content)
+                .fill(anchor)
+                .padding(config.padding)
+                .style(|_| Style {
+                    background: config.background,
+                    border: config.border,
+                    ..Default::default()
+                }),
+        )
+        .fill(anchor)
+        .padding(config.margin)
+        .into()
     }
     /// The module may optionally have a subscription listening for external events.
     /// See [passive-subscriptions](https://docs.iced.rs/iced/#passive-subscriptions).
@@ -73,7 +84,12 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     }
     #[allow(unused_variables)]
     /// Read configuration options from the config section of this module
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {}
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        templates: &mut Handlebars,
+    ) {
+    }
 }
 impl_downcast!(Module);
 
@@ -98,4 +114,30 @@ pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<WayfireWindowMod>();
     registry.register_module::<NiriWorkspaceMod>();
     registry.register_module::<NiriWindowMod>();
+}
+
+#[macro_export]
+macro_rules! impl_wrapper {
+    () => {
+        fn wrapper<'a>(
+            &'a self,
+            config: &'a LocalModuleConfig,
+            content: Element<'a, Message>,
+            anchor: &BarAnchor,
+        ) -> Element<'a, Message> {
+            iced::widget::container(
+                iced::widget::container(content)
+                    .fill(anchor)
+                    .padding(self.cfg_override.padding.unwrap_or(config.padding))
+                    .style(|_| iced::widget::container::Style {
+                        background: self.cfg_override.background.unwrap_or(config.background),
+                        border: self.cfg_override.border.unwrap_or(config.border),
+                        ..Default::default()
+                    }),
+            )
+            .fill(anchor)
+            .padding(self.cfg_override.margin.unwrap_or(config.margin))
+            .into()
+        }
+    };
 }

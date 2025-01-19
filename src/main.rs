@@ -2,10 +2,11 @@ use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
 use fill::FillExt;
+use handlebars::Handlebars;
 use iced::{
     daemon,
     platform_specific::shell::commands::{
-        layer_surface::{get_layer_surface, KeyboardInteractivity, Layer},
+        layer_surface::{destroy_layer_surface, get_layer_surface, KeyboardInteractivity, Layer},
         output::{get_output, get_output_info, OutputInfo},
     },
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
@@ -30,6 +31,7 @@ mod listeners;
 mod modules;
 mod registry;
 mod resolvers;
+mod tooltip;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
@@ -38,19 +40,23 @@ fn main() -> iced::Result {
         .theme(Bar::theme)
         .font(include_bytes!("../assets/3270/3270NerdFont-Regular.ttf"))
         .subscription(|state| {
-            Subscription::batch({
-                state
-                    .registry
-                    .get_modules(state.config.enabled_modules.get_all(), &state.config)
-                    .filter(|m| state.config.enabled_modules.contains(&m.name()))
-                    .filter_map(|m| m.subscription())
-                    .chain(
-                        state
-                            .registry
-                            .get_listeners(&state.config.enabled_listeners)
-                            .map(|l| l.subscription()),
-                    )
-            })
+            if state.open {
+                Subscription::batch({
+                    state
+                        .registry
+                        .get_modules(state.config.enabled_modules.get_all(), &state.config)
+                        .filter(|m| state.config.enabled_modules.contains(&m.name()))
+                        .filter_map(|m| m.subscription())
+                        .chain(
+                            state
+                                .registry
+                                .get_listeners(&state.config.enabled_listeners)
+                                .map(|l| l.subscription()),
+                        )
+                })
+            } else {
+                Subscription::none()
+            }
         })
         .run_with(Bar::new)
 }
@@ -70,6 +76,7 @@ enum Message {
     Update(Arc<UpdateFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     ReloadConfig,
+    LoadRegistry,
     GotOutput(Option<IcedOutput>),
     GotOutputInfo(Option<OutputInfo>),
 }
@@ -84,23 +91,28 @@ impl Message {
 }
 
 #[derive(Debug)]
-struct Bar {
+struct Bar<'a> {
     config_file: Arc<PathBuf>,
     config: Arc<Config>,
     registry: Registry,
     logical_size: Option<(u32, u32)>,
     output: IcedOutput,
+    layer_id: Id,
+    open: bool,
+    templates: Handlebars<'a>,
 }
 
-impl Bar {
+impl Bar<'_> {
     fn new() -> (Self, Task<Message>) {
         let mut registry = Registry::default();
         register_modules(&mut registry);
         register_listeners(&mut registry);
         register_resolvers(&mut registry);
 
+        let mut templates = Handlebars::new();
+
         let config_file = get_config_dir();
-        let config = read_config(&config_file, &mut registry);
+        let config = read_config(&config_file, &mut registry, &mut templates);
 
         ctrlc::set_handler(|| {
             println!("Received exit signal...Exiting");
@@ -114,6 +126,9 @@ impl Bar {
             registry,
             logical_size: None,
             output: IcedOutput::Active,
+            layer_id: Id::unique(),
+            open: true,
+            templates,
         };
         let task = match &bar.config.monitor {
             Some(_) => bar.try_get_output(),
@@ -136,7 +151,23 @@ impl Bar {
                     "Reloading config from {}",
                     self.config_file.to_string_lossy()
                 );
-                self.config = read_config(&self.config_file, &mut self.registry).into();
+                self.config =
+                    read_config(&self.config_file, &mut self.registry, &mut self.templates).into();
+                if self.config.hard_reload {
+                    self.open = false;
+                    self.registry = Registry::default();
+                    return destroy_layer_surface(self.layer_id)
+                        .chain(self.open())
+                        .chain(Task::done(Message::LoadRegistry));
+                }
+            }
+            Message::LoadRegistry => {
+                register_modules(&mut self.registry);
+                register_listeners(&mut self.registry);
+                register_resolvers(&mut self.registry);
+                self.config =
+                    read_config(&self.config_file, &mut self.registry, &mut self.templates).into();
+                self.open = true;
             }
             Message::GotOutput(optn) => {
                 return match optn {
@@ -172,20 +203,20 @@ impl Bar {
                          field: fn(&EnabledModules) -> &Vec<String>| {
             container(
                 list(
-                    &self.config.anchor,
+                    anchor,
                     self.registry
                         .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
                         .map(|m| {
                             m.wrapper(
                                 &self.config.module_config.local,
+                                m.view(&self.config.module_config.local, anchor, &self.templates),
                                 anchor,
-                                m.view(&self.config.module_config.local, &self.config.anchor),
                             )
                         }),
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),
             )
-            .fill(anchor)
+            .fillx(!anchor.vertical())
         };
         let left = make_list(|s| s.left, |m| &m.left);
         let center = make_list(|s| s.center, |m| &m.center);
@@ -198,10 +229,7 @@ impl Bar {
                     .map(|(e, align)| e.align(anchor, align).into())
             )
         ))
-        .padding(match self.config.anchor.vertical() {
-            true => [20, 5],
-            false => [0, 10],
-        })
+        .padding(self.config.module_config.global.padding)
         .into()
     }
 
@@ -209,12 +237,12 @@ impl Bar {
         let (x, y) = self.logical_size.unwrap_or((1920, 1080));
         let (width, height) = match self.config.anchor.vertical() {
             true => (
-                self.config.bar_width.unwrap_or(30),
-                self.config.bar_height.unwrap_or(y),
+                self.config.module_config.global.width.unwrap_or(30),
+                self.config.module_config.global.height.unwrap_or(y),
             ),
             false => (
-                self.config.bar_width.unwrap_or(x),
-                self.config.bar_height.unwrap_or(30),
+                self.config.module_config.global.width.unwrap_or(x),
+                self.config.module_config.global.height.unwrap_or(30),
             ),
         };
         get_layer_surface(SctkLayerSurfaceSettings {
@@ -225,7 +253,8 @@ impl Bar {
             size: Some((Some(width), Some(height))),
             namespace: "bar-rs".to_string(),
             output: self.output.clone(),
-            margin: self.config.margin,
+            margin: self.config.module_config.global.margin,
+            id: self.layer_id,
             ..Default::default()
         })
     }

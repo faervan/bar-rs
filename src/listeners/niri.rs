@@ -33,6 +33,13 @@ impl Listener for NiriListener {
                 socket.write_all(buf.as_bytes()).await.unwrap();
                 socket.shutdown().await.unwrap();
                 let mut reader = BufReader::new(socket);
+                reader
+                    .read_line(&mut buf)
+                    .await
+                    .map_err(|e| {
+                        eprintln!("Failed to build an event stream with niri: {e}");
+                    })
+                    .ok();
                 buf.clear();
                 while reader.read_line(&mut buf).await.is_ok() {
                     let reply = serde_json::from_str::<Event>(&buf);

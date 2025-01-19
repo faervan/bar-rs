@@ -1,12 +1,15 @@
 use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
-use iced::{futures::SinkExt, stream, widget::text, Subscription};
+use handlebars::Handlebars;
+use iced::widget::container;
+use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
 };
 
+use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -30,24 +33,41 @@ impl Module for VolumeMod {
         "volume".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        _handlebars: &Handlebars,
+    ) -> Element<Message> {
         list![
             anchor,
-            text!("{}", self.icon)
-                .fill(anchor)
-                .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
-                .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                .font(NERD_FONT),
-            text!["{}%", self.level,]
-                .fill(anchor)
-                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
+            container(
+                text!("{}", self.icon)
+                    .fill(anchor)
+                    .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                    .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                    .font(NERD_FONT)
+            )
+            .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
+            container(
+                text!["{}%", self.level,]
+                    .fill(anchor)
+                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+            )
+            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
         ]
         .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+    impl_wrapper!();
+
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        _templates: &mut Handlebars,
+    ) {
         self.cfg_override = config.into();
     }
 

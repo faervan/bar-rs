@@ -1,12 +1,15 @@
 use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
-use iced::{futures::SinkExt, stream, widget::text, Subscription};
+use handlebars::Handlebars;
+use iced::widget::container;
+use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
 };
 
+use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -23,7 +26,7 @@ pub struct MediaMod {
     title: String,
     artist: Option<String>,
     cfg_override: ModuleConfigOverride,
-    icon: Option<String>,
+    icon: String,
     max_length: usize,
     max_title_length: usize,
 }
@@ -34,7 +37,7 @@ impl Default for MediaMod {
             title: Default::default(),
             artist: None,
             cfg_override: Default::default(),
-            icon: None,
+            icon: String::from(""),
             max_length: 35,
             max_title_length: 20,
         }
@@ -66,34 +69,54 @@ impl Module for MediaMod {
         "media".to_string()
     }
 
-    fn view(&self, config: &LocalModuleConfig, anchor: &BarAnchor) -> iced::Element<Message> {
+    fn view(
+        &self,
+        config: &LocalModuleConfig,
+        anchor: &BarAnchor,
+        _handlebars: &Handlebars,
+    ) -> Element<Message> {
         list![
             anchor,
-            text!("{}", self.icon.as_ref().unwrap_or(&"".to_string()))
+            container(
+                text!("{}", self.icon)
+                    .fill(anchor)
+                    .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                    .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                    .font(NERD_FONT)
+            )
+            .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
+            container(
+                text![
+                    "{}{}",
+                    self.title,
+                    self.artist
+                        .as_ref()
+                        .map(|name| format!(" - {name}"))
+                        .unwrap_or("".to_string())
+                ]
                 .fill(anchor)
-                .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
-                .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                .font(NERD_FONT),
-            text![
-                "{}{}",
-                self.title,
-                self.artist
-                    .as_ref()
-                    .map(|name| format!(" - {name}"))
-                    .unwrap_or("".to_string())
-            ]
-            .fill(anchor)
-            .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-            .color(self.cfg_override.text_color.unwrap_or(config.text_color)),
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+            )
+            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
         ]
         .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()
     }
 
-    fn read_config(&mut self, config: &HashMap<String, Option<String>>) {
+    impl_wrapper!();
+
+    fn read_config(
+        &mut self,
+        config: &HashMap<String, Option<String>>,
+        _templates: &mut Handlebars,
+    ) {
         let default = Self::default();
         self.cfg_override = config.into();
-        self.icon = config.get("icon").and_then(|v| v.clone());
+        self.icon = config
+            .get("icon")
+            .and_then(|v| v.clone())
+            .unwrap_or(default.icon);
         self.max_length = config
             .get("max_length")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))

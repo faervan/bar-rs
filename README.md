@@ -26,7 +26,6 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [x] wayfire workspace + window modules
 - [x] niri workspace + window modules
 - [ ] sway workspace + window modules
-- [ ] deeper style customization
 - [ ] custom modules
 - [ ] additional modules (wifi, pacman updates...)
 - [ ] system tray support
@@ -54,6 +53,23 @@ cargo build --release
 
 # Install the bar-rs helper script to easily launch and kill bar-rs
 bash install.sh
+
+# Optional: Clean unneeded build files afterwards:
+find target/release/* ! -name bar-rs ! -name . -type d,f -exec rm -r {} +
+```
+</details>
+
+<details>
+<summary><h2>Updating</h2></summary>
+
+Enter the project directory again.
+
+```sh
+# Update the project
+git pull
+
+# Build the project - This will be considerably faster if you didn't clean the build files after installing
+cargo build --release
 
 # Optional: Clean unneeded build files afterwards:
 find target/release/* ! -name bar-rs ! -name . -type d,f -exec rm -r {} +
@@ -102,7 +118,7 @@ If an error occurs and all dependencies are installed on your system, please fee
 If you have an idea on what could improve bar-rs, or you would like to see a specific feature implemented, please open an [issue](https://github.com/faervan/bar-rs/issues).
 
 ## Contributing
-If you want to contribute, create an [issue](https://github.com/faervan/bar-rs/issues) about the feature you'd like to implement or comment on an existing one. You may also contact me on [discord](https://discord.com/users/738658712620630076).
+If you want to contribute, create an [issue](https://github.com/faervan/bar-rs/issues) about the feature you'd like to implement or comment on an existing one. You may also contact me on [matrix](https://matrix.to/#/@faervan:matrix.org) or [discord](https://discord.com/users/738658712620630076).
 
 Contributing by creating new modules should be pretty easy and straight forward if you know a bit about rust. You just have to implement the `Module` and `Builder` traits for your new module and register it in `src/modules/mod.rs`.<br>
 Take a look at [docs.iced.rs](https://docs.iced.rs/iced/) for info about what to place in the `view()` method of the `Module` trait.
