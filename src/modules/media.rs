@@ -46,6 +46,7 @@ impl Default for MediaMod {
 
 impl MediaMod {
     fn update(&mut self, mut title: String, mut artist: String) {
+        // TODO! this panics when the media has certain special characters
         if title.len() + artist.len() + 3 > self.max_length {
             if title.len() > self.max_title_length {
                 title.truncate(self.max_title_length - 3);
