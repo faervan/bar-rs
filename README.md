@@ -7,12 +7,13 @@ A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (
 
 ![2024-12-29_17-16](https://github.com/user-attachments/assets/199452ec-b5bc-4ac3-ac35-ef7aed732c2f)
 
-![image](https://github.com/user-attachments/assets/aa1d3ead-a511-4418-ac59-d1d59bdd8a52)
+![image](https://github.com/user-attachments/assets/1a2de7fe-ffa4-4cde-9ccd-2c6c74e579b6)
 
-Vertical status bars are only [experimentally supported](https://github.com/user-attachments/assets/f7bc78e5-56df-4c92-ba4d-f26180baea9b) right now
+![image](https://github.com/user-attachments/assets/52f343cd-5397-4165-8189-9727627c816f)
 
 
-Currently bar-rs supports only a bare minimum of configuration. It works on Wayland compositors implementing the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1#compositor-support), but right now only features [Hyprland](https://github.com/hyprwm/Hyprland/), [Niri](https://github.com/YaLTeR/niri/) and [Wayfire](https://github.com/WayfireWM/wayfire/) modules for active workspace and window display.
+
+Currently bar-rs supports only a small amount of configuration. It works on Wayland compositors implementing the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1#compositor-support), but right now only features [Hyprland](https://github.com/hyprwm/Hyprland/), [Niri](https://github.com/YaLTeR/niri/) and [Wayfire](https://github.com/WayfireWM/wayfire/) modules for active workspace and window display.
 
 For a list of all currently supported modules, see [the Wiki](https://github.com/Faervan/bar-rs/wiki#modules)
 
