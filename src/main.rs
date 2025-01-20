@@ -1,4 +1,10 @@
-use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc, time::Duration};
+use std::{
+    fmt::Debug,
+    path::PathBuf,
+    process::{exit, Command},
+    sync::Arc,
+    time::Duration,
+};
 
 use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
 use fill::FillExt;
@@ -6,7 +12,7 @@ use handlebars::Handlebars;
 use iced::{
     daemon,
     platform_specific::shell::commands::{
-        layer_surface::{destroy_layer_surface, get_layer_surface, KeyboardInteractivity, Layer},
+        layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
         output::{get_output, get_output_info, OutputInfo},
     },
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
@@ -18,7 +24,7 @@ use iced::{
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
-use modules::register_modules;
+use modules::{register_modules, Action};
 use registry::Registry;
 use resolvers::register_resolvers;
 use tokio::{
@@ -73,15 +79,27 @@ impl Debug for UpdateFn {
         )
     }
 }
+struct ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>);
+impl Debug for ActionFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>) can't be displayed"
+        )
+    }
+}
 
 #[derive(Debug, Clone)]
 enum Message {
+    Hello,
     Update(Arc<UpdateFn>),
+    Action(Arc<ActionFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     GetReceiver(
-        mpsc::Sender<broadcast::Receiver<()>>,
-        fn(&Registry) -> broadcast::Receiver<()>,
+        mpsc::Sender<broadcast::Receiver<Arc<dyn Action>>>,
+        fn(&Registry) -> broadcast::Receiver<Arc<dyn Action>>,
     ),
+    Spawn(Arc<Command>),
     ReloadConfig,
     LoadRegistry,
     GotOutput(Option<IcedOutput>),
@@ -94,6 +112,12 @@ impl Message {
         F: FnOnce(&mut Registry) + Send + Sync + 'static,
     {
         Message::Update(Arc::new(UpdateFn(Box::new(f))))
+    }
+    fn action<F>(f: F) -> Self
+    where
+        F: FnOnce(&Registry) + Send + Sync + 'static,
+    {
+        Message::Action(Arc::new(ActionFn(Box::new(f))))
     }
 }
 
@@ -147,13 +171,25 @@ impl Bar<'_> {
 
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
+            Message::Hello => println!("hello! :)"),
             Message::Update(task) => {
                 Arc::into_inner(task).unwrap().0(&mut self.registry);
+            }
+            Message::Action(task) => {
+                println!("update action!");
+                Arc::into_inner(task).unwrap().0(&self.registry);
             }
             Message::GetConfig(sx) => sx
                 .try_send((self.config_file.clone(), self.config.clone()))
                 .unwrap(),
             Message::GetReceiver(sx, f) => sx.try_send(f(&self.registry)).unwrap(),
+            Message::Spawn(cmd) => {
+                Arc::into_inner(cmd)
+                    .unwrap()
+                    .spawn()
+                    .inspect_err(|e| eprintln!("Failed to spawn command: {e}"))
+                    .ok();
+            }
             Message::ReloadConfig => {
                 println!(
                     "Reloading config from {}",
@@ -255,7 +291,7 @@ impl Bar<'_> {
         };
         get_layer_surface(SctkLayerSurfaceSettings {
             layer: Layer::Top,
-            keyboard_interactivity: KeyboardInteractivity::OnDemand,
+            keyboard_interactivity: self.config.kb_focus,
             anchor: (&self.config.anchor).into(),
             exclusive_zone: self.config.exclusive_zone(),
             size: Some((Some(width), Some(height))),

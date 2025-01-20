@@ -42,6 +42,7 @@ The general section contains three options:
 | hot_reloading | Whether bar-rs should monitor the config file for changes | bool | true |
 | hard_reloading | Whether bar-rs should reopen and reload all modules (required for `anchor`, `width`, `height`, `margin` and e.g. workspace names set in the `niri.workspaces` module to be hot-reloadable) | bool | false |
 | anchor | The anchor to use. Can be `top`, `bottom`, `left` or `right`. This decides whether the bar is vertical or not. | String | top |
+| kb_focus | Defines whether bar-rs should be focusable. Can be `none` (no focus), `on_demand` (when you click on it) or `exclusive` (always stay focused). | String | none |
 
 **Example:**
 ```ini

@@ -75,7 +75,7 @@ impl Module for NiriWindowMod {
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
-        container(
+        /*container(
             rich_text([span(self.trimmed_title())
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
@@ -85,7 +85,8 @@ impl Module for NiriWindowMod {
         .tooltip_maybe(
             self.get_title()
                 .and_then(|t| (t.len() > self.max_length).then_some(text(t).size(12))),
-        )
+        )*/
+        iced::widget::button(text("press me")).on_press(Message::Hello).into()
     }
 
     impl_wrapper!();

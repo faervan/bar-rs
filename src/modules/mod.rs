@@ -40,7 +40,7 @@ pub mod volume;
 pub mod wayfire;
 
 pub trait Module: Any + Debug + Send + Sync + Downcast {
-    /// The name used to enable the Module in the config
+    /// The name used to enable the Module in the config.
     fn name(&self) -> String;
     /// What the module actually shows.
     /// See [widgets-and-elements](https://docs.iced.rs/iced/#widgets-and-elements).
@@ -90,8 +90,14 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         templates: &mut Handlebars,
     ) {
     }
+    #[allow(unused_variables)]
+    /// Handle an action (likely produced by a user interaction.)
+    fn handle_action(&mut self, action: Box<dyn Action>) {}
 }
 impl_downcast!(Module);
+
+pub trait Action: Any + Debug + Send + Sync + Downcast {}
+impl_downcast!(Action);
 
 pub fn require_listener<T>() -> TypeId
 where
