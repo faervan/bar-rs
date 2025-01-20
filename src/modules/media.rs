@@ -2,7 +2,7 @@ use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::container;
+use iced::widget::{container, Text};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -10,6 +10,7 @@ use tokio::{
 };
 
 use crate::impl_wrapper;
+use crate::tooltip::ElementExt;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -45,23 +46,53 @@ impl Default for MediaMod {
 }
 
 impl MediaMod {
-    fn update(&mut self, mut title: String, mut artist: String) {
-        // TODO! this panics when the media has certain special characters
-        if title.len() + artist.len() + 3 > self.max_length {
-            if title.len() > self.max_title_length {
-                title.truncate(self.max_title_length - 3);
-                title.push_str("...");
-            }
-            if title.len() + artist.len() + 3 > self.max_length {
-                artist.truncate(self.max_length - self.max_title_length - 6);
-                artist.push_str("...");
-            }
-        }
+    fn update(&mut self, title: String, artist: String) {
         self.title = title;
         self.artist = match artist.as_str() == "" {
             true => None,
             false => Some(artist),
         };
+    }
+
+    fn get_active_trimmed(&self) -> String {
+        let mut title = self.title.clone();
+        let mut artist = self.artist.clone();
+        let artist_len = artist.as_ref().map(|a| a.len()).unwrap_or(0);
+        if title.len() + artist_len + 3 > self.max_length {
+            if title.len() > self.max_title_length {
+                title = title.chars().take(self.max_length - 3).collect();
+                title.push_str("...");
+            }
+            if title.len() + artist_len + 3 > self.max_length {
+                artist = artist.map(|a| {
+                    let mut a: String = a
+                        .chars()
+                        .take(self.max_length - self.max_title_length - 6)
+                        .collect();
+                    a.push_str("...");
+                    a
+                });
+            }
+        }
+        match artist {
+            Some(artist) => format!("{title} - {artist}"),
+            None => title,
+        }
+    }
+
+    fn is_overlength(&self) -> bool {
+        self.title.len() + self.artist.as_ref().map(|a| a.len()).unwrap_or(0) + 3 > self.max_length
+    }
+
+    fn get_active(&self) -> Text {
+        text!(
+            "{}{}",
+            self.title,
+            self.artist
+                .as_ref()
+                .map(|a| format!(" - {a}"))
+                .unwrap_or_default()
+        )
     }
 }
 
@@ -79,7 +110,7 @@ impl Module for MediaMod {
         list![
             anchor,
             container(
-                text!("{}", self.icon)
+                text(&self.icon)
                     .fill(anchor)
                     .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                     .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
@@ -87,19 +118,13 @@ impl Module for MediaMod {
             )
             .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
             container(
-                text![
-                    "{}{}",
-                    self.title,
-                    self.artist
-                        .as_ref()
-                        .map(|name| format!(" - {name}"))
-                        .unwrap_or("".to_string())
-                ]
-                .fill(anchor)
-                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                text(self.get_active_trimmed())
+                    .fill(anchor)
+                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))
             )
-            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
+            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
+            .tooltip_maybe(self.is_overlength().then_some(self.get_active().size(12))),
         ]
         .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
         .into()

@@ -6,7 +6,7 @@ use iced::widget::{container, rich_text, span, text};
 use iced::Element;
 
 use crate::impl_wrapper;
-use crate::tooltip::tooltip;
+use crate::tooltip::ElementExt;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -75,17 +75,17 @@ impl Module for NiriWindowMod {
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
-        tooltip(
-            container(
-                rich_text([span(self.trimmed_title())
-                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
-                .fill(anchor),
-            )
-            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
-            text!("{}", self.get_title().unwrap_or(&String::new())).size(12),
+        container(
+            rich_text([span(self.trimmed_title())
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
+            .fill(anchor),
         )
-        .into()
+        .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
+        .tooltip_maybe(
+            self.get_title()
+                .and_then(|t| (t.len() > self.max_length).then_some(text(t).size(12))),
+        )
     }
 
     impl_wrapper!();

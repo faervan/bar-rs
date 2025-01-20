@@ -21,7 +21,10 @@ use listeners::register_listeners;
 use modules::register_modules;
 use registry::Registry;
 use resolvers::register_resolvers;
-use tokio::{sync::mpsc, time::sleep};
+use tokio::{
+    sync::{broadcast, mpsc},
+    time::sleep,
+};
 
 mod config;
 #[macro_use]
@@ -75,6 +78,10 @@ impl Debug for UpdateFn {
 enum Message {
     Update(Arc<UpdateFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
+    GetReceiver(
+        mpsc::Sender<broadcast::Receiver<()>>,
+        fn(&Registry) -> broadcast::Receiver<()>,
+    ),
     ReloadConfig,
     LoadRegistry,
     GotOutput(Option<IcedOutput>),
@@ -146,6 +153,7 @@ impl Bar<'_> {
             Message::GetConfig(sx) => sx
                 .try_send((self.config_file.clone(), self.config.clone()))
                 .unwrap(),
+            Message::GetReceiver(sx, f) => sx.try_send(f(&self.registry)).unwrap(),
             Message::ReloadConfig => {
                 println!(
                     "Reloading config from {}",
