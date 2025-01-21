@@ -3,7 +3,7 @@ use std::{any::TypeId, collections::HashMap, sync::Arc};
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::{
-    widget::{button, rich_text, span},
+    widget::{button, text},
     Background, Border, Color, Element, Padding,
 };
 use niri_ipc::Workspace;
@@ -106,7 +106,7 @@ impl Module for NiriWorkspaceMod {
             anchor,
             self.sort_by_outputs(|(output, workspaces)| {
                 workspaces.iter().map(|ws| {
-                    /*let mut span = span(
+                    let mut text = text(
                         self.icons
                             .get(&output.to_lowercase())
                             .and_then(|icons| icons.get(&ws.idx))
@@ -115,31 +115,32 @@ impl Module for NiriWorkspaceMod {
                                 false => &self.fallback_icon,
                             }),
                     )
-                    .padding(self.icon_padding)
                     .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                     .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                    .background_maybe(self.icon_background)
-                    .border(self.icon_border)
                     .font(NERD_FONT);
-                    if ws.id == self.focused {
-                        span = span
-                            .padding(self.active_padding.unwrap_or(self.icon_padding))
-                            .size(self.active_size)
-                            .color(self.active_color)
-                            .background_maybe(self.active_background)
-                            .border(self.active_icon_border);
-                    }*/
-                    //button(rich_text![span].fill(anchor)).width(50)
-                    //button(iced::widget::text("X")).width(50)
-                    button(rich_text![span("X")]).width(50)
-                        /*.on_press(Message::action(|reg| {
-                            println!("press action!");
+                    let mut btn_style = button::Style {
+                        background: self.icon_background,
+                        border: self.icon_border,
+                        ..Default::default()
+                    };
+                    let id = ws.id;
+                    if id == self.focused {
+                        text = text.size(self.active_size).color(self.active_color);
+                        btn_style.background = self.active_background;
+                        btn_style.border = self.active_icon_border;
+                    }
+                    button(text.fill(anchor))
+                        .padding(match id == self.focused {
+                            true => self.active_padding.unwrap_or(self.icon_padding),
+                            false => self.icon_padding,
+                        })
+                        .style(move |_, _| btn_style)
+                        .on_press(Message::action(move |reg| {
                             reg.get_module::<NiriWorkspaceMod>()
                                 .sender
-                                .send(Arc::new(0))
+                                .send(Arc::new(id))
                                 .unwrap();
-                        }))*/
-                        .on_press(Message::Hello)
+                        }))
                         .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
                         .into()
                 })

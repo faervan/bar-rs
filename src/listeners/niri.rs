@@ -51,7 +51,6 @@ impl Listener for NiriListener {
                     })
                     .ok();
                 buf.clear();
-                let mut socket = UnixStream::connect(socket_path).await.unwrap();
                 loop {
                     tokio::select! {
                         Ok(_) = reader.read_line(&mut buf) => {
@@ -131,11 +130,11 @@ impl Listener for NiriListener {
                                 buf.clear();
                             }
                         Ok(action) = receiver.recv() => {
-                            println!("hello");
                             if let Some(id) = action.downcast_ref::<SelectWorkspace>() {
+                                let mut socket = UnixStream::connect(&socket_path).await.unwrap();
                                 let buf = serde_json::to_string(&Request::Action(niri_ipc::Action::FocusWorkspace { reference: niri_ipc::WorkspaceReferenceArg::Id(*id) })).unwrap();
                                 socket.write_all(buf.as_bytes()).await.unwrap();
-                                //socket.shutdown().await.unwrap();
+                                socket.shutdown().await.unwrap();
                             }
                         }
                     }

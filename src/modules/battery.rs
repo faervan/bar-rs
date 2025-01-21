@@ -3,7 +3,8 @@ use std::{collections::HashMap, time::Duration};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::container;
+use iced::widget::{button, container};
+use iced::window::Id;
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
@@ -23,6 +24,7 @@ use super::Module;
 #[derive(Debug, Default, Builder)]
 pub struct BatteryMod {
     stats: BatteryStats,
+    pub popup_id: Option<Id>,
     cfg_override: ModuleConfigOverride,
 }
 
@@ -52,15 +54,17 @@ impl Module for BatteryMod {
         ctx.insert("minutes", self.stats.minutes);
         list![
             anchor,
-            container(
+            button(
                 text!("{}", self.stats.icon)
                     .fill(anchor)
                     .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                     .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                     .font(NERD_FONT)
             )
+            .on_press(Message::Popup(self.popup_id))
+            .style(|_, _| button::Style::default())
             .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
-            container(
+            button(
                 match self.stats.power_now_is_zero {
                     true => text!["{}% - ?", self.stats.capacity],
                     false => text!["{}", handlebars.render("battery", &ctx).unwrap_or_default()],
@@ -69,6 +73,8 @@ impl Module for BatteryMod {
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color))
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
             )
+            .on_press(Message::Popup(self.popup_id))
+            .style(|_, _| button::Style::default())
             .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
         ]
         .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))

@@ -10,17 +10,14 @@ use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
 use fill::FillExt;
 use handlebars::Handlebars;
 use iced::{
-    daemon,
-    platform_specific::shell::commands::{
+    daemon, platform_specific::shell::commands::{
         layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
         output::{get_output, get_output_info, OutputInfo},
-    },
-    runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
-    stream,
-    theme::Palette,
-    widget::{container, stack},
-    window::Id,
-    Alignment, Color, Element, Font, Subscription, Task, Theme,
+        popup::{destroy_popup, get_popup},
+    }, runtime::platform_specific::wayland::{
+        layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
+        popup::{SctkPopupSettings, SctkPositioner},
+    }, stream, theme::Palette, widget::{container, stack}, window::Id, Alignment, Color, Element, Font, Rectangle, Subscription, Task, Theme
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
@@ -41,6 +38,7 @@ mod modules;
 mod registry;
 mod resolvers;
 mod tooltip;
+mod button;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
@@ -91,7 +89,7 @@ impl Debug for ActionFn {
 
 #[derive(Debug, Clone)]
 enum Message {
-    Hello,
+    Popup(Option<Id>),
     Update(Arc<UpdateFn>),
     Action(Arc<ActionFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
@@ -118,6 +116,16 @@ impl Message {
         F: FnOnce(&Registry) + Send + Sync + 'static,
     {
         Message::Action(Arc::new(ActionFn(Box::new(f))))
+    }
+    fn command<I, S>(args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<std::ffi::OsStr>,
+    {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c");
+        cmd.args(args);
+        Message::Spawn(Arc::new(cmd))
     }
 }
 
@@ -171,12 +179,43 @@ impl Bar<'_> {
 
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
-            Message::Hello => println!("hello! :)"),
+            Message::Popup(id) => {
+                return match id {
+                    None => {
+                        let id = Id::unique();
+                        self.registry
+                            .get_module_mut::<modules::battery::BatteryMod>()
+                            .popup_id = Some(id);
+                        get_popup(SctkPopupSettings {
+                            parent: self.layer_id,
+                            id,
+                            positioner: SctkPositioner {
+                                size: Some((200, 100)),
+                                reactive: true,
+                                anchor_rect: Rectangle {
+                                    x: 1700,
+                                    y: 50,
+                                    width: 200,
+                                    height: 100,
+                                },
+                                ..Default::default()
+                            },
+                            parent_size: None,
+                            grab: false,
+                        })
+                    }
+                    Some(id) => {
+                        self.registry
+                            .get_module_mut::<modules::battery::BatteryMod>()
+                            .popup_id = None;
+                        destroy_popup(id)
+                    }
+                }
+            }
             Message::Update(task) => {
                 Arc::into_inner(task).unwrap().0(&mut self.registry);
             }
             Message::Action(task) => {
-                println!("update action!");
                 Arc::into_inner(task).unwrap().0(&self.registry);
             }
             Message::GetConfig(sx) => sx
