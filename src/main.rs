@@ -10,14 +10,21 @@ use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
 use fill::FillExt;
 use handlebars::Handlebars;
 use iced::{
-    daemon, platform_specific::shell::commands::{
+    daemon,
+    platform_specific::shell::commands::{
         layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
         output::{get_output, get_output_info, OutputInfo},
         popup::{destroy_popup, get_popup},
-    }, runtime::platform_specific::wayland::{
+    },
+    runtime::platform_specific::wayland::{
         layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
         popup::{SctkPopupSettings, SctkPositioner},
-    }, stream, theme::Palette, widget::{container, stack}, window::Id, Alignment, Color, Element, Font, Rectangle, Subscription, Task, Theme
+    },
+    stream,
+    theme::Palette,
+    widget::{container, stack},
+    window::Id,
+    Alignment, Color, Element, Font, Rectangle, Subscription, Task, Theme,
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
@@ -32,13 +39,13 @@ use tokio::{
 mod config;
 #[macro_use]
 mod list;
+mod button;
 mod fill;
 mod listeners;
 mod modules;
 mod registry;
 mod resolvers;
 mod tooltip;
-mod button;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
@@ -89,7 +96,7 @@ impl Debug for ActionFn {
 
 #[derive(Debug, Clone)]
 enum Message {
-    Popup(Option<Id>),
+    Popup((Option<Id>, iced::Point<i32>)),
     Update(Arc<UpdateFn>),
     Action(Arc<ActionFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
@@ -179,7 +186,7 @@ impl Bar<'_> {
 
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
-            Message::Popup(id) => {
+            Message::Popup((id, point)) => {
                 return match id {
                     None => {
                         let id = Id::unique();
@@ -193,8 +200,8 @@ impl Bar<'_> {
                                 size: Some((200, 100)),
                                 reactive: true,
                                 anchor_rect: Rectangle {
-                                    x: 1700,
-                                    y: 50,
+                                    x: point.x,
+                                    y: point.y,
                                     width: 200,
                                     height: 100,
                                 },
