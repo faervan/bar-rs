@@ -6,7 +6,7 @@ use std::{collections::HashMap, time::Duration};
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::widget::button::Style;
-use iced::widget::{column, container};
+use iced::widget::{column, container, scrollable};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
@@ -189,7 +189,7 @@ impl Module for BatteryMod {
                 x: layout.position().x as i32,
                 y: layout.bounds().height as i32,
                 width: 300,
-                height: 100,
+                height: 250,
             },
         })
         .style(|_, _| Style::default())
@@ -198,7 +198,7 @@ impl Module for BatteryMod {
 
     fn popup_view(&self) -> Element<Message> {
         //container(text!("{} {}%", self.icon(None, None), self.avg.capacity).size(20))
-        container(column(self.batteries.iter().map(|bat| {
+        container(scrollable(column(self.batteries.iter().map(|bat| {
             text!(
                 "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",
                 bat.name,
@@ -213,7 +213,7 @@ impl Module for BatteryMod {
                 bat.model_name,
             )
             .into()
-        })))
+        }))))
         .padding([10, 20])
         .style(|_| container::Style {
             background: Some(iced::Background::Color(iced::Color {
