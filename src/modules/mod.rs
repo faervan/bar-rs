@@ -90,9 +90,13 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         templates: &mut Handlebars,
     ) {
     }
-    #[allow(unused_variables)]
+    #[allow(unused_variables, dead_code)]
     /// Handle an action (likely produced by a user interaction.)
     fn handle_action(&mut self, action: Box<dyn Action>) {}
+    /// The view of a popup
+    fn popup_view(&self) -> Element<Message> {
+        "Missing implementation".into()
+    }
 }
 impl_downcast!(Module);
 

@@ -1,4 +1,5 @@
 use std::{
+    any::TypeId,
     fmt::Debug,
     path::PathBuf,
     process::{exit, Command},
@@ -96,7 +97,10 @@ impl Debug for ActionFn {
 
 #[derive(Debug, Clone)]
 enum Message {
-    Popup((Option<Id>, iced::Point<i32>)),
+    Popup {
+        type_id: TypeId,
+        dimension: Rectangle<i32>,
+    },
     Update(Arc<UpdateFn>),
     Action(Arc<ActionFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
@@ -145,6 +149,7 @@ struct Bar<'a> {
     output: IcedOutput,
     layer_id: Id,
     open: bool,
+    popup: Option<(TypeId, Id)>,
     templates: Handlebars<'a>,
 }
 
@@ -174,6 +179,7 @@ impl Bar<'_> {
             output: IcedOutput::Active,
             layer_id: Id::unique(),
             open: true,
+            popup: None,
             templates,
         };
         let task = match &bar.config.monitor {
@@ -186,37 +192,53 @@ impl Bar<'_> {
 
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
-            Message::Popup((id, point)) => {
-                return match id {
+            Message::Popup { type_id, dimension } => {
+                return match self.popup {
                     None => {
                         let id = Id::unique();
-                        self.registry
-                            .get_module_mut::<modules::battery::BatteryMod>()
-                            .popup_id = Some(id);
+                        self.popup = Some((type_id, id));
                         get_popup(SctkPopupSettings {
                             parent: self.layer_id,
                             id,
                             positioner: SctkPositioner {
-                                size: Some((200, 100)),
-                                reactive: true,
+                                size: Some((dimension.width as u32, dimension.height as u32)),
                                 anchor_rect: Rectangle {
-                                    x: point.x,
-                                    y: point.y,
-                                    width: 200,
-                                    height: 100,
+                                    x: dimension.x,
+                                    y: dimension.y,
+                                    width: dimension.width,
+                                    height: dimension.height,
                                 },
                                 ..Default::default()
                             },
                             parent_size: None,
-                            grab: false,
+                            grab: true,
                         })
                     }
-                    Some(id) => {
-                        self.registry
-                            .get_module_mut::<modules::battery::BatteryMod>()
-                            .popup_id = None;
-                        destroy_popup(id)
-                    }
+                    Some((old_ty_id, id)) => match old_ty_id == type_id {
+                        true => {
+                            self.popup = None;
+                            destroy_popup(id)
+                        }
+                        false => {
+                            self.popup = Some((type_id, id));
+                            destroy_popup(id).chain(get_popup(SctkPopupSettings {
+                                parent: self.layer_id,
+                                id,
+                                positioner: SctkPositioner {
+                                    size: Some((dimension.width as u32, dimension.height as u32)),
+                                    anchor_rect: Rectangle {
+                                        x: dimension.x,
+                                        y: dimension.y,
+                                        width: dimension.width,
+                                        height: dimension.height,
+                                    },
+                                    ..Default::default()
+                                },
+                                parent_size: None,
+                                grab: true,
+                            }))
+                        }
+                    },
                 }
             }
             Message::Update(task) => {
@@ -287,7 +309,22 @@ impl Bar<'_> {
         Task::none()
     }
 
-    fn view(&self, _window_id: Id) -> Element<Message> {
+    fn view(&self, window_id: Id) -> Element<Message> {
+        if window_id == self.layer_id {
+            self.bar_view()
+        } else {
+            if let Some(mod_id) = self
+                .popup
+                .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
+            {
+                self.registry.get_module_by_id(mod_id).popup_view()
+            } else {
+                "Internal error".into()
+            }
+        }
+    }
+
+    fn bar_view(&self) -> Element<Message> {
         let anchor = &self.config.anchor;
         let make_list = |spacing: fn(&Thrice<f32>) -> f32,
                          field: fn(&EnabledModules) -> &Vec<String>| {

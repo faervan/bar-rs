@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::collections::BTreeMap;
 use std::{collections::HashMap, time::Duration};
 
@@ -5,7 +6,6 @@ use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::widget::button::Style;
 use iced::widget::container;
-use iced::window::Id;
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
@@ -26,7 +26,6 @@ use super::Module;
 #[derive(Debug, Default, Builder)]
 pub struct BatteryMod {
     stats: BatteryStats,
-    pub popup_id: Option<Id>,
     cfg_override: ModuleConfigOverride,
 }
 
@@ -81,13 +80,34 @@ impl Module for BatteryMod {
         )
         .on_event(|_, layout, _, _, viewport| {
             println!("viewport: {viewport:#?}\nlayout: {layout:#?}");
-            Message::Popup((
-                self.popup_id,
-                [layout.position().x as i32, layout.bounds().height as i32].into(),
-            ))
+            Message::Popup {
+                type_id: TypeId::of::<Self>(),
+                dimension: iced::Rectangle {
+                    x: layout.position().x as i32,
+                    y: layout.bounds().height as i32,
+                    width: 300,
+                    height: 100,
+                },
+            }
         })
         .style(|_, _| Style::default())
         .into()
+    }
+
+    fn popup_view(&self) -> Element<Message> {
+        container(text!("{} {}%", self.stats.icon, self.stats.capacity).size(20))
+            .padding([10, 20])
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color {
+                    r: 0.,
+                    g: 0.,
+                    b: 0.,
+                    a: 0.5,
+                })),
+                border: iced::Border::default().rounded(8),
+                ..Default::default()
+            })
+            .into()
     }
 
     impl_wrapper!();
