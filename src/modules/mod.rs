@@ -10,7 +10,7 @@ use date::DateMod;
 use downcast_rs::{impl_downcast, Downcast};
 use handlebars::Handlebars;
 use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
-use iced::widget::container;
+use iced::{theme::Palette, widget::container, Color, Theme};
 use iced::{widget::container::Style, Element, Subscription};
 use media::MediaMod;
 use memory::MemoryMod;
@@ -96,6 +96,19 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     /// The view of a popup
     fn popup_view(&self) -> Element<Message> {
         "Missing implementation".into()
+    }
+    /// The theme of a popup
+    fn popup_theme(&self) -> Theme {
+        Theme::custom(
+            "Default popup theme".to_string(),
+            Palette {
+                background: Color::TRANSPARENT,
+                text: Color::WHITE,
+                primary: Color::WHITE,
+                success: Color::WHITE,
+                danger: Color::WHITE,
+            },
+        )
     }
 }
 impl_downcast!(Module);

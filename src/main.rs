@@ -193,26 +193,27 @@ impl Bar<'_> {
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
             Message::Popup { type_id, dimension } => {
+                let settings = |id| SctkPopupSettings {
+                    parent: self.layer_id,
+                    id,
+                    positioner: SctkPositioner {
+                        size: Some((dimension.width as u32, dimension.height as u32)),
+                        anchor_rect: Rectangle {
+                            x: dimension.x,
+                            y: dimension.y,
+                            width: dimension.width,
+                            height: dimension.height,
+                        },
+                        ..Default::default()
+                    },
+                    parent_size: None,
+                    grab: true,
+                };
                 return match self.popup {
                     None => {
                         let id = Id::unique();
                         self.popup = Some((type_id, id));
-                        get_popup(SctkPopupSettings {
-                            parent: self.layer_id,
-                            id,
-                            positioner: SctkPositioner {
-                                size: Some((dimension.width as u32, dimension.height as u32)),
-                                anchor_rect: Rectangle {
-                                    x: dimension.x,
-                                    y: dimension.y,
-                                    width: dimension.width,
-                                    height: dimension.height,
-                                },
-                                ..Default::default()
-                            },
-                            parent_size: None,
-                            grab: true,
-                        })
+                        get_popup(settings(id))
                     }
                     Some((old_ty_id, id)) => match old_ty_id == type_id {
                         true => {
@@ -221,25 +222,10 @@ impl Bar<'_> {
                         }
                         false => {
                             self.popup = Some((type_id, id));
-                            destroy_popup(id).chain(get_popup(SctkPopupSettings {
-                                parent: self.layer_id,
-                                id,
-                                positioner: SctkPositioner {
-                                    size: Some((dimension.width as u32, dimension.height as u32)),
-                                    anchor_rect: Rectangle {
-                                        x: dimension.x,
-                                        y: dimension.y,
-                                        width: dimension.width,
-                                        height: dimension.height,
-                                    },
-                                    ..Default::default()
-                                },
-                                parent_size: None,
-                                grab: true,
-                            }))
+                            destroy_popup(id).chain(get_popup(settings(id)))
                         }
                     },
-                }
+                };
             }
             Message::Update(task) => {
                 Arc::into_inner(task).unwrap().0(&mut self.registry);
@@ -312,15 +298,13 @@ impl Bar<'_> {
     fn view(&self, window_id: Id) -> Element<Message> {
         if window_id == self.layer_id {
             self.bar_view()
+        } else if let Some(mod_id) = self
+            .popup
+            .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
+        {
+            self.registry.get_module_by_id(mod_id).popup_view()
         } else {
-            if let Some(mod_id) = self
-                .popup
-                .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
-            {
-                self.registry.get_module_by_id(mod_id).popup_view()
-            } else {
-                "Internal error".into()
-            }
+            "Internal error".into()
         }
     }
 
@@ -419,17 +403,24 @@ impl Bar<'_> {
         .map(Message::GotOutputInfo)
     }
 
-    fn theme(&self, _window_id: Id) -> Theme {
-        Theme::custom(
-            "Bar theme".to_string(),
-            Palette {
-                background: self.config.module_config.global.background_color,
-                text: Color::WHITE,
-                primary: Color::WHITE,
-                success: Color::WHITE,
-                danger: Color::WHITE,
-            },
-        )
+    fn theme(&self, window_id: Id) -> Theme {
+        if let Some(mod_id) = self
+            .popup
+            .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
+        {
+            self.registry.get_module_by_id(mod_id).popup_theme()
+        } else {
+            Theme::custom(
+                "Bar theme".to_string(),
+                Palette {
+                    background: self.config.module_config.global.background_color,
+                    text: Color::WHITE,
+                    primary: Color::WHITE,
+                    success: Color::WHITE,
+                    danger: Color::WHITE,
+                },
+            )
+        }
     }
 }
 

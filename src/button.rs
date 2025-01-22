@@ -13,24 +13,24 @@ use iced::{
 };
 use iced::{Background, Color, Vector};
 
+type EventHandlerFn<'a, Message> = Box<
+    dyn Fn(
+            iced::Event,
+            iced::core::Layout,
+            iced::mouse::Cursor,
+            &mut dyn iced::core::Clipboard,
+            &Rectangle,
+        ) -> Message
+        + 'a,
+>;
+
 pub struct Button<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Renderer: iced::core::Renderer,
     Theme: Catalog,
 {
     content: Element<'a, Message, Theme, Renderer>,
-    on_event: Option<
-        Box<
-            dyn Fn(
-                    iced::Event,
-                    iced::core::Layout,
-                    iced::mouse::Cursor,
-                    &mut dyn iced::core::Clipboard,
-                    &Rectangle,
-                ) -> Message
-                + 'a,
-        >,
-    >,
+    on_event: Option<EventHandlerFn<'a, Message>>,
     id: Id,
     width: Length,
     height: Length,

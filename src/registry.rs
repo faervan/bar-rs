@@ -67,8 +67,8 @@ impl Registry {
             .and_then(|t| t.downcast_mut::<T>())
     }
 
-    pub fn get_module_by_id(&self, id: TypeId) -> &Box<dyn Module> {
-        self.modules.get(&id).unwrap()
+    pub fn get_module_by_id(&self, id: TypeId) -> &dyn Module {
+        self.modules.get(&id).unwrap().as_ref()
     }
 
     pub fn get_module<T: Module>(&self) -> &T {
