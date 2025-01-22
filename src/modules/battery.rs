@@ -65,7 +65,7 @@ impl BatteryMod {
         };
         icons
             .iter()
-            .filter(|(k, _)| **k >= capacity)
+            .filter(|(k, _)| capacity >= **k)
             .last()
             .unwrap()
             .1
