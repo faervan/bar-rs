@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
@@ -30,10 +31,12 @@ use super::Module;
 pub struct MediaMod {
     track: Option<TrackInfo>,
     img: Option<Vec<u8>>,
+    active_player: Option<String>,
     cfg_override: ModuleConfigOverride,
     icon: String,
     max_length: usize,
     max_title_length: usize,
+    players: HashSet<String>,
 }
 
 impl Default for MediaMod {
@@ -41,10 +44,12 @@ impl Default for MediaMod {
         Self {
             track: None,
             img: None,
+            active_player: None,
             cfg_override: Default::default(),
             icon: String::from(""),
-            max_length: 23,
-            max_title_length: 12,
+            max_length: 28,
+            max_title_length: 16,
+            players: HashSet::from(["spotify".to_string(), "kew".to_string()]),
         }
     }
 }
@@ -56,7 +61,7 @@ impl MediaMod {
             let mut artist = track.artist.clone();
             if self.is_overlength() {
                 if title.len() > self.max_title_length {
-                    title = title.chars().take(self.max_length - 3).collect();
+                    title = title.chars().take(self.max_title_length - 3).collect();
                     title.push_str("...");
                 }
                 if title.len() + artist.len() + 3 > self.max_length {
@@ -79,6 +84,13 @@ impl MediaMod {
             .as_ref()
             .is_some_and(|t| t.title.len() + t.artist.len() + 3 > self.max_length)
     }
+
+    fn new_track(&mut self, track: TrackInfo) {
+        if self.players.contains(&track.player) {
+            self.active_player = Some(track.player.clone());
+            self.track = Some(track)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -87,6 +99,7 @@ struct TrackInfo {
     artist: String,
     album: String,
     art_url: String,
+    player: String,
     art_is_local: bool,
     length: f32,
     paused: bool,
@@ -130,6 +143,11 @@ impl<'de> Deserialize<'de> for TrackInfo {
                 .and_then(|v| v.as_str())
                 .unwrap_or_default()
                 .to_string(),
+            player: map
+                .get("player")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
             art_url,
             art_is_local,
             length: map
@@ -138,10 +156,7 @@ impl<'de> Deserialize<'de> for TrackInfo {
                 .unwrap_or_default() as f32,
             paused: map
                 .get("status")
-                .map(|v| match v.as_str() {
-                    Some("Playing") => false,
-                    _ => true,
-                })
+                .map(|v| matches!(v.as_str(), Some("Playing")))
                 .unwrap_or(true),
         })
     }
@@ -193,6 +208,15 @@ impl Module for MediaMod {
             Some(track) => {
                 let minutes = (track.length / 60000000.).trunc();
                 let icon = |icon| text(icon).font(NERD_FONT).size(24).color(Color::WHITE);
+                let cmd = |cmd| {
+                    Message::command_sh(format!(
+                        "playerctl {cmd}{}",
+                        self.active_player
+                            .as_ref()
+                            .map(|p| format!(" -p {p}"))
+                            .unwrap_or_default()
+                    ))
+                };
                 <iced::widget::Scrollable<'_, Message> as Into<Element<Message>>>::into(scrollable(
                     column![
                         match track.art_is_local {
@@ -217,16 +241,16 @@ impl Module for MediaMod {
                         container(
                             row![
                                 button(icon("󰒮"))
-                                    .on_event(Message::command(["playerctl previous"]))
+                                    .on_event(cmd("previous"))
                                     .style(|_, _| Style::default()),
                                 button(icon(match track.paused {
                                     true => "",
                                     false => "",
                                 }))
-                                .on_event(Message::command(["playerctl play-pause"]))
+                                .on_event(cmd("play-pause"))
                                 .style(|_, _| Style::default()),
                                 button(icon("󰒭"))
-                                    .on_event(Message::command(["playerctl next"]))
+                                    .on_event(cmd("next"))
                                     .style(|_, _| Style::default()),
                             ]
                             .spacing(20)
@@ -292,7 +316,7 @@ impl Module for MediaMod {
                 let mut child = Command::new("sh")
                     .arg("-c")
                     .arg(
-                        "playerctl --follow metadata --format '{\"title\": \"{{title}}\", \"artist\": \"{{artist}}\", \"album\": \"{{album}}\", \"art_url\": \"{{mpris:artUrl}}\", \"length\": {{mpris:length}}, \"status\": \"{{status}}\"}'",
+                        "playerctl --follow metadata --format '{\"title\": \"{{title}}\", \"artist\": \"{{artist}}\", \"album\": \"{{album}}\", \"art_url\": \"{{mpris:artUrl}}\", \"length\": {{mpris:length}}, \"status\": \"{{status}}\", \"player\": \"{{playerName}}\"}'",
                     )
                     .stdout(Stdio::piped())
                     .spawn()
@@ -304,6 +328,7 @@ impl Module for MediaMod {
                     .expect("child did not have a handle to stdout");
 
                 let mut reader = BufReader::new(stdout).lines();
+                let mut last_track = String::new();
 
                 while let Some(track) = reader
                     .next_line()
@@ -313,27 +338,30 @@ impl Module for MediaMod {
                     .and_then(|line| serde_json::from_str::<TrackInfo>(line.as_str()).ok())
                 {
                     if let Some(url) = (!track.art_is_local).then_some(track.art_url.clone()) {
-                        let mut sender = sender.clone();
-                        tokio::task::spawn(async move {
-                            let Ok(response) = reqwest::get(&url).await else {
-                                eprintln!("Failed to get media cover: \"{url}\"");
-                                return;
-                            };
-                            let Ok(bytes) = response.bytes().await else {
-                                eprintln!("Failed to get bytes from media cover: \"{url}\"");
-                                return;
-                            };
-                            sender
-                                .send(Message::update(move |reg| {
-                                    reg.get_module_mut::<MediaMod>().img = Some(bytes.to_vec())
-                                }))
-                                .await
-                                .unwrap();
-                        });
+                        if url != last_track {
+                            last_track = url.clone();
+                            let mut sender = sender.clone();
+                            tokio::task::spawn(async move {
+                                let Ok(response) = reqwest::get(&url).await else {
+                                    eprintln!("Failed to get media cover: \"{url}\"");
+                                    return;
+                                };
+                                let Ok(bytes) = response.bytes().await else {
+                                    eprintln!("Failed to get bytes from media cover: \"{url}\"");
+                                    return;
+                                };
+                                sender
+                                    .send(Message::update(move |reg| {
+                                        reg.get_module_mut::<MediaMod>().img = Some(bytes.to_vec())
+                                    }))
+                                    .await
+                                    .unwrap();
+                            });
+                        }
                     }
                     sender
                         .send(Message::update(move |reg| {
-                            reg.get_module_mut::<MediaMod>().track = Some(track)
+                            reg.get_module_mut::<MediaMod>().new_track(track)
                         }))
                         .await
                         .unwrap();

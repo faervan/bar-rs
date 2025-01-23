@@ -49,9 +49,9 @@ impl Module for VolumeMod {
                     .font(NERD_FONT)
             )
             .style(|_, _| button::Style::default())
-            .on_press(Message::command([
+            .on_press(Message::command_sh(
                 "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
-            ]))
+            ))
             .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
             container(
                 text!["{}%", self.level,]

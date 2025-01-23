@@ -3,7 +3,7 @@ use std::{any::TypeId, collections::HashMap};
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::widget::button::Style;
-use iced::widget::{container, rich_text, scrollable, span, text};
+use iced::widget::{container, scrollable, text};
 use iced::Element;
 use niri_ipc::Window;
 
@@ -78,13 +78,13 @@ impl Module for NiriWindowMod {
         _handlebars: &Handlebars,
     ) -> Element<Message> {
         button(
-            rich_text([span(self.trimmed_title())
+            text(self.trimmed_title())
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
-            .fill(anchor),
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                .fill(anchor),
         )
         .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
-        .on_event_with(Message::popup::<Self>(250, 250))
+        .on_event_with(Message::popup::<Self>(400, 250))
         .style(|_, _| Style::default())
         .into()
     }

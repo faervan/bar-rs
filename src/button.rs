@@ -32,7 +32,7 @@ where
     F(EventHandlerFn<'a, Message>),
 }
 
-impl<'a, Message> ButtonEventHandler<'a, Message>
+impl<Message> ButtonEventHandler<'_, Message>
 where
     Message: Clone,
 {

@@ -128,14 +128,23 @@ impl Message {
     {
         Message::Action(Arc::new(ActionFn(Box::new(f))))
     }
-    fn command<I, S>(args: I) -> Self
+    #[allow(dead_code)]
+    fn command<I, S>(command: S, args: I) -> Self
     where
         I: IntoIterator<Item = S>,
         S: AsRef<std::ffi::OsStr>,
     {
+        let mut cmd = Command::new(command);
+        cmd.args(args);
+        Message::Spawn(Arc::new(cmd))
+    }
+    fn command_sh<S>(arg: S) -> Self
+    where
+        S: AsRef<std::ffi::OsStr>,
+    {
         let mut cmd = Command::new("sh");
         cmd.arg("-c");
-        cmd.args(args);
+        cmd.arg(arg);
         Message::Spawn(Arc::new(cmd))
     }
     fn popup<'a, T>(
