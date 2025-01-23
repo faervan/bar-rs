@@ -24,13 +24,41 @@ type EventHandlerFn<'a, Message> = Box<
         + 'a,
 >;
 
+enum ButtonEventHandler<'a, Message>
+where
+    Message: Clone,
+{
+    Message(Message),
+    F(EventHandlerFn<'a, Message>),
+}
+
+impl<'a, Message> ButtonEventHandler<'a, Message>
+where
+    Message: Clone,
+{
+    fn get(
+        &self,
+        event: iced::Event,
+        layout: iced::core::Layout,
+        cursor: iced::mouse::Cursor,
+        clipboard: &mut dyn iced::core::Clipboard,
+        viewport: &Rectangle,
+    ) -> Message {
+        match self {
+            ButtonEventHandler::Message(msg) => msg.clone(),
+            ButtonEventHandler::F(f) => f(event, layout, cursor, clipboard, viewport),
+        }
+    }
+}
+
 pub struct Button<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Renderer: iced::core::Renderer,
     Theme: Catalog,
+    Message: Clone,
 {
     content: Element<'a, Message, Theme, Renderer>,
-    on_event: Option<EventHandlerFn<'a, Message>>,
+    on_event: Option<ButtonEventHandler<'a, Message>>,
     id: Id,
     width: Length,
     height: Length,
@@ -43,6 +71,7 @@ impl<'a, Message, Theme, Renderer> Button<'a, Message, Theme, Renderer>
 where
     Renderer: iced::core::Renderer,
     Theme: Catalog,
+    Message: Clone,
 {
     /// Creates a new [`Button`] with the given content.
     pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
@@ -62,7 +91,13 @@ where
     }
 
     /// Defines the on_event action of the [`Button`]
-    pub fn on_event<F>(mut self, f: F) -> Self
+    pub fn on_event(mut self, msg: Message) -> Self {
+        self.on_event = Some(ButtonEventHandler::Message(msg));
+        self
+    }
+
+    /// Defines the on_event action of the [`Button`]
+    pub fn on_event_with<F>(mut self, f: F) -> Self
     where
         F: Fn(
                 iced::Event,
@@ -73,8 +108,27 @@ where
             ) -> Message
             + 'a,
     {
-        self.on_event = Some(Box::new(f));
+        self.on_event = Some(ButtonEventHandler::F(Box::new(f)));
         self
+    }
+
+    /// Defines the on_event action of the [`Button`], if Some
+    pub fn on_event_maybe_with<F>(self, f: Option<F>) -> Self
+    where
+        F: Fn(
+                iced::Event,
+                iced::core::Layout,
+                iced::mouse::Cursor,
+                &mut dyn iced::core::Clipboard,
+                &Rectangle,
+            ) -> Message
+            + 'a,
+    {
+        if let Some(f) = f {
+            self.on_event_with(f)
+        } else {
+            self
+        }
     }
 
     /// Sets the width of the [`Button`].
@@ -236,7 +290,7 @@ where
                         let bounds = layout.bounds();
 
                         if cursor.is_over(bounds) {
-                            shell.publish(on_press(event, layout, cursor, clipboard, viewport));
+                            shell.publish(on_press.get(event, layout, cursor, clipboard, viewport));
                         }
 
                         return event::Status::Captured;
@@ -250,7 +304,7 @@ where
                         && matches!(key, keyboard::Key::Named(keyboard::key::Named::Enter))
                     {
                         state.is_pressed = true;
-                        shell.publish(on_press(event, layout, cursor, clipboard, viewport));
+                        shell.publish(on_press.get(event, layout, cursor, clipboard, viewport));
                         return event::Status::Captured;
                     }
                 }
@@ -390,6 +444,7 @@ pub fn button<'a, Message, Theme, Renderer>(
 where
     Theme: Catalog + 'a,
     Renderer: iced::core::Renderer,
+    Message: Clone,
 {
     Button::new(content)
 }

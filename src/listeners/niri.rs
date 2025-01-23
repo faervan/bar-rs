@@ -96,7 +96,7 @@ impl Listener for NiriListener {
                                             windows.iter().find(|w| w.is_focused).map(|w| w.id);
                                         window_mod.windows = windows
                                             .into_iter()
-                                            .map(|w| (w.id, (w.title, w.app_id)))
+                                            .map(|w| (w.id, w))
                                             .collect()
                                     })),
                                     Event::WindowFocusChanged { id } => Some(Box::new(move |reg| {
@@ -109,7 +109,7 @@ impl Listener for NiriListener {
                                         }
                                         window_mod
                                         .windows
-                                        .insert(window.id, (window.title, window.app_id));
+                                        .insert(window.id, window);
                                     })),
                                     Event::WindowClosed { id } => Some(Box::new(move |reg| {
                                         reg.get_module_mut::<NiriWindowMod>().windows.remove(&id);

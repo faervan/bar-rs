@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::{collections::HashMap, time::Duration};
@@ -183,21 +182,12 @@ impl Module for BatteryMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event(|_, layout, _, _, _| Message::Popup {
-            type_id: TypeId::of::<Self>(),
-            dimension: iced::Rectangle {
-                x: layout.position().x as i32,
-                y: layout.bounds().height as i32,
-                width: 300,
-                height: 250,
-            },
-        })
+        .on_event_with(Message::popup::<Self>(250, 250))
         .style(|_, _| Style::default())
         .into()
     }
 
     fn popup_view(&self) -> Element<Message> {
-        //container(text!("{} {}%", self.icon(None, None), self.avg.capacity).size(20))
         container(scrollable(column(self.batteries.iter().map(|bat| {
             text!(
                 "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",

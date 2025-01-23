@@ -29,7 +29,7 @@ use iced::{
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
-use modules::{register_modules, Action};
+use modules::{register_modules, Action, Module};
 use registry::Registry;
 use resolvers::register_resolvers;
 use tokio::{
@@ -137,6 +137,34 @@ impl Message {
         cmd.arg("-c");
         cmd.args(args);
         Message::Spawn(Arc::new(cmd))
+    }
+    fn popup<'a, T>(
+        width: i32,
+        height: i32,
+    ) -> impl Fn(
+        iced::Event,
+        iced::core::Layout,
+        iced::mouse::Cursor,
+        &mut dyn iced::core::Clipboard,
+        &Rectangle,
+    ) -> Message
+           + 'a
+    where
+        T: Module,
+    {
+        move |_: iced::Event,
+              layout: iced::core::Layout,
+              _: iced::mouse::Cursor,
+              _: &mut dyn iced::core::Clipboard,
+              _: &Rectangle| Message::Popup {
+            type_id: TypeId::of::<T>(),
+            dimension: Rectangle {
+                x: layout.position().x as i32,
+                y: layout.bounds().height as i32,
+                width,
+                height,
+            },
+        }
     }
 }
 
