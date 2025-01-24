@@ -1,7 +1,8 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{self, BufRead, BufReader, ErrorKind, Read},
+    hash::Hash,
+    io::{self, BufRead, BufReader},
     num,
     time::Duration,
 };
@@ -25,7 +26,8 @@ use super::Module;
 
 #[derive(Debug, Default, Builder)]
 pub struct CpuMod {
-    usage: usize,
+    avg_usage: CpuStats<u8>,
+    _cores: HashMap<u8, CpuStats<u8>>,
     cfg_override: ModuleConfigOverride,
     icon: Option<String>,
 }
@@ -52,7 +54,7 @@ impl Module for CpuMod {
             )
             .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
             container(
-                text!["{}%", self.usage]
+                text!["{}%", self.avg_usage.all]
                     .fill(anchor)
                     .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                     .color(self.cfg_override.text_color.unwrap_or(config.text_color))
@@ -77,109 +79,121 @@ impl Module for CpuMod {
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {
             stream::channel(1, |mut sender| async move {
+                let interval: u64 = 500;
+                let gap: u64 = 2000;
                 loop {
-                    let (mut active, mut total) = (vec![], vec![]);
-                    for _ in 0..3 {
-                        sleep(Duration::from_millis(1000 / 3)).await;
-                        let (a, t) = read_stats().unwrap_or_else(|e| {
-                            panic!("Failed to read cpu stats from /proc/stat ... err: {e:?}")
-                        });
-                        active.push(a);
-                        total.push(t);
-                    }
-
-                    let delta_active = (active[1] - active[0]) + (active[2] - active[1]);
-                    let delta_total = (total[1] - total[0]) + (total[2] - total[1]);
-
-                    let average = match delta_total == 0 {
-                        true => 0.,
-                        false => (delta_active as f32 / delta_total as f32) * 100.0,
+                    let Ok(raw_stats1) = read_raw_stats() else {
+                        eprintln!("Failed to read cpu stats from /proc/stat");
+                        return;
                     };
+                    sleep(Duration::from_millis(interval)).await;
+                    let Ok(raw_stats2) = read_raw_stats() else {
+                        eprintln!("Failed to read cpu stats from /proc/stat");
+                        return;
+                    };
+
+                    let stats = (
+                        raw_stats1.get(&CpuType::All).unwrap(),
+                        raw_stats2.get(&CpuType::All).unwrap(),
+                    )
+                        .into();
 
                     sender
                         .send(Message::update(move |reg| {
-                            reg.get_module_mut::<CpuMod>().usage = average as usize
+                            reg.get_module_mut::<CpuMod>().avg_usage = stats
                         }))
                         .await
                         .unwrap_or_else(|err| {
                             eprintln!("Trying to send cpu_usage failed with err: {err}");
                         });
 
-                    sleep(Duration::from_secs(2)).await;
+                    sleep(Duration::from_millis(gap)).await;
                 }
             })
         }))
     }
 }
 
-fn read_stats() -> Result<(u32, u32), ReadError> {
-    let file = File::open("/proc/stat")?;
-    let reader = BufReader::new(file);
-    let line = reader
-        .lines()
-        .next()
-        .ok_or(io::Error::new(ErrorKind::UnexpectedEof, "shit"))??;
-
-    let parts: Vec<&str> = line.split_whitespace().collect();
-    let user: u32 = parts[1].parse()?;
-    let nice: u32 = parts[2].parse()?;
-    let system: u32 = parts[3].parse()?;
-    let idle: u32 = parts[4].parse()?;
-    let iowait: u32 = parts[5].parse()?;
-    let irq: u32 = parts[6].parse()?;
-    let softirq: u32 = parts[7].parse()?;
-
-    let active_time = user + nice + system + irq + softirq;
-    let total_time = active_time + idle + iowait;
-
-    Ok((active_time, total_time))
-}
-
-#[derive(Default)]
-enum StatType {
+#[derive(Default, Hash, PartialEq, Eq)]
+enum CpuType {
     #[default]
-    Average,
+    All,
     Core(u8),
 }
 
-#[derive(Default)]
+impl From<&str> for CpuType {
+    fn from(value: &str) -> Self {
+        value
+            .strip_prefix("cpu")
+            .and_then(|v| v.parse().ok().map(Self::Core))
+            .unwrap_or(Self::All)
+    }
+}
+
+#[derive(Default, Debug)]
 struct CpuStats<T> {
-    ty: StatType,
     all: T,
     user: T,
     system: T,
     guest: T,
+    total: T,
 }
 
-impl TryFrom<String> for CpuStats<TimeStats> {
+impl TryFrom<&str> for CpuStats<usize> {
     type Error = ReadError;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let parts: Vec<&str> = value.split_whitespace().collect();
-        let cpu_type = parts[0];
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         let values: Result<Vec<usize>, num::ParseIntError> =
-            parts[1..].iter().map(|p| p.parse()).collect();
+            value.split_whitespace().map(|p| p.parse()).collect();
+        // Documentation can be found at
+        // https://docs.kernel.org/filesystems/proc.html#miscellaneous-kernel-statistics-in-proc-stat
         let [user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice] =
             values?[..]
         else {
             return Err(ReadError::ValueListInvalid);
         };
-        Ok(Default::default())
+        let all = user + nice + system + irq + softirq;
+        Ok(CpuStats {
+            all,
+            user: user + nice,
+            system,
+            guest: guest + guest_nice,
+            total: all + idle + iowait + steal,
+        })
     }
 }
 
-#[derive(Default)]
-struct TimeStats {
-    active: usize,
-    total: usize,
+impl From<(&CpuStats<usize>, &CpuStats<usize>)> for CpuStats<u8> {
+    fn from((stats1, stats2): (&CpuStats<usize>, &CpuStats<usize>)) -> Self {
+        let delta_all = stats2.all - stats1.all;
+        let delta_user = stats2.user - stats1.user;
+        let delta_system = stats2.system - stats1.system;
+        let delta_guest = stats2.guest - stats1.guest;
+        let delta_total = stats2.total - stats1.total;
+        if delta_total == 0 {
+            return Self::default();
+        }
+        Self {
+            all: ((delta_all as f32 / delta_total as f32) * 100.) as u8,
+            user: ((delta_user as f32 / delta_total as f32) * 100.) as u8,
+            system: ((delta_system as f32 / delta_total as f32) * 100.) as u8,
+            guest: ((delta_guest as f32 / delta_total as f32) * 100.) as u8,
+            total: 0,
+        }
+    }
 }
 
-fn read_statsx() -> Result<HashMap<StatType, CpuStats<TimeStats>>, ReadError> {
+fn read_raw_stats() -> Result<HashMap<CpuType, CpuStats<usize>>, ReadError> {
+    // Documentation can be found at
+    // https://docs.kernel.org/filesystems/proc.html#miscellaneous-kernel-statistics-in-proc-stat
     let file = File::open("/proc/stats")?;
     let reader = BufReader::new(file);
-    let lines = reader
-        .lines()
-        .filter(|l| l.as_ref().is_ok_and(|l| l.starts_with("cpu")));
-    Ok(HashMap::new())
+    let lines = reader.lines().filter_map(|l| {
+        l.ok().and_then(|line| {
+            let (cpu, data) = line.split_once(' ')?;
+            Some((cpu.into(), data.try_into().ok()?))
+        })
+    });
+    Ok(lines.collect())
 }
 
 #[allow(dead_code)]
