@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{self, BufRead, BufReader, ErrorKind},
+    io::{self, BufRead, BufReader, ErrorKind, Read},
     num,
     time::Duration,
 };
@@ -135,11 +135,59 @@ fn read_stats() -> Result<(u32, u32), ReadError> {
     Ok((active_time, total_time))
 }
 
+#[derive(Default)]
+enum StatType {
+    #[default]
+    Average,
+    Core(u8),
+}
+
+#[derive(Default)]
+struct CpuStats<T> {
+    ty: StatType,
+    all: T,
+    user: T,
+    system: T,
+    guest: T,
+}
+
+impl TryFrom<String> for CpuStats<TimeStats> {
+    type Error = ReadError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let parts: Vec<&str> = value.split_whitespace().collect();
+        let cpu_type = parts[0];
+        let values: Result<Vec<usize>, num::ParseIntError> =
+            parts[1..].iter().map(|p| p.parse()).collect();
+        let [user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice] =
+            values?[..]
+        else {
+            return Err(ReadError::ValueListInvalid);
+        };
+        Ok(Default::default())
+    }
+}
+
+#[derive(Default)]
+struct TimeStats {
+    active: usize,
+    total: usize,
+}
+
+fn read_statsx() -> Result<HashMap<StatType, CpuStats<TimeStats>>, ReadError> {
+    let file = File::open("/proc/stats")?;
+    let reader = BufReader::new(file);
+    let lines = reader
+        .lines()
+        .filter(|l| l.as_ref().is_ok_and(|l| l.starts_with("cpu")));
+    Ok(HashMap::new())
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 enum ReadError {
     IoError(io::Error),
     ParseError(num::ParseIntError),
+    ValueListInvalid,
 }
 
 impl From<io::Error> for ReadError {

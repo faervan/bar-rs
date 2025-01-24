@@ -45,10 +45,10 @@ impl Default for BatteryMod {
                 (0, "󰂎".to_string()),
             ]),
             icons_charging: BTreeMap::from([
-                (80, "󱊦".to_string()),
-                (60, "󱊥".to_string()),
-                (25, "󱊤".to_string()),
-                (0, "󰢟".to_string()),
+                (80, "󱊦 ".to_string()),
+                (60, "󱊥 ".to_string()),
+                (25, "󱊤 ".to_string()),
+                (0, "󰢟 ".to_string()),
             ]),
         }
     }
