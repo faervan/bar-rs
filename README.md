@@ -7,9 +7,9 @@ A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (
 
 ![image](https://github.com/user-attachments/assets/c62d8399-0f80-4c3b-8cb8-a325db13fc32)
 
-![image](https://github.com/user-attachments/assets/1a2de7fe-ffa4-4cde-9ccd-2c6c74e579b6)
+![image](https://github.com/user-attachments/assets/93b3ae22-63c7-44d6-8538-273d83afb2e9)
 
-![image](https://github.com/user-attachments/assets/52f343cd-5397-4165-8189-9727627c816f)
+![image](https://github.com/user-attachments/assets/d0073653-01ed-4084-9c33-0d161cd98ec7)
 
 
 
