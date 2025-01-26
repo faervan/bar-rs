@@ -1,6 +1,6 @@
 use iced::platform_specific::shell::commands::layer_surface::Anchor;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum BarAnchor {
     Left,
     Right,

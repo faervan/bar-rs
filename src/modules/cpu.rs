@@ -65,7 +65,7 @@ impl Module for CpuMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(150, 350))
+        .on_event_with(Message::popup::<Self>(150, 350, anchor))
         .style(|_, _| Style::default())
         .into()
     }

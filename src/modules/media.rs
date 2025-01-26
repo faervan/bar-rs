@@ -197,7 +197,7 @@ impl Module for MediaMod {
         .on_event_maybe_with(
             self.track
                 .as_ref()
-                .map(|_| Message::popup::<Self>(300, 400)),
+                .map(|_| Message::popup::<Self>(300, 400, anchor)),
         )
         .style(|_, _| Style::default())
         .into()

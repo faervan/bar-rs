@@ -10,7 +10,11 @@ use date::DateMod;
 use downcast_rs::{impl_downcast, Downcast};
 use handlebars::Handlebars;
 use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
-use iced::{theme::Palette, widget::container, Color, Theme};
+use iced::{
+    theme::Palette,
+    widget::{container, Container},
+    Alignment, Color, Theme,
+};
 use iced::{widget::container::Style, Element, Subscription};
 use media::MediaMod;
 use memory::MemoryMod;
@@ -91,11 +95,23 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     ) {
     }
     #[allow(unused_variables, dead_code)]
-    /// Handle an action (likely produced by a user interaction.)
+    /// Handle an action (likely produced by a user interaction).
     fn handle_action(&mut self, action: Box<dyn Action>) {}
     /// The view of a popup
     fn popup_view(&self) -> Element<Message> {
         "Missing implementation".into()
+    }
+    /// The wrapper around a popup
+    fn popup_wrapper<'a>(&'a self, anchor: &BarAnchor) -> Element<'a, Message> {
+        let align = |elem: Container<'a, Message>| -> Container<'a, Message> {
+            match anchor {
+                BarAnchor::Top => elem.align_y(Alignment::Start),
+                BarAnchor::Bottom => elem.align_y(Alignment::End),
+                BarAnchor::Left => elem.align_x(Alignment::Start),
+                BarAnchor::Right => elem.align_x(Alignment::End),
+            }
+        };
+        align(container(self.popup_view()).fill(anchor)).into()
     }
     /// The theme of a popup
     fn popup_theme(&self) -> Theme {

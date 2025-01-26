@@ -79,7 +79,7 @@ struct AverageStats {
     minutes: u16,
     // If you have a laptop with AC not plugged in, yet all batteries report power_now as 0,
     // something's gotta be wrong.
-    cursed: bool,
+    _cursed: bool,
 }
 
 #[derive(Debug, Default)]
@@ -169,20 +169,16 @@ impl Module for BatteryMod {
                 )
                 .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
                 container(
-                    match self.avg.cursed {
-                        true => text!["{}% - ?", self.avg.capacity],
-                        false =>
-                            text!["{}", handlebars.render("battery", &ctx).unwrap_or_default()],
-                    }
-                    .fill(anchor)
-                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))
-                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                    text!["{}", handlebars.render("battery", &ctx).unwrap_or_default()]
+                        .fill(anchor)
+                        .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                        .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 )
                 .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(250, 250))
+        .on_event_with(Message::popup::<Self>(250, 250, anchor))
         .style(|_, _| Style::default())
         .into()
     }
@@ -362,7 +358,7 @@ impl From<&Vec<BatteryStats>> for AverageStats {
             charging,
             hours: time_remaining.floor() as u16,
             minutes: ((time_remaining - time_remaining.floor()) * 60.) as u16,
-            cursed: power_now == 0.,
+            _cursed: power_now == 0.,
         }
     }
 }

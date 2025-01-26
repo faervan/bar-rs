@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
+use config::{anchor::BarAnchor, get_config_dir, read_config, Config, EnabledModules, Thrice};
 use fill::FillExt;
 use handlebars::Handlebars;
 use iced::{
@@ -150,6 +150,7 @@ impl Message {
     fn popup<'a, T>(
         width: i32,
         height: i32,
+        anchor: &BarAnchor,
     ) -> impl Fn(
         iced::Event,
         iced::core::Layout,
@@ -161,18 +162,33 @@ impl Message {
     where
         T: Module,
     {
+        let anchor = *anchor;
         move |_: iced::Event,
               layout: iced::core::Layout,
               _: iced::mouse::Cursor,
               _: &mut dyn iced::core::Clipboard,
-              _: &Rectangle| Message::Popup {
-            type_id: TypeId::of::<T>(),
-            dimension: Rectangle {
-                x: layout.position().x as i32,
-                y: layout.bounds().height as i32,
-                width,
-                height,
-            },
+              _: &Rectangle| {
+            let bounds = layout.bounds();
+            let position = layout.position();
+            let x = match anchor {
+                BarAnchor::Left => bounds.width as i32,
+                BarAnchor::Right => -width,
+                _ => position.x as i32,
+            };
+            let y = match anchor {
+                BarAnchor::Top => bounds.height as i32,
+                BarAnchor::Bottom => -height,
+                _ => position.y as i32,
+            };
+            Message::Popup {
+                type_id: TypeId::of::<T>(),
+                dimension: Rectangle {
+                    x,
+                    y,
+                    width,
+                    height,
+                },
+            }
         }
     }
 }
@@ -339,7 +355,9 @@ impl Bar<'_> {
             .popup
             .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
         {
-            self.registry.get_module_by_id(mod_id).popup_view()
+            self.registry
+                .get_module_by_id(mod_id)
+                .popup_wrapper(&self.config.anchor)
         } else {
             "Internal error".into()
         }

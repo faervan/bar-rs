@@ -84,7 +84,7 @@ impl Module for NiriWindowMod {
                 .fill(anchor),
         )
         .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
-        .on_event_with(Message::popup::<Self>(400, 250))
+        .on_event_with(Message::popup::<Self>(400, 250, anchor))
         .style(|_, _| Style::default())
         .into()
     }
