@@ -5,7 +5,7 @@
 
 A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (specifically the [pop-os fork](https://github.com/pop-os/iced/) of iced, which supports the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1))
 
-![2024-12-29_17-16](https://github.com/user-attachments/assets/199452ec-b5bc-4ac3-ac35-ef7aed732c2f)
+![image](https://github.com/user-attachments/assets/c62d8399-0f80-4c3b-8cb8-a325db13fc32)
 
 ![image](https://github.com/user-attachments/assets/1a2de7fe-ffa4-4cde-9ccd-2c6c74e579b6)
 
