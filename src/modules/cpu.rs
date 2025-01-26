@@ -9,11 +9,12 @@ use std::{
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::container;
+use iced::widget::{button::Style, container, scrollable};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::time::sleep;
 
 use crate::{
+    button::button,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
@@ -43,26 +44,61 @@ impl Module for CpuMod {
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
-        list![
-            anchor,
-            container(
-                text!("{}", self.icon.as_ref().unwrap_or(&"󰻠".to_string()))
-                    .fill(anchor)
-                    .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
-                    .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                    .font(NERD_FONT)
-            )
-            .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
-            container(
-                text!["{}%", self.avg_usage.all]
-                    .fill(anchor)
-                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))
-            )
-            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
-        ]
-        .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
+        button(
+            list![
+                anchor,
+                container(
+                    text!("{}", self.icon.as_ref().unwrap_or(&"󰻠".to_string()))
+                        .fill(anchor)
+                        .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                        .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                        .font(NERD_FONT)
+                )
+                .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
+                container(
+                    text!["{}%", self.avg_usage.all]
+                        .fill(anchor)
+                        .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                        .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                )
+                .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
+            ]
+            .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
+        )
+        .on_event_with(Message::popup::<Self>(250, 250))
+        .style(|_, _| Style::default())
         .into()
+    }
+
+    fn popup_view(&self) -> Element<Message> {
+        /*container(scrollable(column(self.batteries.iter().map(|bat| {
+            text!(
+                "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",
+                bat.name,
+                bat.state,
+                bat.icon(self),
+                bat.capacity(),
+                bat.energy_now.floor() as u32 / 1000000,
+                bat.health,
+                bat.remaining.map_or(Default::default(), |(h, m)| format!(
+                    "\n\t{h}h {m}min remaining"
+                )),
+                bat.model_name,
+            )
+            .into()
+        }))))
+        .padding([10, 20])
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(iced::Color {
+                r: 0.,
+                g: 0.,
+                b: 0.,
+                a: 0.8,
+            })),
+            border: iced::Border::default().rounded(8),
+            ..Default::default()
+        })
+        .into()*/
     }
 
     impl_wrapper!();
@@ -82,8 +118,9 @@ impl Module for CpuMod {
                 let interval: u64 = 500;
                 let gap: u64 = 2000;
                 loop {
-                    let Ok(raw_stats1) = read_raw_stats() else {
-                        eprintln!("Failed to read cpu stats from /proc/stat");
+                    let Ok(raw_stats1) = read_raw_stats()
+                        .map_err(|e| eprintln!("Failed to read cpu stats from /proc/stat: {e:?}"))
+                    else {
                         return;
                     };
                     sleep(Duration::from_millis(interval)).await;
@@ -185,7 +222,7 @@ impl From<(&CpuStats<usize>, &CpuStats<usize>)> for CpuStats<u8> {
 fn read_raw_stats() -> Result<HashMap<CpuType, CpuStats<usize>>, ReadError> {
     // Documentation can be found at
     // https://docs.kernel.org/filesystems/proc.html#miscellaneous-kernel-statistics-in-proc-stat
-    let file = File::open("/proc/stats")?;
+    let file = File::open("/proc/stat")?;
     let reader = BufReader::new(file);
     let lines = reader.lines().filter_map(|l| {
         l.ok().and_then(|line| {
