@@ -156,7 +156,7 @@ impl<'de> Deserialize<'de> for TrackInfo {
                 .unwrap_or_default() as f32,
             paused: map
                 .get("status")
-                .map(|v| matches!(v.as_str(), Some("Playing")))
+                .map(|v| !matches!(v.as_str(), Some("Playing")))
                 .unwrap_or(true),
         })
     }

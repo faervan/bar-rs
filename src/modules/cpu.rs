@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs::File,
     hash::Hash,
     io::{self, BufRead, BufReader},
@@ -9,7 +9,7 @@ use std::{
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{button::Style, container, scrollable};
+use iced::widget::{button::Style, column, container, scrollable};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::time::sleep;
 
@@ -28,7 +28,7 @@ use super::Module;
 #[derive(Debug, Default, Builder)]
 pub struct CpuMod {
     avg_usage: CpuStats<u8>,
-    _cores: HashMap<u8, CpuStats<u8>>,
+    cores: BTreeMap<CpuType, CpuStats<u8>>,
     cfg_override: ModuleConfigOverride,
     icon: Option<String>,
 }
@@ -65,28 +65,26 @@ impl Module for CpuMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(250, 250))
+        .on_event_with(Message::popup::<Self>(150, 350))
         .style(|_, _| Style::default())
         .into()
     }
 
     fn popup_view(&self) -> Element<Message> {
-        /*container(scrollable(column(self.batteries.iter().map(|bat| {
-            text!(
-                "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",
-                bat.name,
-                bat.state,
-                bat.icon(self),
-                bat.capacity(),
-                bat.energy_now.floor() as u32 / 1000000,
-                bat.health,
-                bat.remaining.map_or(Default::default(), |(h, m)| format!(
-                    "\n\t{h}h {m}min remaining"
-                )),
-                bat.model_name,
+        container(scrollable(column![
+            text!["Total: {}%", self.avg_usage.all],
+            text!["User: {}%", self.avg_usage.user],
+            text!["System: {}%", self.avg_usage.system],
+            text!["Guest: {}%", self.avg_usage.guest],
+            column(
+                self.cores.iter().map(|(ty, stats)| text!(
+                    "Cpu{}: {}%",
+                    ty.get_core_index(),
+                    stats.all
+                )
+                .into())
             )
-            .into()
-        }))))
+        ]))
         .padding([10, 20])
         .style(|_| container::Style {
             background: Some(iced::Background::Color(iced::Color {
@@ -98,7 +96,7 @@ impl Module for CpuMod {
             border: iced::Border::default().rounded(8),
             ..Default::default()
         })
-        .into()*/
+        .into()
     }
 
     impl_wrapper!();
@@ -118,26 +116,37 @@ impl Module for CpuMod {
                 let interval: u64 = 500;
                 let gap: u64 = 2000;
                 loop {
-                    let Ok(raw_stats1) = read_raw_stats()
+                    let Ok(mut raw_stats1) = read_raw_stats()
                         .map_err(|e| eprintln!("Failed to read cpu stats from /proc/stat: {e:?}"))
                     else {
                         return;
                     };
                     sleep(Duration::from_millis(interval)).await;
-                    let Ok(raw_stats2) = read_raw_stats() else {
+                    let Ok(mut raw_stats2) = read_raw_stats() else {
                         eprintln!("Failed to read cpu stats from /proc/stat");
                         return;
                     };
 
-                    let stats = (
-                        raw_stats1.get(&CpuType::All).unwrap(),
-                        raw_stats2.get(&CpuType::All).unwrap(),
+                    let avg = (
+                        &raw_stats1.remove(&CpuType::All).unwrap(),
+                        &raw_stats2.remove(&CpuType::All).unwrap(),
                     )
                         .into();
 
+                    let cores = raw_stats1
+                        .into_iter()
+                        .filter_map(|(ty, stats1)| {
+                            raw_stats2
+                                .get(&ty)
+                                .map(|stats2| (ty, (&stats1, stats2).into()))
+                        })
+                        .collect();
+
                     sender
                         .send(Message::update(move |reg| {
-                            reg.get_module_mut::<CpuMod>().avg_usage = stats
+                            let m = reg.get_module_mut::<CpuMod>();
+                            m.avg_usage = avg;
+                            m.cores = cores
                         }))
                         .await
                         .unwrap_or_else(|err| {
@@ -151,11 +160,20 @@ impl Module for CpuMod {
     }
 }
 
-#[derive(Default, Hash, PartialEq, Eq)]
+#[derive(Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 enum CpuType {
     #[default]
     All,
     Core(u8),
+}
+
+impl CpuType {
+    fn get_core_index(&self) -> u8 {
+        match self {
+            CpuType::All => 255,
+            CpuType::Core(index) => *index,
+        }
+    }
 }
 
 impl From<&str> for CpuType {
