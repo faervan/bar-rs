@@ -238,8 +238,6 @@ impl From<(&CpuStats<usize>, &CpuStats<usize>)> for CpuStats<u8> {
 }
 
 fn read_raw_stats() -> Result<HashMap<CpuType, CpuStats<usize>>, ReadError> {
-    // Documentation can be found at
-    // https://docs.kernel.org/filesystems/proc.html#miscellaneous-kernel-statistics-in-proc-stat
     let file = File::open("/proc/stat")?;
     let reader = BufReader::new(file);
     let lines = reader.lines().filter_map(|l| {
