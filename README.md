@@ -23,6 +23,7 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [x] very basic style customization
 - [x] basic vertical bar support
 - [x] a base set of useful modules
+- [x] Module interactivity (popups, buttons)
 - [x] hyprland workspace + window modules
 - [x] wayfire workspace + window modules
 - [x] niri workspace + window modules
@@ -33,7 +34,6 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [ ] plugin api (for custom rust modules)
 - [ ] custom fonts
 - [ ] X11 support
-- [ ] Module interactivity (tooltips, popups, buttons)
 - ...
 
 ## Installation

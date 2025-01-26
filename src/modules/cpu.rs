@@ -78,7 +78,7 @@ impl Module for CpuMod {
             text!["Guest: {}%", self.avg_usage.guest],
             column(
                 self.cores.iter().map(|(ty, stats)| text!(
-                    "Cpu{}: {}%",
+                    "Core {}: {}%",
                     ty.get_core_index(),
                     stats.all
                 )
