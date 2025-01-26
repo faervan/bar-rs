@@ -1,5 +1,7 @@
 use configparser::ini::Ini;
-use iced::{Background, Color};
+use iced::{
+    platform_specific::shell::commands::layer_surface::KeyboardInteractivity, Background, Color,
+};
 
 use crate::{registry::Registry, OptionExt};
 
@@ -36,6 +38,10 @@ impl From<(&Ini, &Registry)> for Config {
                 .into_anchor()
                 .unwrap_or(default.anchor),
             monitor: ini.get("general", "monitor"),
+            kb_focus: ini
+                .get("general", "kb_focus")
+                .into_kb_focus()
+                .unwrap_or(default.kb_focus),
         }
     }
 }
@@ -48,6 +54,7 @@ pub trait StringExt {
     fn into_anchor(self) -> Option<BarAnchor>;
     fn into_insets(self) -> Option<Insets>;
     fn into_background(self) -> Option<Background>;
+    fn into_kb_focus(self) -> Option<KeyboardInteractivity>;
 }
 
 impl StringExt for &Option<String> {
@@ -115,6 +122,14 @@ impl StringExt for &Option<String> {
     }
     fn into_background(self) -> Option<Background> {
         self.into_color().map(Background::Color)
+    }
+    fn into_kb_focus(self) -> Option<KeyboardInteractivity> {
+        self.as_ref().and_then(|v| match v.as_str() {
+            "none" => Some(KeyboardInteractivity::None),
+            "on_demand" => Some(KeyboardInteractivity::OnDemand),
+            "exclusive" => Some(KeyboardInteractivity::Exclusive),
+            _ => None,
+        })
     }
 }
 

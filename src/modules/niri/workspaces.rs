@@ -1,12 +1,13 @@
-use std::{any::TypeId, collections::HashMap};
+use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::{
-    widget::{container, rich_text, span},
+    widget::{button, container, text},
     Background, Border, Color, Element, Padding,
 };
 use niri_ipc::Workspace;
+use tokio::sync::broadcast;
 
 use crate::{
     config::{
@@ -17,7 +18,7 @@ use crate::{
     fill::FillExt,
     impl_wrapper, list,
     listeners::niri::NiriListener,
-    modules::{require_listener, Module},
+    modules::{require_listener, Action, Module},
     Message, NERD_FONT,
 };
 
@@ -25,6 +26,7 @@ use crate::{
 pub struct NiriWorkspaceMod {
     pub workspaces: HashMap<String, Vec<Workspace>>,
     pub focused: u64,
+    pub sender: broadcast::Sender<Arc<dyn Action>>,
     cfg_override: ModuleConfigOverride,
     icon_padding: Padding,
     icon_background: Option<Background>,
@@ -46,6 +48,7 @@ impl Default for NiriWorkspaceMod {
         Self {
             workspaces: HashMap::new(),
             focused: 0,
+            sender: broadcast::channel(1).0,
             cfg_override: Default::default(),
             icon_padding: Padding::default(),
             icon_background: None,
@@ -85,6 +88,9 @@ impl NiriWorkspaceMod {
     }
 }
 
+pub type SelectWorkspace = u64;
+impl Action for SelectWorkspace {}
+
 impl Module for NiriWorkspaceMod {
     fn name(&self) -> String {
         "niri.workspaces".to_string()
@@ -100,7 +106,7 @@ impl Module for NiriWorkspaceMod {
             anchor,
             self.sort_by_outputs(|(output, workspaces)| {
                 workspaces.iter().map(|ws| {
-                    let mut span = span(
+                    let mut text = text(
                         self.icons
                             .get(&output.to_lowercase())
                             .and_then(|icons| icons.get(&ws.idx))
@@ -109,23 +115,37 @@ impl Module for NiriWorkspaceMod {
                                 false => &self.fallback_icon,
                             }),
                     )
-                    .padding(self.icon_padding)
                     .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                     .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                    .background_maybe(self.icon_background)
-                    .border(self.icon_border)
                     .font(NERD_FONT);
-                    if ws.id == self.focused {
-                        span = span
-                            .padding(self.active_padding.unwrap_or(self.icon_padding))
-                            .size(self.active_size)
-                            .color(self.active_color)
-                            .background_maybe(self.active_background)
-                            .border(self.active_icon_border);
+                    let mut btn_style = button::Style {
+                        background: self.icon_background,
+                        border: self.icon_border,
+                        ..Default::default()
+                    };
+                    let id = ws.id;
+                    if id == self.focused {
+                        text = text.size(self.active_size).color(self.active_color);
+                        btn_style.background = self.active_background;
+                        btn_style.border = self.active_icon_border;
                     }
-                    container(rich_text![span].fill(anchor))
-                        .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
-                        .into()
+                    container(
+                        button(text)
+                            .padding(match id == self.focused {
+                                true => self.active_padding.unwrap_or(self.icon_padding),
+                                false => self.icon_padding,
+                            })
+                            .style(move |_, _| btn_style)
+                            .on_press(Message::action(move |reg| {
+                                reg.get_module::<NiriWorkspaceMod>()
+                                    .sender
+                                    .send(Arc::new(id))
+                                    .unwrap();
+                            })),
+                    )
+                    .fill(anchor)
+                    .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
+                    .into()
                 })
             }),
         )

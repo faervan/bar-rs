@@ -1,13 +1,16 @@
 use std::collections::BTreeMap;
+use std::fmt::Display;
 use std::{collections::HashMap, time::Duration};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::container;
+use iced::widget::button::Style;
+use iced::widget::{column, container, scrollable};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
+use crate::button::button;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -20,19 +23,123 @@ use crate::{
 
 use super::Module;
 
-#[derive(Debug, Default, Builder)]
+#[derive(Debug, Builder)]
 pub struct BatteryMod {
-    stats: BatteryStats,
+    avg: AverageStats,
+    batteries: Vec<Battery>,
     cfg_override: ModuleConfigOverride,
+    icons: BTreeMap<u8, String>,
+    icons_charging: BTreeMap<u8, String>,
+}
+
+impl Default for BatteryMod {
+    fn default() -> Self {
+        BatteryMod {
+            avg: AverageStats::default(),
+            batteries: vec![],
+            cfg_override: Default::default(),
+            icons: BTreeMap::from([
+                (80, "󱊣".to_string()),
+                (60, "󱊢".to_string()),
+                (25, "󱊡".to_string()),
+                (0, "󰂎".to_string()),
+            ]),
+            icons_charging: BTreeMap::from([
+                (80, "󱊦 ".to_string()),
+                (60, "󱊥 ".to_string()),
+                (25, "󱊤 ".to_string()),
+                (0, "󰢟 ".to_string()),
+            ]),
+        }
+    }
+}
+
+impl BatteryMod {
+    fn icon(&self, capacity: Option<u8>, charging: Option<bool>) -> &String {
+        let capacity = capacity.unwrap_or(self.avg.capacity);
+        let is_charging = charging.unwrap_or(self.avg.charging);
+        let icons = match is_charging {
+            true => &self.icons_charging,
+            false => &self.icons,
+        };
+        icons
+            .iter()
+            .filter(|(k, _)| capacity >= **k)
+            .last()
+            .unwrap()
+            .1
+    }
 }
 
 #[derive(Debug, Default)]
-struct BatteryStats {
-    capacity: u16,
+struct AverageStats {
+    capacity: u8,
+    charging: bool,
     hours: u16,
     minutes: u16,
-    power_now_is_zero: bool,
-    icon: &'static str,
+    // If you have a laptop with AC not plugged in, yet all batteries report power_now as 0,
+    // something's gotta be wrong.
+    _cursed: bool,
+}
+
+#[derive(Debug, Default)]
+enum BatteryState {
+    Charging,
+    Discharging,
+    #[default]
+    Idle,
+}
+
+impl Display for BatteryState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Charging => "charging",
+                Self::Discharging => "discharging",
+                Self::Idle => "",
+            }
+        )
+    }
+}
+
+#[derive(Debug, Default)]
+struct Battery {
+    name: String,
+    model_name: String,
+    energy_now: f32,
+    energy_full: f32,
+    health: u8,
+    state: BatteryState,
+    /// (hours, minutes)
+    remaining: Option<(u16, u16)>,
+}
+
+impl Battery {
+    fn capacity(&self) -> u8 {
+        (self.energy_now / self.energy_full * 100.) as u8
+    }
+
+    fn is_charging(&self) -> bool {
+        matches!(self.state, BatteryState::Charging)
+    }
+
+    fn icon<'a>(&'a self, module: &'a BatteryMod) -> &'a String {
+        module.icon(Some(self.capacity()), Some(self.is_charging()))
+    }
+}
+
+#[derive(Default, Debug)]
+struct BatteryStats {
+    name: String,
+    model_name: String,
+    energy_now: f32,
+    energy_full: f32,
+    energy_full_design: f32,
+    power_now: f32,
+    voltage_now: f32,
+    charging: bool,
 }
 
 impl Module for BatteryMod {
@@ -47,31 +154,63 @@ impl Module for BatteryMod {
         handlebars: &Handlebars,
     ) -> Element<Message> {
         let mut ctx = BTreeMap::new();
-        ctx.insert("capacity", self.stats.capacity);
-        ctx.insert("hours", self.stats.hours);
-        ctx.insert("minutes", self.stats.minutes);
-        list![
-            anchor,
-            container(
-                text!("{}", self.stats.icon)
-                    .fill(anchor)
-                    .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                    .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
-                    .font(NERD_FONT)
+        ctx.insert("capacity", self.avg.capacity as u16);
+        ctx.insert("hours", self.avg.hours);
+        ctx.insert("minutes", self.avg.minutes);
+        button(
+            list![
+                anchor,
+                container(
+                    text!("{}", self.icon(None, None))
+                        .fill(anchor)
+                        .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                        .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                        .font(NERD_FONT)
+                )
+                .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
+                container(
+                    text!["{}", handlebars.render("battery", &ctx).unwrap_or_default()]
+                        .fill(anchor)
+                        .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                        .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                )
+                .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
+            ]
+            .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
+        )
+        .on_event_with(Message::popup::<Self>(250, 250, anchor))
+        .style(|_, _| Style::default())
+        .into()
+    }
+
+    fn popup_view(&self) -> Element<Message> {
+        container(scrollable(column(self.batteries.iter().map(|bat| {
+            text!(
+                "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",
+                bat.name,
+                bat.state,
+                bat.icon(self),
+                bat.capacity(),
+                bat.energy_now.floor() as u32 / 1000000,
+                bat.health,
+                bat.remaining.map_or(Default::default(), |(h, m)| format!(
+                    "\n\t{h}h {m}min remaining"
+                )),
+                bat.model_name,
             )
-            .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
-            container(
-                match self.stats.power_now_is_zero {
-                    true => text!["{}% - ?", self.stats.capacity],
-                    false => text!["{}", handlebars.render("battery", &ctx).unwrap_or_default()],
-                }
-                .fill(anchor)
-                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
-                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-            )
-            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
-        ]
-        .spacing(self.cfg_override.spacing.unwrap_or(config.spacing))
+            .into()
+        }))))
+        .padding([10, 20])
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(iced::Color {
+                r: 0.,
+                g: 0.,
+                b: 0.,
+                a: 0.8,
+            })),
+            border: iced::Border::default().rounded(8),
+            ..Default::default()
+        })
         .into()
     }
 
@@ -135,10 +274,12 @@ impl Module for BatteryMod {
             stream::channel(1, |mut sender| async move {
                 tokio::spawn(async move {
                     loop {
-                        let stats = get_stats().await.unwrap();
+                        let (avg, batteries) = get_stats(None, false).await.unwrap();
                         if sender
                             .send(Message::update(move |reg| {
-                                reg.get_module_mut::<BatteryMod>().stats = stats
+                                let m = reg.get_module_mut::<BatteryMod>();
+                                m.avg = avg;
+                                m.batteries = batteries
                             }))
                             .await
                             .is_err()
@@ -156,22 +297,18 @@ impl Module for BatteryMod {
     }
 }
 
-#[derive(Default, Debug)]
-struct Battery {
-    energy_now: f32,
-    energy_full: f32,
-    power_now: f32,
-    voltage_now: f32,
-    status: bool,
-}
-
-impl From<&Device> for Battery {
-    fn from(device: &Device) -> Self {
-        Battery {
+impl From<(&Device, String)> for BatteryStats {
+    fn from((device, name): (&Device, String)) -> Self {
+        BatteryStats {
+            name,
+            model_name: get_property(device, "POWER_SUPPLY_MODEL_NAME").to_string(),
             energy_now: get_property(device, "POWER_SUPPLY_ENERGY_NOW")
                 .parse()
                 .unwrap_or(0.),
             energy_full: get_property(device, "POWER_SUPPLY_ENERGY_FULL")
+                .parse()
+                .unwrap_or(0.),
+            energy_full_design: get_property(device, "POWER_SUPPLY_ENERGY_FULL_DESIGN")
                 .parse()
                 .unwrap_or(0.),
             power_now: get_property(device, "POWER_SUPPLY_POWER_NOW")
@@ -180,7 +317,80 @@ impl From<&Device> for Battery {
             voltage_now: get_property(device, "POWER_SUPPLY_VOLTAGE_NOW")
                 .parse()
                 .unwrap_or(0.),
-            status: matches!(get_property(device, "POWER_SUPPLY_STATUS"), "Charging"),
+            charging: matches!(get_property(device, "POWER_SUPPLY_STATUS"), "Charging"),
+        }
+    }
+}
+
+impl From<&Vec<BatteryStats>> for AverageStats {
+    fn from(batteries: &Vec<BatteryStats>) -> Self {
+        let energy_now = batteries.iter().fold(0., |mut acc, bat| {
+            acc += bat.energy_now;
+            acc
+        });
+        let energy_full = batteries.iter().fold(0., |mut acc, bat| {
+            acc += bat.energy_full;
+            acc
+        });
+        let (power_now, voltage_now) =
+            batteries
+                .iter()
+                .filter(|bat| bat.power_now != 0.)
+                .fold((0., 0.), |mut acc, bat| {
+                    acc.0 += bat.power_now;
+                    acc.1 += bat.voltage_now;
+                    acc
+                });
+
+        let capacity = (100. / energy_full * energy_now).round() as u8;
+        let charging = batteries.iter().any(|bat| bat.charging);
+        let time_remaining = match charging {
+            true => {
+                (energy_full - energy_now)
+                    / 1000000.
+                    / ((power_now / 1000000.) * (voltage_now / 1000000.))
+                    * 12.55
+            }
+            false => energy_now / power_now,
+        };
+        AverageStats {
+            capacity,
+            charging,
+            hours: time_remaining.floor() as u16,
+            minutes: ((time_remaining - time_remaining.floor()) * 60.) as u16,
+            _cursed: power_now == 0.,
+        }
+    }
+}
+
+impl From<BatteryStats> for Battery {
+    fn from(stats: BatteryStats) -> Self {
+        let remaining = (stats.power_now != 0.).then(|| {
+            let t = match stats.charging {
+                true => {
+                    (stats.energy_full - stats.energy_now)
+                        / 1000000.
+                        / ((stats.power_now / 1000000.) * (stats.voltage_now / 1000000.))
+                        * 12.55
+                }
+                false => stats.energy_now / stats.power_now,
+            };
+            (t.floor() as u16, ((t - t.floor()) * 60.) as u16)
+        });
+        Battery {
+            name: stats.name,
+            model_name: stats.model_name,
+            energy_now: stats.energy_now,
+            energy_full: stats.energy_full,
+            health: (stats.energy_full / stats.energy_full_design * 100.) as u8,
+            state: match stats.charging {
+                true => BatteryState::Charging,
+                false => match stats.power_now == 0. {
+                    true => BatteryState::Idle,
+                    false => BatteryState::Discharging,
+                },
+            },
+            remaining,
         }
     }
 }
@@ -192,10 +402,20 @@ fn get_property<'a>(device: &'a Device, property: &'static str) -> &'a str {
         .unwrap_or("")
 }
 
-async fn get_stats() -> Result<BatteryStats, io::Error> {
+async fn get_stats(
+    selection: Option<&Vec<String>>,
+    is_blacklist: bool,
+) -> Result<(AverageStats, Vec<Battery>), io::Error> {
     let mut entries = fs::read_dir("/sys/class/power_supply").await?;
     let mut batteries = vec![];
     while let Ok(Some(dev_name)) = entries.next_entry().await {
+        if let Some(selection) = selection {
+            if is_blacklist
+                == selection.contains(&dev_name.file_name().to_string_lossy().to_string())
+            {
+                continue;
+            }
+        }
         if let Ok(dev_type) =
             fs::read_to_string(&format!("{}/type", dev_name.path().to_string_lossy())).await
         {
@@ -213,60 +433,16 @@ async fn get_stats() -> Result<BatteryStats, io::Error> {
             return acc;
         };
 
-        acc.push(Battery::from(&device));
+        acc.push(BatteryStats::from((
+            &device,
+            bat.file_name().unwrap().to_string_lossy().to_string(),
+        )));
         acc
     });
-
-    let energy_now = batteries.iter().fold(0., |mut acc, bat| {
-        acc += bat.energy_now;
-        acc
-    });
-    let energy_full = batteries.iter().fold(0., |mut acc, bat| {
-        acc += bat.energy_full;
-        acc
-    });
-    let (power_now, voltage_now) =
-        batteries
-            .iter()
-            .filter(|bat| bat.power_now != 0.)
-            .fold((0., 0.), |mut acc, bat| {
-                acc.0 += bat.power_now;
-                acc.1 += bat.voltage_now;
-                acc
-            });
-
-    let capacity = (100. / energy_full * energy_now).round() as u16;
-    let charging = batteries.iter().any(|bat| bat.status);
-    let time_remaining = match charging {
-        true => {
-            (energy_full - energy_now)
-                / 1000000.
-                / ((power_now / 1000000.) * (voltage_now / 1000000.))
-                * 12.55
-        }
-        false => energy_now / power_now,
-    };
-
-    Ok(BatteryStats {
-        capacity,
-        hours: time_remaining.floor() as u16,
-        minutes: ((time_remaining - time_remaining.floor()) * 60.) as u16,
-        power_now_is_zero: power_now == 0.,
-        icon: match charging {
-            false => match capacity {
-                n if n >= 80 => "󱊣",
-                n if n >= 60 => "󱊢",
-                n if n >= 25 => "󱊡",
-                _ => "󰂎",
-            },
-            true => match capacity {
-                n if n >= 80 => "󱊦 ",
-                n if n >= 60 => "󱊥 ",
-                n if n >= 25 => "󱊤 ",
-                _ => "󰢟",
-            },
-        },
-    })
+    Ok((
+        (&batteries).into(),
+        batteries.into_iter().map(|b| b.into()).collect(),
+    ))
 }
 
 /*

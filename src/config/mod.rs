@@ -12,7 +12,10 @@ use configparser::ini::{Ini, IniDefault};
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
 use handlebars::Handlebars;
-use iced::futures::{channel::mpsc::Sender, SinkExt};
+use iced::{
+    futures::{channel::mpsc::Sender, SinkExt},
+    platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
+};
 use module_config::ModuleConfig;
 use tokio::sync::mpsc;
 
@@ -34,6 +37,7 @@ pub struct Config {
     pub module_config: ModuleConfig,
     pub anchor: BarAnchor,
     pub monitor: Option<String>,
+    pub kb_focus: KeyboardInteractivity,
 }
 
 impl Config {
@@ -56,6 +60,7 @@ impl Config {
             module_config: ModuleConfig::default(),
             anchor: BarAnchor::default(),
             monitor: None,
+            kb_focus: KeyboardInteractivity::None,
         }
     }
 

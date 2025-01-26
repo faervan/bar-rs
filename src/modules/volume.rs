@@ -2,7 +2,7 @@ use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::container;
+use iced::widget::{button, container};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -41,13 +41,17 @@ impl Module for VolumeMod {
     ) -> Element<Message> {
         list![
             anchor,
-            container(
+            button(
                 text!("{}", self.icon)
                     .fill(anchor)
                     .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                     .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                     .font(NERD_FONT)
             )
+            .style(|_, _| button::Style::default())
+            .on_press(Message::command_sh(
+                "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+            ))
             .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
             container(
                 text!["{}%", self.level,]

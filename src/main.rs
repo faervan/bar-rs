@@ -1,31 +1,46 @@
-use std::{fmt::Debug, path::PathBuf, process::exit, sync::Arc, time::Duration};
+use std::{
+    any::TypeId,
+    fmt::Debug,
+    path::PathBuf,
+    process::{exit, Command},
+    sync::Arc,
+    time::Duration,
+};
 
-use config::{get_config_dir, read_config, Config, EnabledModules, Thrice};
+use config::{anchor::BarAnchor, get_config_dir, read_config, Config, EnabledModules, Thrice};
 use fill::FillExt;
 use handlebars::Handlebars;
 use iced::{
     daemon,
     platform_specific::shell::commands::{
-        layer_surface::{destroy_layer_surface, get_layer_surface, KeyboardInteractivity, Layer},
+        layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
         output::{get_output, get_output_info, OutputInfo},
+        popup::{destroy_popup, get_popup},
     },
-    runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
+    runtime::platform_specific::wayland::{
+        layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
+        popup::{SctkPopupSettings, SctkPositioner},
+    },
     stream,
     theme::Palette,
     widget::{container, stack},
     window::Id,
-    Alignment, Color, Element, Font, Subscription, Task, Theme,
+    Alignment, Color, Element, Font, Rectangle, Subscription, Task, Theme,
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
-use modules::register_modules;
+use modules::{register_modules, Action, Module};
 use registry::Registry;
 use resolvers::register_resolvers;
-use tokio::{sync::mpsc, time::sleep};
+use tokio::{
+    sync::{broadcast, mpsc},
+    time::sleep,
+};
 
 mod config;
 #[macro_use]
 mod list;
+mod button;
 mod fill;
 mod listeners;
 mod modules;
@@ -70,11 +85,30 @@ impl Debug for UpdateFn {
         )
     }
 }
+struct ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>);
+impl Debug for ActionFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>) can't be displayed"
+        )
+    }
+}
 
 #[derive(Debug, Clone)]
 enum Message {
+    Popup {
+        type_id: TypeId,
+        dimension: Rectangle<i32>,
+    },
     Update(Arc<UpdateFn>),
+    Action(Arc<ActionFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
+    GetReceiver(
+        mpsc::Sender<broadcast::Receiver<Arc<dyn Action>>>,
+        fn(&Registry) -> broadcast::Receiver<Arc<dyn Action>>,
+    ),
+    Spawn(Arc<Command>),
     ReloadConfig,
     LoadRegistry,
     GotOutput(Option<IcedOutput>),
@@ -88,6 +122,75 @@ impl Message {
     {
         Message::Update(Arc::new(UpdateFn(Box::new(f))))
     }
+    fn action<F>(f: F) -> Self
+    where
+        F: FnOnce(&Registry) + Send + Sync + 'static,
+    {
+        Message::Action(Arc::new(ActionFn(Box::new(f))))
+    }
+    #[allow(dead_code)]
+    fn command<I, S>(command: S, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<std::ffi::OsStr>,
+    {
+        let mut cmd = Command::new(command);
+        cmd.args(args);
+        Message::Spawn(Arc::new(cmd))
+    }
+    fn command_sh<S>(arg: S) -> Self
+    where
+        S: AsRef<std::ffi::OsStr>,
+    {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c");
+        cmd.arg(arg);
+        Message::Spawn(Arc::new(cmd))
+    }
+    fn popup<'a, T>(
+        width: i32,
+        height: i32,
+        anchor: &BarAnchor,
+    ) -> impl Fn(
+        iced::Event,
+        iced::core::Layout,
+        iced::mouse::Cursor,
+        &mut dyn iced::core::Clipboard,
+        &Rectangle,
+    ) -> Message
+           + 'a
+    where
+        T: Module,
+    {
+        let anchor = *anchor;
+        move |_: iced::Event,
+              layout: iced::core::Layout,
+              _: iced::mouse::Cursor,
+              _: &mut dyn iced::core::Clipboard,
+              _: &Rectangle| {
+            let bounds = layout.bounds();
+            let position = layout.position();
+            let x = match anchor {
+                BarAnchor::Left => bounds.width as i32,
+                BarAnchor::Right => -width,
+                _ => position.x as i32,
+            };
+            let y = match anchor {
+                BarAnchor::Top => bounds.height as i32,
+                BarAnchor::Bottom => -height,
+                _ => position.y as i32,
+            };
+            Message::Popup {
+                type_id: TypeId::of::<T>(),
+                dimension: Rectangle {
+                    x,
+                    y,
+                    width,
+                    height,
+                },
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -99,6 +202,7 @@ struct Bar<'a> {
     output: IcedOutput,
     layer_id: Id,
     open: bool,
+    popup: Option<(TypeId, Id)>,
     templates: Handlebars<'a>,
 }
 
@@ -128,6 +232,7 @@ impl Bar<'_> {
             output: IcedOutput::Active,
             layer_id: Id::unique(),
             open: true,
+            popup: None,
             templates,
         };
         let task = match &bar.config.monitor {
@@ -140,12 +245,58 @@ impl Bar<'_> {
 
     fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
+            Message::Popup { type_id, dimension } => {
+                let settings = |id| SctkPopupSettings {
+                    parent: self.layer_id,
+                    id,
+                    positioner: SctkPositioner {
+                        size: Some((dimension.width as u32, dimension.height as u32)),
+                        anchor_rect: Rectangle {
+                            x: dimension.x,
+                            y: dimension.y,
+                            width: dimension.width,
+                            height: dimension.height,
+                        },
+                        ..Default::default()
+                    },
+                    parent_size: None,
+                    grab: true,
+                };
+                return match self.popup {
+                    None => {
+                        let id = Id::unique();
+                        self.popup = Some((type_id, id));
+                        get_popup(settings(id))
+                    }
+                    Some((old_ty_id, id)) => match old_ty_id == type_id {
+                        true => {
+                            self.popup = None;
+                            destroy_popup(id)
+                        }
+                        false => {
+                            self.popup = Some((type_id, id));
+                            destroy_popup(id).chain(get_popup(settings(id)))
+                        }
+                    },
+                };
+            }
             Message::Update(task) => {
                 Arc::into_inner(task).unwrap().0(&mut self.registry);
+            }
+            Message::Action(task) => {
+                Arc::into_inner(task).unwrap().0(&self.registry);
             }
             Message::GetConfig(sx) => sx
                 .try_send((self.config_file.clone(), self.config.clone()))
                 .unwrap(),
+            Message::GetReceiver(sx, f) => sx.try_send(f(&self.registry)).unwrap(),
+            Message::Spawn(cmd) => {
+                Arc::into_inner(cmd)
+                    .unwrap()
+                    .spawn()
+                    .inspect_err(|e| eprintln!("Failed to spawn command: {e}"))
+                    .ok();
+            }
             Message::ReloadConfig => {
                 println!(
                     "Reloading config from {}",
@@ -197,7 +348,22 @@ impl Bar<'_> {
         Task::none()
     }
 
-    fn view(&self, _window_id: Id) -> Element<Message> {
+    fn view(&self, window_id: Id) -> Element<Message> {
+        if window_id == self.layer_id {
+            self.bar_view()
+        } else if let Some(mod_id) = self
+            .popup
+            .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
+        {
+            self.registry
+                .get_module_by_id(mod_id)
+                .popup_wrapper(&self.config.anchor)
+        } else {
+            "Internal error".into()
+        }
+    }
+
+    fn bar_view(&self) -> Element<Message> {
         let anchor = &self.config.anchor;
         let make_list = |spacing: fn(&Thrice<f32>) -> f32,
                          field: fn(&EnabledModules) -> &Vec<String>| {
@@ -247,7 +413,7 @@ impl Bar<'_> {
         };
         get_layer_surface(SctkLayerSurfaceSettings {
             layer: Layer::Top,
-            keyboard_interactivity: KeyboardInteractivity::OnDemand,
+            keyboard_interactivity: self.config.kb_focus,
             anchor: (&self.config.anchor).into(),
             exclusive_zone: self.config.exclusive_zone(),
             size: Some((Some(width), Some(height))),
@@ -292,17 +458,24 @@ impl Bar<'_> {
         .map(Message::GotOutputInfo)
     }
 
-    fn theme(&self, _window_id: Id) -> Theme {
-        Theme::custom(
-            "Bar theme".to_string(),
-            Palette {
-                background: self.config.module_config.global.background_color,
-                text: Color::WHITE,
-                primary: Color::WHITE,
-                success: Color::WHITE,
-                danger: Color::WHITE,
-            },
-        )
+    fn theme(&self, window_id: Id) -> Theme {
+        if let Some(mod_id) = self
+            .popup
+            .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
+        {
+            self.registry.get_module_by_id(mod_id).popup_theme()
+        } else {
+            Theme::custom(
+                "Bar theme".to_string(),
+                Palette {
+                    background: self.config.module_config.global.background_color,
+                    text: Color::WHITE,
+                    primary: Color::WHITE,
+                    success: Color::WHITE,
+                    danger: Color::WHITE,
+                },
+            )
+        }
     }
 }
 

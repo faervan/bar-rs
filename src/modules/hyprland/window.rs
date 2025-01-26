@@ -2,13 +2,14 @@ use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{container, rich_text, span};
+use iced::widget::{container, rich_text, span, text};
 use iced::{
     futures::{channel::mpsc::Sender, SinkExt},
     Element,
 };
 
 use crate::impl_wrapper;
+use crate::tooltip::ElementExt;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -68,7 +69,10 @@ impl Module for HyprWindowMod {
             .fill(anchor),
         )
         .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
-        .into()
+        .tooltip_maybe(
+            self.get_title()
+                .and_then(|t| (t.len() > self.max_length).then_some(text(t).size(12))),
+        )
     }
 
     impl_wrapper!();

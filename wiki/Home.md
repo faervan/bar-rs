@@ -3,6 +3,8 @@
 While the configuration options aren't extensive at the moment, it's still good to know what tools you've got!<br>
 There are some configuration examples at [default_config](https://github.com/Faervan/bar-rs/blob/main/default_config)
 
+*If you find that this wiki contains wrong information or is missing something critical, please open an [issue](https://github.com/Faervan/bar-rs/issues/new?template=Blank+issue).*
+
 ## Config path
 On Linux, the config path is `$XDG_DATA_HOME/bar-rs/bar-rs.ini` or `$HOME/.local/share/bar-rs/bar-rs.ini`
 
@@ -40,6 +42,7 @@ The general section contains three options:
 | hot_reloading | Whether bar-rs should monitor the config file for changes | bool | true |
 | hard_reloading | Whether bar-rs should reopen and reload all modules (required for `anchor`, `width`, `height`, `margin` and e.g. workspace names set in the `niri.workspaces` module to be hot-reloadable) | bool | false |
 | anchor | The anchor to use. Can be `top`, `bottom`, `left` or `right`. This decides whether the bar is vertical or not. | String | top |
+| kb_focus | Defines whether bar-rs should be focusable. Can be `none` (no focus), `on_demand` (when you click on it) or `exclusive` (always stay focused). | String | none |
 
 **Example:**
 ```ini

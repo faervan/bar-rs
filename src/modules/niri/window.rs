@@ -2,11 +2,13 @@ use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{container, rich_text, span, text};
+use iced::widget::button::Style;
+use iced::widget::{container, scrollable, text};
 use iced::Element;
+use niri_ipc::Window;
 
+use crate::button::button;
 use crate::impl_wrapper;
-use crate::tooltip::tooltip;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -22,7 +24,7 @@ use crate::{
 #[derive(Debug, Builder)]
 pub struct NiriWindowMod {
     // (title, app_id)
-    pub windows: HashMap<u64, (Option<String>, Option<String>)>,
+    pub windows: HashMap<u64, Window>,
     pub focused: Option<u64>,
     max_length: usize,
     show_app_id: bool,
@@ -45,8 +47,8 @@ impl NiriWindowMod {
     fn get_title(&self) -> Option<&String> {
         self.focused.and_then(|id| {
             self.windows.get(&id).and_then(|w| match self.show_app_id {
-                true => w.1.as_ref(),
-                false => w.0.as_ref(),
+                true => w.app_id.as_ref(),
+                false => w.title.as_ref(),
             })
         })
     }
@@ -75,16 +77,44 @@ impl Module for NiriWindowMod {
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
-        tooltip(
-            container(
-                rich_text([span(self.trimmed_title())
-                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
-                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
+        button(
+            text(self.trimmed_title())
+                .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                .color(self.cfg_override.text_color.unwrap_or(config.text_color))
                 .fill(anchor),
-            )
-            .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
-            text!("{}", self.get_title().unwrap_or(&String::new())).size(12),
         )
+        .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
+        .on_event_with(Message::popup::<Self>(400, 250, anchor))
+        .style(|_, _| Style::default())
+        .into()
+    }
+
+    fn popup_view(&self) -> Element<Message> {
+        container(scrollable(
+            if let Some(window) = self.focused.and_then(|id| self.windows.get(&id)) {
+                let unset = String::from("Unset");
+                text!(
+                    "Title: {}\nApplication ID: {}\nWindow ID: {}\nWorkspace ID: {}",
+                    window.title.as_ref().unwrap_or(&unset),
+                    window.app_id.as_ref().unwrap_or(&unset),
+                    window.id,
+                    window.workspace_id.unwrap_or_default()
+                )
+            } else {
+                "No window focused".into()
+            },
+        ))
+        .padding([10, 20])
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(iced::Color {
+                r: 0.,
+                g: 0.,
+                b: 0.,
+                a: 0.8,
+            })),
+            border: iced::Border::default().rounded(8),
+            ..Default::default()
+        })
         .into()
     }
 

@@ -14,8 +14,9 @@ pub fn derive_builder(input: TokenStream) -> TokenStream {
         _ => None,
     }
     .unwrap_or_else(|| quote! {#ident::default()});
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     quote! {
-        impl crate::registry::Builder for #ident {
+        impl #impl_generics crate::registry::Builder for #ident #ty_generics #where_clause {
             type Output = Self;
             fn build() -> Self::Output {
                 #default

@@ -5,11 +5,11 @@
 
 A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (specifically the [pop-os fork](https://github.com/pop-os/iced/) of iced, which supports the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1))
 
-![2024-12-29_17-16](https://github.com/user-attachments/assets/199452ec-b5bc-4ac3-ac35-ef7aed732c2f)
+![image](https://github.com/user-attachments/assets/c62d8399-0f80-4c3b-8cb8-a325db13fc32)
 
-![image](https://github.com/user-attachments/assets/1a2de7fe-ffa4-4cde-9ccd-2c6c74e579b6)
+![image](https://github.com/user-attachments/assets/d71b0fc2-a9fb-43e9-b358-9b1f2cb3d487)
 
-![image](https://github.com/user-attachments/assets/52f343cd-5397-4165-8189-9727627c816f)
+![image](https://github.com/user-attachments/assets/d0073653-01ed-4084-9c33-0d161cd98ec7)
 
 
 
@@ -23,6 +23,7 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [x] very basic style customization
 - [x] basic vertical bar support
 - [x] a base set of useful modules
+- [x] Module interactivity (popups, buttons)
 - [x] hyprland workspace + window modules
 - [x] wayfire workspace + window modules
 - [x] niri workspace + window modules
@@ -33,7 +34,6 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [ ] plugin api (for custom rust modules)
 - [ ] custom fonts
 - [ ] X11 support
-- [ ] Module interactivity (tooltips, popups, buttons)
 - ...
 
 ## Installation
