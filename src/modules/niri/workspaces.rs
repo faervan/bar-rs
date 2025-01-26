@@ -3,7 +3,7 @@ use std::{any::TypeId, collections::HashMap, sync::Arc};
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::{
-    widget::{button, text},
+    widget::{button, container, text},
     Background, Border, Color, Element, Padding,
 };
 use niri_ipc::Workspace;
@@ -129,20 +129,23 @@ impl Module for NiriWorkspaceMod {
                         btn_style.background = self.active_background;
                         btn_style.border = self.active_icon_border;
                     }
-                    button(text.fill(anchor))
-                        .padding(match id == self.focused {
-                            true => self.active_padding.unwrap_or(self.icon_padding),
-                            false => self.icon_padding,
-                        })
-                        .style(move |_, _| btn_style)
-                        .on_press(Message::action(move |reg| {
-                            reg.get_module::<NiriWorkspaceMod>()
-                                .sender
-                                .send(Arc::new(id))
-                                .unwrap();
-                        }))
-                        .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
-                        .into()
+                    container(
+                        button(text)
+                            .padding(match id == self.focused {
+                                true => self.active_padding.unwrap_or(self.icon_padding),
+                                false => self.icon_padding,
+                            })
+                            .style(move |_, _| btn_style)
+                            .on_press(Message::action(move |reg| {
+                                reg.get_module::<NiriWorkspaceMod>()
+                                    .sender
+                                    .send(Arc::new(id))
+                                    .unwrap();
+                            })),
+                    )
+                    .fill(anchor)
+                    .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
+                    .into()
                 })
             }),
         )
