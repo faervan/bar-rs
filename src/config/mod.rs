@@ -17,6 +17,7 @@ use iced::{
     platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
 };
 use module_config::ModuleConfig;
+use popup_config::PopupConfig;
 use tokio::sync::mpsc;
 
 use crate::{registry::Registry, Message};
@@ -27,6 +28,7 @@ mod enabled_modules;
 mod insets;
 pub mod module_config;
 pub mod parse;
+pub mod popup_config;
 mod thrice;
 
 #[derive(Debug)]
@@ -35,6 +37,7 @@ pub struct Config {
     pub enabled_modules: EnabledModules,
     pub enabled_listeners: HashSet<TypeId>,
     pub module_config: ModuleConfig,
+    pub popup_config: PopupConfig,
     pub anchor: BarAnchor,
     pub monitor: Option<String>,
     pub kb_focus: KeyboardInteractivity,
@@ -58,6 +61,7 @@ impl Config {
                 .collect(),
             enabled_modules,
             module_config: ModuleConfig::default(),
+            popup_config: PopupConfig::default(),
             anchor: BarAnchor::default(),
             monitor: None,
             kb_focus: KeyboardInteractivity::None,

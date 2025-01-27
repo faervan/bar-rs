@@ -201,16 +201,16 @@ impl From<&Ini> for ModuleConfig {
                     let color = ini
                         .get(module_section, "border_color")
                         .into_color()
-                        .unwrap_or_default();
+                        .unwrap_or(local.border.color);
                     let width = ini
                         .get(module_section, "border_width")
                         .into_float()
-                        .unwrap_or(1.);
+                        .unwrap_or(local.border.width);
                     let radius = ini
                         .get(module_section, "border_radius")
                         .into_insets()
                         .map(|i| i.into())
-                        .unwrap_or_default();
+                        .unwrap_or(local.border.radius);
                     Border {
                         color,
                         width,

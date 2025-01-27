@@ -24,7 +24,7 @@ use volume::VolumeMod;
 use wayfire::{WayfireWindowMod, WayfireWorkspaceMod};
 
 use crate::{
-    config::{anchor::BarAnchor, module_config::LocalModuleConfig},
+    config::{anchor::BarAnchor, module_config::LocalModuleConfig, popup_config::PopupConfig},
     fill::FillExt,
     listeners::Listener,
     registry::Registry,
@@ -51,6 +51,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        popup_config: &PopupConfig,
         anchor: &BarAnchor,
         template: &Handlebars,
     ) -> Element<Message>;
@@ -97,12 +98,17 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     #[allow(unused_variables, dead_code)]
     /// Handle an action (likely produced by a user interaction).
     fn handle_action(&mut self, action: Box<dyn Action>) {}
+    #[allow(unused_variables)]
     /// The view of a popup
-    fn popup_view(&self) -> Element<Message> {
+    fn popup_view(&self, config: &PopupConfig) -> Element<Message> {
         "Missing implementation".into()
     }
     /// The wrapper around a popup
-    fn popup_wrapper<'a>(&'a self, anchor: &BarAnchor) -> Element<'a, Message> {
+    fn popup_wrapper<'a>(
+        &'a self,
+        config: &PopupConfig,
+        anchor: &BarAnchor,
+    ) -> Element<'a, Message> {
         let align = |elem: Container<'a, Message>| -> Container<'a, Message> {
             match anchor {
                 BarAnchor::Top => elem.align_y(Alignment::Start),
@@ -111,7 +117,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
                 BarAnchor::Right => elem.align_x(Alignment::End),
             }
         };
-        align(container(self.popup_view()).fill(anchor)).into()
+        align(container(self.popup_view(config)).fill(anchor)).into()
     }
     /// The theme of a popup
     fn popup_theme(&self) -> Theme {

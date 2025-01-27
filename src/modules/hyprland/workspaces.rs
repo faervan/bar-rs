@@ -17,6 +17,7 @@ use crate::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
         parse::StringExt,
+        popup_config::PopupConfig,
     },
     fill::FillExt,
     impl_wrapper,
@@ -68,6 +69,7 @@ impl Module for HyprWorkspaceMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {

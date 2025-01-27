@@ -5,6 +5,7 @@ use handlebars::Handlebars;
 use iced::widget::container;
 use iced::{widget::text, Element};
 
+use crate::config::popup_config::PopupConfig;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -31,6 +32,7 @@ impl Module for MemoryMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {

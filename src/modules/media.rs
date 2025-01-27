@@ -15,6 +15,7 @@ use tokio::{
 };
 
 use crate::button::button;
+use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -33,6 +34,7 @@ pub struct MediaMod {
     img: Option<Vec<u8>>,
     active_player: Option<String>,
     cfg_override: ModuleConfigOverride,
+    popup_cfg_override: PopupConfigOverride,
     icon: String,
     max_length: usize,
     max_title_length: usize,
@@ -46,6 +48,7 @@ impl Default for MediaMod {
             img: None,
             active_player: None,
             cfg_override: Default::default(),
+            popup_cfg_override: Default::default(),
             icon: String::from(""),
             max_length: 28,
             max_title_length: 16,
@@ -170,6 +173,7 @@ impl Module for MediaMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -203,7 +207,7 @@ impl Module for MediaMod {
         .into()
     }
 
-    fn popup_view(&self) -> Element<Message> {
+    fn popup_view(&self, _config: &PopupConfig) -> Element<Message> {
         container(match &self.track {
             Some(track) => {
                 let minutes = (track.length / 60000000.).trunc();

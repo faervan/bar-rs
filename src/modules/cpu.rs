@@ -18,6 +18,7 @@ use crate::{
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
+        popup_config::{PopupConfig, PopupConfigOverride},
     },
     fill::FillExt,
     impl_wrapper, Message, NERD_FONT,
@@ -30,6 +31,7 @@ pub struct CpuMod {
     avg_usage: CpuStats<u8>,
     cores: BTreeMap<CpuType, CpuStats<u8>>,
     cfg_override: ModuleConfigOverride,
+    popup_cfg_override: PopupConfigOverride,
     icon: Option<String>,
 }
 
@@ -41,6 +43,7 @@ impl Module for CpuMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -70,7 +73,7 @@ impl Module for CpuMod {
         .into()
     }
 
-    fn popup_view(&self) -> Element<Message> {
+    fn popup_view(&self, _config: &PopupConfig) -> Element<Message> {
         container(scrollable(column![
             text!["Total: {}%", self.avg_usage.all],
             text!["User: {}%", self.avg_usage.user],

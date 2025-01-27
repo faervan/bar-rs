@@ -7,6 +7,7 @@ use iced::Element;
 use iced::Padding;
 
 use crate::config::parse::StringExt;
+use crate::config::popup_config::PopupConfig;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -41,6 +42,7 @@ impl Module for WayfireWorkspaceMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {

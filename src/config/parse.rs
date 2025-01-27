@@ -14,14 +14,16 @@ impl From<(&Ini, &Registry)> for Config {
         Self {
             hard_reload: ini
                 .get("general", "hard_reloading")
-                .into_bool(default.hard_reload),
+                .into_bool()
+                .unwrap_or(default.hard_reload),
             enabled_listeners: registry
                 .all_listeners()
                 .fold(vec![], |mut acc, (id, l)| {
                     l.config().into_iter().for_each(|option| {
                         if ini
                             .get(&option.section, &option.name)
-                            .into_bool(option.default)
+                            .into_bool()
+                            .unwrap_or(option.default)
                         {
                             acc.push(*id);
                         }
@@ -33,6 +35,7 @@ impl From<(&Ini, &Registry)> for Config {
                 .collect(),
             enabled_modules,
             module_config: ini.into(),
+            popup_config: ini.into(),
             anchor: ini
                 .get("general", "anchor")
                 .into_anchor()
@@ -47,7 +50,7 @@ impl From<(&Ini, &Registry)> for Config {
 }
 
 pub trait StringExt {
-    fn into_bool(self, default: bool) -> bool;
+    fn into_bool(self) -> Option<bool>;
     fn into_color(self) -> Option<Color>;
     fn into_float(self) -> Option<f32>;
     fn into_thrice_float(self) -> Option<Thrice<f32>>;
@@ -58,14 +61,12 @@ pub trait StringExt {
 }
 
 impl StringExt for &Option<String> {
-    fn into_bool(self, default: bool) -> bool {
-        self.as_ref()
-            .and_then(|v| match v.to_lowercase().as_str() {
-                "0" | "f" | "n" | "no" | "false" | "disabled" | "disable" | "off" => Some(false),
-                "1" | "t" | "y" | "yes" | "true" | "enabled" | "enable" | "on" => Some(true),
-                _ => None,
-            })
-            .unwrap_or(default)
+    fn into_bool(self) -> Option<bool> {
+        self.as_ref().and_then(|v| match v.to_lowercase().as_str() {
+            "0" | "f" | "n" | "no" | "false" | "disabled" | "disable" | "off" => Some(false),
+            "1" | "t" | "y" | "yes" | "true" | "enabled" | "enable" | "on" => Some(true),
+            _ => None,
+        })
     }
     fn into_color(self) -> Option<Color> {
         self.as_ref().and_then(|color| {

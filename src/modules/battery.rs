@@ -11,6 +11,7 @@ use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
 use crate::button::button;
+use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -28,6 +29,7 @@ pub struct BatteryMod {
     avg: AverageStats,
     batteries: Vec<Battery>,
     cfg_override: ModuleConfigOverride,
+    popup_cfg_override: PopupConfigOverride,
     icons: BTreeMap<u8, String>,
     icons_charging: BTreeMap<u8, String>,
 }
@@ -38,6 +40,7 @@ impl Default for BatteryMod {
             avg: AverageStats::default(),
             batteries: vec![],
             cfg_override: Default::default(),
+            popup_cfg_override: Default::default(),
             icons: BTreeMap::from([
                 (80, "󱊣".to_string()),
                 (60, "󱊢".to_string()),
@@ -150,6 +153,7 @@ impl Module for BatteryMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -183,7 +187,7 @@ impl Module for BatteryMod {
         .into()
     }
 
-    fn popup_view(&self) -> Element<Message> {
+    fn popup_view(&self, _config: &PopupConfig) -> Element<Message> {
         container(scrollable(column(self.batteries.iter().map(|bat| {
             text!(
                 "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",

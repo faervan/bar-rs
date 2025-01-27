@@ -8,6 +8,7 @@ use iced::{
     Element,
 };
 
+use crate::config::popup_config::PopupConfig;
 use crate::impl_wrapper;
 use crate::tooltip::ElementExt;
 use crate::{
@@ -59,6 +60,7 @@ impl Module for HyprWindowMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {

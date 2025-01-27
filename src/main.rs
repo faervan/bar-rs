@@ -357,7 +357,7 @@ impl Bar<'_> {
         {
             self.registry
                 .get_module_by_id(mod_id)
-                .popup_wrapper(&self.config.anchor)
+                .popup_wrapper(&self.config.popup_config, &self.config.anchor)
         } else {
             "Internal error".into()
         }
@@ -375,7 +375,12 @@ impl Bar<'_> {
                         .map(|m| {
                             m.wrapper(
                                 &self.config.module_config.local,
-                                m.view(&self.config.module_config.local, anchor, &self.templates),
+                                m.view(
+                                    &self.config.module_config.local,
+                                    &self.config.popup_config,
+                                    anchor,
+                                    &self.templates,
+                                ),
                                 anchor,
                             )
                         }),
