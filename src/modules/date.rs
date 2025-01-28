@@ -78,6 +78,7 @@ impl Module for DateMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
+        _popup_config: &HashMap<String, Option<String>>,
         _templates: &mut Handlebars,
     ) {
         let default = Self::default();

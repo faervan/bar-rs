@@ -92,6 +92,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
+        popup_config: &HashMap<String, Option<String>>,
         templates: &mut Handlebars,
     ) {
     }
@@ -100,14 +101,19 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn handle_action(&mut self, action: Box<dyn Action>) {}
     #[allow(unused_variables)]
     /// The view of a popup
-    fn popup_view(&self, config: &PopupConfig) -> Element<Message> {
+    fn popup_view<'a>(
+        &'a self,
+        config: &'a PopupConfig,
+        template: &Handlebars,
+    ) -> Element<'a, Message> {
         "Missing implementation".into()
     }
     /// The wrapper around a popup
     fn popup_wrapper<'a>(
         &'a self,
-        config: &PopupConfig,
+        config: &'a PopupConfig,
         anchor: &BarAnchor,
+        template: &Handlebars,
     ) -> Element<'a, Message> {
         let align = |elem: Container<'a, Message>| -> Container<'a, Message> {
             match anchor {
@@ -117,7 +123,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
                 BarAnchor::Right => elem.align_x(Alignment::End),
             }
         };
-        align(container(self.popup_view(config)).fill(anchor)).into()
+        align(container(self.popup_view(config, template)).fill(anchor)).into()
     }
     /// The theme of a popup
     fn popup_theme(&self) -> Theme {

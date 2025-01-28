@@ -9,6 +9,7 @@ use crate::config::anchor::BarAnchor;
 pub trait FillExt {
     fn fill(self, anchor: &BarAnchor) -> Self;
     fn fillx(self, vertical: bool) -> Self;
+    fn fill_maybe(self, fill: bool) -> Self;
 }
 
 impl FillExt for Text<'_> {
@@ -21,6 +22,12 @@ impl FillExt for Text<'_> {
             false => self.height(Fill),
         }
         .center()
+    }
+    fn fill_maybe(self, fill: bool) -> Self {
+        match fill {
+            true => self.height(Fill).width(Fill),
+            false => self,
+        }
     }
 }
 
@@ -37,6 +44,12 @@ where
             false => self.height(Fill).align_y(Center),
         }
     }
+    fn fill_maybe(self, fill: bool) -> Self {
+        match fill {
+            true => self.height(Fill).width(Fill),
+            false => self,
+        }
+    }
 }
 
 impl<Message> FillExt for Container<'_, Message> {
@@ -47,6 +60,12 @@ impl<Message> FillExt for Container<'_, Message> {
         match vertical {
             true => self.width(Fill),
             false => self.height(Fill),
+        }
+    }
+    fn fill_maybe(self, fill: bool) -> Self {
+        match fill {
+            true => self.height(Fill).width(Fill),
+            false => self,
         }
     }
 }
@@ -64,6 +83,12 @@ where
             false => self.height(Fill),
         }
     }
+    fn fill_maybe(self, fill: bool) -> Self {
+        match fill {
+            true => self.height(Fill).width(Fill),
+            false => self,
+        }
+    }
 }
 
 impl<Message> FillExt for crate::button::Button<'_, Message>
@@ -77,6 +102,12 @@ where
         match vertical {
             true => self.width(Fill),
             false => self.height(Fill),
+        }
+    }
+    fn fill_maybe(self, fill: bool) -> Self {
+        match fill {
+            true => self.height(Fill).width(Fill),
+            false => self,
         }
     }
 }

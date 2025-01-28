@@ -9,7 +9,7 @@ use std::{
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{button::Style, column, container, scrollable};
+use iced::widget::{button::Style, column, container, scrollable, Container, Text};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::time::sleep;
 
@@ -26,13 +26,29 @@ use crate::{
 
 use super::Module;
 
-#[derive(Debug, Default, Builder)]
+#[derive(Debug, Builder)]
 pub struct CpuMod {
     avg_usage: CpuStats<u8>,
     cores: BTreeMap<CpuType, CpuStats<u8>>,
     cfg_override: ModuleConfigOverride,
     popup_cfg_override: PopupConfigOverride,
     icon: Option<String>,
+}
+
+impl Default for CpuMod {
+    fn default() -> Self {
+        Self {
+            avg_usage: Default::default(),
+            cores: BTreeMap::new(),
+            cfg_override: Default::default(),
+            popup_cfg_override: PopupConfigOverride {
+                width: Some(150),
+                height: Some(350),
+                ..Default::default()
+            },
+            icon: None,
+        }
+    }
 }
 
 impl Module for CpuMod {
@@ -43,7 +59,7 @@ impl Module for CpuMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
-        _popup_config: &PopupConfig,
+        popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -68,37 +84,71 @@ impl Module for CpuMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(150, 350, anchor))
+        .on_event_with(Message::popup::<Self>(
+            self.popup_cfg_override.width.unwrap_or(popup_config.width),
+            self.popup_cfg_override
+                .height
+                .unwrap_or(popup_config.height),
+            anchor,
+        ))
         .style(|_, _| Style::default())
         .into()
     }
 
-    fn popup_view(&self, _config: &PopupConfig) -> Element<Message> {
-        container(scrollable(column![
-            text!["Total: {}%", self.avg_usage.all],
-            text!["User: {}%", self.avg_usage.user],
-            text!["System: {}%", self.avg_usage.system],
-            text!["Guest: {}%", self.avg_usage.guest],
-            column(
-                self.cores.iter().map(|(ty, stats)| text!(
-                    "Core {}: {}%",
-                    ty.get_core_index(),
-                    stats.all
+    fn popup_view<'a>(
+        &'a self,
+        config: &'a PopupConfig,
+        template: &Handlebars,
+    ) -> Element<'a, Message> {
+        let fmt_text = |text: Text<'a>| -> Container<'a, Message> {
+            container(
+                text.size(
+                    self.popup_cfg_override
+                        .font_size
+                        .unwrap_or(config.font_size),
                 )
-                .into())
+                .color(
+                    self.popup_cfg_override
+                        .text_color
+                        .unwrap_or(config.text_color),
+                ),
             )
-        ]))
-        .padding([10, 20])
+            .padding(
+                self.popup_cfg_override
+                    .text_margin
+                    .unwrap_or(config.text_margin),
+            )
+        };
+        container(scrollable(
+            column![
+                fmt_text(text![
+                    "Total: {}%\nUser: {}%\nSystem: {}%\nGuest: {}%",
+                    self.avg_usage.all,
+                    self.avg_usage.user,
+                    self.avg_usage.system,
+                    self.avg_usage.guest
+                ]),
+                column(self.cores.iter().map(|(ty, stats)| {
+                    fmt_text(text!("Core {}: {}%", ty.get_core_index(), stats.all)).into()
+                }))
+            ]
+            .spacing(self.popup_cfg_override.spacing.unwrap_or(config.spacing)),
+        ))
+        .padding(self.popup_cfg_override.padding.unwrap_or(config.padding))
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color {
-                r: 0.,
-                g: 0.,
-                b: 0.,
-                a: 0.8,
-            })),
-            border: iced::Border::default().rounded(8),
+            background: Some(
+                self.popup_cfg_override
+                    .background
+                    .unwrap_or(config.background),
+            ),
+            border: self.popup_cfg_override.border.unwrap_or(config.border),
             ..Default::default()
         })
+        .fill_maybe(
+            self.popup_cfg_override
+                .fill_content_to_size
+                .unwrap_or(config.fill_content_to_size),
+        )
         .into()
     }
 
@@ -107,9 +157,11 @@ impl Module for CpuMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
+        popup_config: &HashMap<String, Option<String>>,
         _templates: &mut Handlebars,
     ) {
         self.cfg_override = config.into();
+        self.popup_cfg_override.update(popup_config);
         self.icon = config.get("icon").and_then(|v| v.clone());
     }
 

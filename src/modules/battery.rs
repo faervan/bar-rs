@@ -12,6 +12,7 @@ use udev::Device;
 
 use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
+use crate::helpers::UnEscapeString;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -40,7 +41,11 @@ impl Default for BatteryMod {
             avg: AverageStats::default(),
             batteries: vec![],
             cfg_override: Default::default(),
-            popup_cfg_override: Default::default(),
+            popup_cfg_override: PopupConfigOverride {
+                width: Some(250),
+                height: Some(250),
+                ..Default::default()
+            },
             icons: BTreeMap::from([
                 (80, "󱊣".to_string()),
                 (60, "󱊢".to_string()),
@@ -153,7 +158,7 @@ impl Module for BatteryMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
-        _popup_config: &PopupConfig,
+        popup_config: &PopupConfig,
         anchor: &BarAnchor,
         handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -165,7 +170,7 @@ impl Module for BatteryMod {
             list![
                 anchor,
                 container(
-                    text!("{}", self.icon(None, None))
+                    text(self.icon(None, None))
                         .fill(anchor)
                         .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                         .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
@@ -173,7 +178,7 @@ impl Module for BatteryMod {
                 )
                 .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
                 container(
-                    text!["{}", handlebars.render("battery", &ctx).unwrap_or_default()]
+                    text(handlebars.render("battery", &ctx).unwrap_or_default())
                         .fill(anchor)
                         .color(self.cfg_override.text_color.unwrap_or(config.text_color))
                         .size(self.cfg_override.font_size.unwrap_or(config.font_size))
@@ -182,39 +187,105 @@ impl Module for BatteryMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(250, 250, anchor))
+        .on_event_with(Message::popup::<Self>(
+            self.popup_cfg_override.width.unwrap_or(popup_config.width),
+            self.popup_cfg_override
+                .height
+                .unwrap_or(popup_config.height),
+            anchor,
+        ))
         .style(|_, _| Style::default())
         .into()
     }
 
-    fn popup_view(&self, _config: &PopupConfig) -> Element<Message> {
-        container(scrollable(column(self.batteries.iter().map(|bat| {
-            text!(
-                "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",
-                bat.name,
-                bat.state,
-                bat.icon(self),
-                bat.capacity(),
-                bat.energy_now.floor() as u32 / 1000000,
-                bat.health,
-                bat.remaining.map_or(Default::default(), |(h, m)| format!(
-                    "\n\t{h}h {m}min remaining"
-                )),
-                bat.model_name,
-            )
-            .into()
-        }))))
-        .padding([10, 20])
+    fn popup_view<'a>(
+        &'a self,
+        config: &'a PopupConfig,
+        template: &Handlebars,
+    ) -> Element<'a, Message> {
+        container(scrollable(
+            column(self.batteries.iter().map(|bat| {
+                let state = bat.state.to_string();
+                let capacity = bat.capacity().to_string();
+                let energy = (bat.energy_now.floor() as u32 / 1000000).to_string();
+                let health = bat.health.to_string();
+
+                let remaining = bat
+                    .remaining
+                    .and_then(|(hours, minutes)| {
+                        let time_ctx = BTreeMap::from([("hours", hours), ("minutes", minutes)]);
+                        template
+                            .render("battery_popup_time_remaining", &time_ctx)
+                            .map_err(|e| eprintln!("Failed to render remaining battery time: {e}"))
+                            .ok()
+                    })
+                    .unwrap_or_default();
+
+                let mut ctx = BTreeMap::new();
+                ctx.insert("name", &bat.name);
+                ctx.insert("state", &state);
+                ctx.insert("icon", bat.icon(self));
+                ctx.insert("capacity", &capacity);
+                ctx.insert("energy", &energy);
+                ctx.insert("health", &health);
+                ctx.insert("time_remaining", &remaining);
+                ctx.insert("model", &bat.model_name);
+
+                container(
+                    /*text!(
+                        "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",
+                        bat.name,
+                        bat.state,
+                        bat.icon(self),
+                        bat.capacity(),
+                        bat.energy_now.floor() as u32 / 1000000,
+                        bat.health,
+                        bat.remaining.map_or(Default::default(), |(h, m)| format!(
+                            "\n\t{h}h {m}min remaining"
+                        )),
+                        bat.model_name,
+                    )*/
+                    text(
+                        template
+                            .render("battery_popup", &ctx)
+                            .map_err(|e| eprintln!("Failed to render battery stats: {e}"))
+                            .unwrap_or_default(),
+                    )
+                    .size(
+                        self.popup_cfg_override
+                            .font_size
+                            .unwrap_or(config.font_size),
+                    )
+                    .color(
+                        self.popup_cfg_override
+                            .text_color
+                            .unwrap_or(config.text_color),
+                    ),
+                )
+                .padding(
+                    self.popup_cfg_override
+                        .text_margin
+                        .unwrap_or(config.text_margin),
+                )
+                .into()
+            }))
+            .spacing(self.popup_cfg_override.spacing.unwrap_or(config.spacing)),
+        ))
+        .padding(self.popup_cfg_override.padding.unwrap_or(config.padding))
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color {
-                r: 0.,
-                g: 0.,
-                b: 0.,
-                a: 0.8,
-            })),
-            border: iced::Border::default().rounded(8),
+            background: Some(
+                self.popup_cfg_override
+                    .background
+                    .unwrap_or(config.background),
+            ),
+            border: self.popup_cfg_override.border.unwrap_or(config.border),
             ..Default::default()
         })
+        .fill_maybe(
+            self.popup_cfg_override
+                .fill_content_to_size
+                .unwrap_or(config.fill_content_to_size),
+        )
         .into()
     }
 
@@ -223,19 +294,37 @@ impl Module for BatteryMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
+        popup_config: &HashMap<String, Option<String>>,
         templates: &mut Handlebars,
     ) {
         self.cfg_override = config.into();
+        self.popup_cfg_override.update(popup_config);
         templates
             .register_template_string(
                 "battery",
                 config
                     .get("format")
-                    .cloned()
-                    .flatten()
+                    .unescape()
                     .unwrap_or("{{capacity}}% ({{hours}}h {{minutes}}min left)".to_string()),
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery format: {e}"));
+        templates
+            .register_template_string(
+                "battery_popup",
+                popup_config
+                    .get("format").unescape()
+                    .unwrap_or("{{name}}: {{state}}\n\t{{icon}} {{capacity}}% ({{energy}} Wh)\n\thealth: {{health}}%{{time_remaining}}\n\tmodel: {{model}}".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup format: {e}"));
+        templates
+            .register_template_string(
+                "battery_popup_time_remaining",
+                popup_config
+                    .get("format_time")
+                    .unescape()
+                    .unwrap_or("\n\t{{hours}}h {{minutes}}min remaining".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup time format: {e}"));
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {

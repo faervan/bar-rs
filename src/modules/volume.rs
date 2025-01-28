@@ -72,6 +72,7 @@ impl Module for VolumeMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
+        _popup_config: &HashMap<String, Option<String>>,
         _templates: &mut Handlebars,
     ) {
         self.cfg_override = config.into();

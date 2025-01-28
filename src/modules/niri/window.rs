@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
@@ -9,6 +10,7 @@ use niri_ipc::Window;
 
 use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
+use crate::helpers::UnEscapeString;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -103,32 +105,66 @@ impl Module for NiriWindowMod {
         .into()
     }
 
-    fn popup_view(&self, _config: &PopupConfig) -> Element<Message> {
+    fn popup_view<'a>(
+        &'a self,
+        config: &'a PopupConfig,
+        template: &Handlebars,
+    ) -> Element<'a, Message> {
         container(scrollable(
-            if let Some(window) = self.focused.and_then(|id| self.windows.get(&id)) {
-                let unset = String::from("Unset");
-                text!(
-                    "Title: {}\nApplication ID: {}\nWindow ID: {}\nWorkspace ID: {}",
-                    window.title.as_ref().unwrap_or(&unset),
-                    window.app_id.as_ref().unwrap_or(&unset),
-                    window.id,
-                    window.workspace_id.unwrap_or_default()
+            container(
+                if let Some(window) = self.focused.and_then(|id| self.windows.get(&id)) {
+                    let unset = String::from("Unset");
+                    let window_id = window.id.to_string();
+                    let workspace_id = window.workspace_id.unwrap_or_default().to_string();
+                    let ctx = BTreeMap::from([
+                        ("title", window.title.as_ref().unwrap_or(&unset)),
+                        ("app_id", window.app_id.as_ref().unwrap_or(&unset)),
+                        ("window_id", &window_id),
+                        ("workspace_id", &workspace_id),
+                    ]);
+                    text(template.render("niri.window", &ctx).unwrap_or_default())
+                    /*text!(
+                        "Title: {}\nApplication ID: {}\nWindow ID: {}\nWorkspace ID: {}",
+                        window.title.as_ref().unwrap_or(&unset),
+                        window.app_id.as_ref().unwrap_or(&unset),
+                        window.id,
+                        window.workspace_id.unwrap_or_default()
+                    )*/
+                } else {
+                    "No window focused".into()
+                }
+                .color(
+                    self.popup_cfg_override
+                        .text_color
+                        .unwrap_or(config.text_color),
                 )
-            } else {
-                "No window focused".into()
-            },
+                .size(
+                    self.popup_cfg_override
+                        .font_size
+                        .unwrap_or(config.font_size),
+                ),
+            )
+            .padding(
+                self.popup_cfg_override
+                    .text_margin
+                    .unwrap_or(config.text_margin),
+            ),
         ))
-        .padding([10, 20])
+        .padding(self.popup_cfg_override.padding.unwrap_or(config.padding))
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color {
-                r: 0.,
-                g: 0.,
-                b: 0.,
-                a: 0.8,
-            })),
-            border: iced::Border::default().rounded(8),
+            background: Some(
+                self.popup_cfg_override
+                    .background
+                    .unwrap_or(config.background),
+            ),
+            border: self.popup_cfg_override.border.unwrap_or(config.border),
             ..Default::default()
         })
+        .fill_maybe(
+            self.popup_cfg_override
+                .fill_content_to_size
+                .unwrap_or(config.fill_content_to_size),
+        )
         .into()
     }
 
@@ -141,10 +177,12 @@ impl Module for NiriWindowMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
-        _templates: &mut Handlebars,
+        popup_config: &HashMap<String, Option<String>>,
+        templates: &mut Handlebars,
     ) {
         let default = Self::default();
         self.cfg_override = config.into();
+        self.popup_cfg_override.update(popup_config);
         self.max_length = config
             .get("max_length")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
@@ -153,5 +191,14 @@ impl Module for NiriWindowMod {
             .get("show_app_id")
             .and_then(|v| v.into_bool())
             .unwrap_or(default.show_app_id);
+        templates
+            .register_template_string(
+                "niri.window",
+                popup_config
+                    .get("format")
+                    .unescape()
+                    .unwrap_or("Title: {{title}}\nApplication ID: {{app_id}}\nWindow ID: {{window_id}}\nWorkspace ID: {{workspace_id}}".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup format: {e}"));
     }
 }

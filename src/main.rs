@@ -47,6 +47,7 @@ mod modules;
 mod registry;
 mod resolvers;
 mod tooltip;
+mod helpers;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
@@ -355,9 +356,11 @@ impl Bar<'_> {
             .popup
             .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
         {
-            self.registry
-                .get_module_by_id(mod_id)
-                .popup_wrapper(&self.config.popup_config, &self.config.anchor)
+            self.registry.get_module_by_id(mod_id).popup_wrapper(
+                &self.config.popup_config,
+                &self.config.anchor,
+                &self.templates,
+            )
         } else {
             "Internal error".into()
         }

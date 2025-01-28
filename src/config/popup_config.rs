@@ -145,47 +145,53 @@ impl From<&Ini> for PopupConfig {
     }
 }
 
-impl From<&HashMap<String, Option<String>>> for PopupConfigOverride {
-    fn from(map: &HashMap<String, Option<String>>) -> Self {
-        Self {
-            width: map
-                .get("width")
-                .and_then(|s| s.as_ref().and_then(|v| v.parse().ok())),
-            height: map
-                .get("height")
-                .and_then(|s| s.as_ref().and_then(|v| v.parse().ok())),
-            fill_content_to_size: map.get("fill_content_to_size").and_then(|s| s.into_bool()),
-            padding: map
-                .get("padding")
-                .and_then(|s| s.into_insets().map(|i| i.into())),
-            text_color: map.get("text_color").and_then(|s| s.into_color()),
-            icon_color: map.get("icon_color").and_then(|s| s.into_color()),
-            font_size: map.get("font_size").and_then(|s| s.into_float()),
-            icon_size: map.get("icon_size").and_then(|s| s.into_float()),
-            text_margin: map
-                .get("text_margin")
-                .and_then(|s| s.into_insets().map(|i| i.into())),
-            icon_margin: map
-                .get("icon_margin")
-                .and_then(|s| s.into_insets().map(|i| i.into())),
-            spacing: map.get("spacing").and_then(|s| s.into_float()),
-            background: map.get("background").and_then(|s| s.into_background()),
-            border: {
-                let color = map.get("border_color").and_then(|s| s.into_color());
-                let width = map.get("border_width").and_then(|s| s.into_float());
-                let radius = map
-                    .get("border_radius")
-                    .and_then(|s| s.into_insets().map(|i| i.into()));
-                if color.is_some() || width.is_some() || radius.is_some() {
-                    Some(Border {
-                        color: color.unwrap_or_default(),
-                        width: width.unwrap_or_default(),
-                        radius: radius.unwrap_or_default(),
-                    })
-                } else {
-                    None
-                }
-            },
+impl PopupConfigOverride {
+    pub fn update(&mut self, config: &HashMap<String, Option<String>>) {
+        if let Some(width) = config
+            .get("width")
+            .and_then(|s| s.as_ref().and_then(|v| v.parse().ok()))
+        {
+            self.width = Some(width);
         }
+        if let Some(height) = config
+            .get("height")
+            .and_then(|s| s.as_ref().and_then(|v| v.parse().ok()))
+        {
+            self.height = Some(height);
+        }
+        self.fill_content_to_size = config
+            .get("fill_content_to_size")
+            .and_then(|s| s.into_bool());
+        self.padding = config
+            .get("padding")
+            .and_then(|s| s.into_insets().map(|i| i.into()));
+        self.text_color = config.get("text_color").and_then(|s| s.into_color());
+        self.icon_color = config.get("icon_color").and_then(|s| s.into_color());
+        self.font_size = config.get("font_size").and_then(|s| s.into_float());
+        self.icon_size = config.get("icon_size").and_then(|s| s.into_float());
+        self.text_margin = config
+            .get("text_margin")
+            .and_then(|s| s.into_insets().map(|i| i.into()));
+        self.icon_margin = config
+            .get("icon_margin")
+            .and_then(|s| s.into_insets().map(|i| i.into()));
+        self.spacing = config.get("spacing").and_then(|s| s.into_float());
+        self.background = config.get("background").and_then(|s| s.into_background());
+        self.border = {
+            let color = config.get("border_color").and_then(|s| s.into_color());
+            let width = config.get("border_width").and_then(|s| s.into_float());
+            let radius = config
+                .get("border_radius")
+                .and_then(|s| s.into_insets().map(|i| i.into()));
+            if color.is_some() || width.is_some() || radius.is_some() {
+                Some(Border {
+                    color: color.unwrap_or_default(),
+                    width: width.unwrap_or_default(),
+                    radius: radius.unwrap_or_default(),
+                })
+            } else {
+                None
+            }
+        };
     }
 }
