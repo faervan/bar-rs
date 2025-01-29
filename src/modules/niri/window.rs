@@ -123,13 +123,6 @@ impl Module for NiriWindowMod {
                         ("workspace_id", &workspace_id),
                     ]);
                     text(template.render("niri.window", &ctx).unwrap_or_default())
-                    /*text!(
-                        "Title: {}\nApplication ID: {}\nWindow ID: {}\nWorkspace ID: {}",
-                        window.title.as_ref().unwrap_or(&unset),
-                        window.app_id.as_ref().unwrap_or(&unset),
-                        window.id,
-                        window.workspace_id.unwrap_or_default()
-                    )*/
                 } else {
                     "No window focused".into()
                 }

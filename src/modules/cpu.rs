@@ -9,7 +9,7 @@ use std::{
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{button::Style, column, container, scrollable, Container, Text};
+use iced::widget::{button::Style, container, scrollable, Container, Text};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::time::sleep;
 
@@ -21,6 +21,7 @@ use crate::{
         popup_config::{PopupConfig, PopupConfigOverride},
     },
     fill::FillExt,
+    helpers::UnEscapeString,
     impl_wrapper, Message, NERD_FONT,
 };
 
@@ -119,37 +120,53 @@ impl Module for CpuMod {
                     .unwrap_or(config.text_margin),
             )
         };
-        container(scrollable(
-            column![
-                fmt_text(text![
-                    "Total: {}%\nUser: {}%\nSystem: {}%\nGuest: {}%",
-                    self.avg_usage.all,
-                    self.avg_usage.user,
-                    self.avg_usage.system,
-                    self.avg_usage.guest
-                ]),
-                column(self.cores.iter().map(|(ty, stats)| {
-                    fmt_text(text!("Core {}: {}%", ty.get_core_index(), stats.all)).into()
-                }))
-            ]
-            .spacing(self.popup_cfg_override.spacing.unwrap_or(config.spacing)),
-        ))
-        .padding(self.popup_cfg_override.padding.unwrap_or(config.padding))
-        .style(|_| container::Style {
-            background: Some(
-                self.popup_cfg_override
-                    .background
-                    .unwrap_or(config.background),
+        let ctx = BTreeMap::from([
+            ("total", self.avg_usage.all.to_string()),
+            ("user", self.avg_usage.user.to_string()),
+            ("system", self.avg_usage.system.to_string()),
+            ("guest", self.avg_usage.guest.to_string()),
+            (
+                "cores",
+                self.cores
+                    .iter()
+                    .map(|(ty, stats)| {
+                        let core = BTreeMap::from([
+                            ("index", ty.get_core_index().to_string()),
+                            ("total", stats.all.to_string()),
+                            ("user", stats.user.to_string()),
+                            ("system", stats.system.to_string()),
+                            ("guest", stats.guest.to_string()),
+                        ]);
+                        template
+                            .render("cpu_core", &core)
+                            .map_err(|e| eprintln!("Failed to render cpu core stats: {e}"))
+                            .unwrap_or_default()
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n"),
             ),
-            border: self.popup_cfg_override.border.unwrap_or(config.border),
-            ..Default::default()
-        })
-        .fill_maybe(
-            self.popup_cfg_override
-                .fill_content_to_size
-                .unwrap_or(config.fill_content_to_size),
-        )
-        .into()
+        ]);
+        let format = template
+            .render("cpu", &ctx)
+            .map_err(|e| eprintln!("Failed to render cpu stats: {e}"))
+            .unwrap_or_default();
+        container(scrollable(fmt_text(text(format))))
+            .padding(self.popup_cfg_override.padding.unwrap_or(config.padding))
+            .style(|_| container::Style {
+                background: Some(
+                    self.popup_cfg_override
+                        .background
+                        .unwrap_or(config.background),
+                ),
+                border: self.popup_cfg_override.border.unwrap_or(config.border),
+                ..Default::default()
+            })
+            .fill_maybe(
+                self.popup_cfg_override
+                    .fill_content_to_size
+                    .unwrap_or(config.fill_content_to_size),
+            )
+            .into()
     }
 
     impl_wrapper!();
@@ -158,11 +175,29 @@ impl Module for CpuMod {
         &mut self,
         config: &HashMap<String, Option<String>>,
         popup_config: &HashMap<String, Option<String>>,
-        _templates: &mut Handlebars,
+        templates: &mut Handlebars,
     ) {
         self.cfg_override = config.into();
         self.popup_cfg_override.update(popup_config);
         self.icon = config.get("icon").and_then(|v| v.clone());
+        templates
+            .register_template_string(
+                "cpu",
+                popup_config
+                    .get("format")
+                    .unescape()
+                    .unwrap_or("Total: {{total}}%\nUser: {{user}}%\nSystem: {{system}}%\nGuest: {{guest}}%\n{{cores}}".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup format: {e}"));
+        templates
+            .register_template_string(
+                "cpu_core",
+                popup_config
+                    .get("format_core")
+                    .unescape()
+                    .unwrap_or("Core {{index}}: {{total}}%".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup format: {e}"));
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {

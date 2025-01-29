@@ -35,10 +35,19 @@ pub struct MediaMod {
     cfg_override: ModuleConfigOverride,
     popup_cfg_override: PopupConfigOverride,
     icon: String,
+    ctrl_icons: PlayerCtrlIcons,
     max_length: usize,
     max_title_length: usize,
     players: HashSet<String>,
     cover_width: f32,
+}
+
+#[derive(Debug)]
+struct PlayerCtrlIcons {
+    previous: String,
+    play: String,
+    pause: String,
+    next: String,
 }
 
 impl Default for MediaMod {
@@ -54,6 +63,10 @@ impl Default for MediaMod {
                 ..Default::default()
             },
             icon: String::from(""),
+            ctrl_icons: PlayerCtrlIcons {
+                previous: String::from(""),
+                play
+            },
             max_length: 28,
             max_title_length: 16,
             players: HashSet::from(["spotify".to_string(), "kew".to_string()]),
