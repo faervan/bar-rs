@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
@@ -15,6 +15,7 @@ use tokio::{
 
 use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
+use crate::helpers::UnEscapeString;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -64,8 +65,10 @@ impl Default for MediaMod {
             },
             icon: String::from(""),
             ctrl_icons: PlayerCtrlIcons {
-                previous: String::from(""),
-                play
+                previous: String::from("󰒮"),
+                play: String::from(""),
+                pause: String::from(""),
+                next: String::from("󰒭"),
             },
             max_length: 28,
             max_title_length: 16,
@@ -286,6 +289,22 @@ impl Module for MediaMod {
                             .unwrap_or_default()
                     ))
                 };
+                let status = track
+                    .paused
+                    .then_some(" (paused)".to_string())
+                    .unwrap_or_default();
+                let length = format!(
+                    "{}min {}sec",
+                    minutes,
+                    ((track.length / 1000000.) - minutes * 60.).round()
+                );
+                let ctx = BTreeMap::from([
+                    ("title", &track.title),
+                    ("artist", &track.artist),
+                    ("album", &track.album),
+                    ("status", &status),
+                    ("length", &length),
+                ]);
                 <iced::widget::Scrollable<'_, Message> as Into<Element<Message>>>::into(scrollable(
                     column![
                         match track.art_is_local {
@@ -309,16 +328,16 @@ impl Module for MediaMod {
                         },
                         container(
                             row![
-                                button(icon("󰒮"))
+                                button(icon(&self.ctrl_icons.previous))
                                     .on_event(cmd("previous"))
                                     .style(|_, _| Style::default()),
                                 button(icon(match track.paused {
-                                    true => "",
-                                    false => "",
+                                    true => &self.ctrl_icons.play,
+                                    false => &self.ctrl_icons.pause,
                                 }))
                                 .on_event(cmd("play-pause"))
                                 .style(|_, _| Style::default()),
-                                button(icon("󰒭"))
+                                button(icon(&self.ctrl_icons.next))
                                     .on_event(cmd("next"))
                                     .style(|_, _| Style::default()),
                             ]
@@ -364,7 +383,7 @@ impl Module for MediaMod {
         &mut self,
         config: &HashMap<String, Option<String>>,
         popup_config: &HashMap<String, Option<String>>,
-        _templates: &mut Handlebars,
+        templates: &mut Handlebars,
     ) {
         let default = Self::default();
         self.cfg_override = config.into();
@@ -392,6 +411,39 @@ impl Module for MediaMod {
             .get("cover_width")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
             .unwrap_or(default.cover_width);
+        self.ctrl_icons = {
+            let default = default.ctrl_icons;
+            PlayerCtrlIcons {
+                previous: popup_config
+                    .get("icon_previous")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.previous),
+                play: popup_config
+                    .get("icon_play")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.play),
+                pause: popup_config
+                    .get("icon_pause")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.pause),
+                next: popup_config
+                    .get("icon_next")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.next),
+            }
+        };
+        templates
+            .register_template_string(
+                "media",
+                popup_config.get("format").unescape().unwrap_or(
+                    "{{title}}{{status}}\nin: {{album}}\nby: {{artist}}\n{{length}}".to_string(),
+                ),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup time format: {e}"));
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {

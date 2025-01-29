@@ -232,19 +232,6 @@ impl Module for BatteryMod {
                 ctx.insert("model", &bat.model_name);
 
                 container(
-                    /*text!(
-                        "{}: {}\n\t{} {}% ({} Wh)\n\thealth: {}%{}\n\tmodel: {}",
-                        bat.name,
-                        bat.state,
-                        bat.icon(self),
-                        bat.capacity(),
-                        bat.energy_now.floor() as u32 / 1000000,
-                        bat.health,
-                        bat.remaining.map_or(Default::default(), |(h, m)| format!(
-                            "\n\t{h}h {m}min remaining"
-                        )),
-                        bat.model_name,
-                    )*/
                     text(
                         template
                             .render("battery_popup", &ctx)
