@@ -97,6 +97,14 @@ where
     }
 
     /// Defines the on_event action of the [`Button`]
+    pub fn on_event_maybe(mut self, msg: Option<Message>) -> Self {
+        if let Some(msg) = msg {
+            self.on_event = Some(ButtonEventHandler::Message(msg));
+        }
+        self
+    }
+
+    /// Defines the on_event action of the [`Button`]
     pub fn on_event_with<F>(mut self, f: F) -> Self
     where
         F: Fn(

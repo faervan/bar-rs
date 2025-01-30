@@ -96,9 +96,13 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         templates: &mut Handlebars,
     ) {
     }
+    /// The action to perform on a on_click event
+    fn on_click(&self) -> Option<&dyn Action> {
+        None
+    }
     #[allow(unused_variables, dead_code)]
     /// Handle an action (likely produced by a user interaction).
-    fn handle_action(&mut self, action: Box<dyn Action>) {}
+    fn handle_action(&mut self, action: &dyn Action) {}
     #[allow(unused_variables)]
     /// The view of a popup
     fn popup_view<'a>(
@@ -141,7 +145,9 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
 }
 impl_downcast!(Module);
 
-pub trait Action: Any + Debug + Send + Sync + Downcast {}
+pub trait Action: Any + Debug + Send + Sync + Downcast {
+    fn into_message(&self) -> Message;
+}
 impl_downcast!(Action);
 
 pub fn require_listener<T>() -> TypeId
@@ -177,10 +183,11 @@ macro_rules! impl_wrapper {
             anchor: &BarAnchor,
         ) -> Element<'a, Message> {
             iced::widget::container(
-                iced::widget::container(content)
+                crate::button::button(content)
                     .fill(anchor)
                     .padding(self.cfg_override.padding.unwrap_or(config.padding))
-                    .style(|_| iced::widget::container::Style {
+                    .on_event_maybe(self.on_click().map(|evt| evt.into_message()))
+                    .style(|_, _| iced::widget::button::Style {
                         background: self.cfg_override.background.unwrap_or(config.background),
                         border: self.cfg_override.border.unwrap_or(config.border),
                         ..Default::default()
