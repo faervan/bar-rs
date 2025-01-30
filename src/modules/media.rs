@@ -1,11 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::widget::button::Style;
-use iced::widget::{column, container, image, row, scrollable};
-use iced::Color;
+use iced::widget::{column, container, image, row, scrollable, Container, Text};
 use iced::Length::Fill;
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use serde::Deserialize;
@@ -15,6 +14,8 @@ use tokio::{
 };
 
 use crate::button::button;
+use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
+use crate::helpers::UnEscapeString;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -33,10 +34,21 @@ pub struct MediaMod {
     img: Option<Vec<u8>>,
     active_player: Option<String>,
     cfg_override: ModuleConfigOverride,
+    popup_cfg_override: PopupConfigOverride,
     icon: String,
+    ctrl_icons: PlayerCtrlIcons,
     max_length: usize,
     max_title_length: usize,
     players: HashSet<String>,
+    cover_width: f32,
+}
+
+#[derive(Debug)]
+struct PlayerCtrlIcons {
+    previous: String,
+    play: String,
+    pause: String,
+    next: String,
 }
 
 impl Default for MediaMod {
@@ -46,10 +58,22 @@ impl Default for MediaMod {
             img: None,
             active_player: None,
             cfg_override: Default::default(),
+            popup_cfg_override: PopupConfigOverride {
+                width: Some(300),
+                height: Some(450),
+                ..Default::default()
+            },
             icon: String::from(""),
+            ctrl_icons: PlayerCtrlIcons {
+                previous: String::from("󰒮"),
+                play: String::from(""),
+                pause: String::from(""),
+                next: String::from("󰒭"),
+            },
             max_length: 28,
             max_title_length: 16,
             players: HashSet::from(["spotify".to_string(), "kew".to_string()]),
+            cover_width: 260.,
         }
     }
 }
@@ -170,6 +194,7 @@ impl Module for MediaMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -194,20 +219,67 @@ impl Module for MediaMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_maybe_with(
-            self.track
-                .as_ref()
-                .map(|_| Message::popup::<Self>(300, 400, anchor)),
-        )
+        .on_event_maybe_with(self.track.as_ref().map(|_| {
+            Message::popup::<Self>(
+                self.popup_cfg_override.width.unwrap_or(popup_config.width),
+                self.popup_cfg_override
+                    .height
+                    .unwrap_or(popup_config.height),
+                anchor,
+            )
+        }))
         .style(|_, _| Style::default())
         .into()
     }
 
-    fn popup_view(&self) -> Element<Message> {
+    fn popup_view<'a>(
+        &'a self,
+        config: &'a PopupConfig,
+        template: &Handlebars,
+    ) -> Element<'a, Message> {
+        let fmt_text = |text: Text<'a>| -> Container<'a, Message> {
+            container(
+                text.size(
+                    self.popup_cfg_override
+                        .font_size
+                        .unwrap_or(config.font_size),
+                )
+                .color(
+                    self.popup_cfg_override
+                        .text_color
+                        .unwrap_or(config.text_color),
+                ),
+            )
+            .padding(
+                self.popup_cfg_override
+                    .text_margin
+                    .unwrap_or(config.text_margin),
+            )
+        };
         container(match &self.track {
             Some(track) => {
                 let minutes = (track.length / 60000000.).trunc();
-                let icon = |icon| text(icon).font(NERD_FONT).size(24).color(Color::WHITE);
+                let icon = |icon| {
+                    container(
+                        text(icon)
+                            .font(NERD_FONT)
+                            .size(
+                                self.popup_cfg_override
+                                    .icon_size
+                                    .unwrap_or(config.icon_size),
+                            )
+                            .color(
+                                self.popup_cfg_override
+                                    .icon_color
+                                    .unwrap_or(config.icon_color),
+                            ),
+                    )
+                    .padding(
+                        self.popup_cfg_override
+                            .icon_margin
+                            .unwrap_or(config.icon_margin),
+                    )
+                };
                 let cmd = |cmd| {
                     Message::command_sh(format!(
                         "playerctl {cmd}{}",
@@ -217,6 +289,28 @@ impl Module for MediaMod {
                             .unwrap_or_default()
                     ))
                 };
+                let status = track
+                    .paused
+                    .then_some(" (paused)".to_string())
+                    .unwrap_or_default();
+                let length_ctx = BTreeMap::from([
+                    ("minutes", minutes as u32),
+                    (
+                        "seconds",
+                        ((track.length / 1000000.) - minutes * 60.).round() as u32,
+                    ),
+                ]);
+                let length = template
+                    .render("media_popup_length", &length_ctx)
+                    .map_err(|e| eprintln!("Failed to render media popup length: {e}"))
+                    .unwrap_or_default();
+                let ctx = BTreeMap::from([
+                    ("title", &track.title),
+                    ("artist", &track.artist),
+                    ("album", &track.album),
+                    ("status", &status),
+                    ("length", &length),
+                ]);
                 <iced::widget::Scrollable<'_, Message> as Into<Element<Message>>>::into(scrollable(
                     column![
                         match track.art_is_local {
@@ -227,7 +321,7 @@ impl Module for MediaMod {
                                         .strip_prefix("file://")
                                         .unwrap_or(&track.art_url)
                                 )
-                                .width(260)
+                                .width(self.cover_width)
                             ),
                             false =>
                                 if let Some(bytes) = self.img.clone() {
@@ -235,55 +329,54 @@ impl Module for MediaMod {
                                         image::Handle::from_bytes(bytes),
                                     ))
                                 } else {
-                                    "No cover available".into()
+                                    fmt_text(text("No cover available")).into()
                                 },
                         },
                         container(
                             row![
-                                button(icon("󰒮"))
+                                button(icon(&self.ctrl_icons.previous))
                                     .on_event(cmd("previous"))
                                     .style(|_, _| Style::default()),
                                 button(icon(match track.paused {
-                                    true => "",
-                                    false => "",
+                                    true => &self.ctrl_icons.play,
+                                    false => &self.ctrl_icons.pause,
                                 }))
                                 .on_event(cmd("play-pause"))
                                 .style(|_, _| Style::default()),
-                                button(icon("󰒭"))
+                                button(icon(&self.ctrl_icons.next))
                                     .on_event(cmd("next"))
                                     .style(|_, _| Style::default()),
                             ]
                             .spacing(20)
                         )
                         .center_x(Fill),
-                        text!(
-                            "{}{}",
-                            track.title,
-                            track.paused.then_some(" (paused)").unwrap_or_default()
-                        ),
-                        text!("in: {}", track.album),
-                        text!("by: {}", track.artist),
-                        text!(
-                            "{}min {}sec",
-                            minutes,
-                            ((track.length / 1000000.) - minutes * 60.).round()
-                        )
-                    ],
+                        fmt_text(text(
+                            template
+                                .render("media_popup", &ctx)
+                                .map_err(|e| eprintln!("Failed to render media popup stats: {e}"))
+                                .unwrap_or_default()
+                        )),
+                    ]
+                    .spacing(self.popup_cfg_override.spacing.unwrap_or(config.spacing)),
                 ))
             }
-            None => text("No media is playing right now").into(),
+            None => fmt_text(text("No media is playing right now")).into(),
         })
-        .padding([10, 20])
+        .padding(self.popup_cfg_override.padding.unwrap_or(config.padding))
         .style(|_| container::Style {
-            background: Some(iced::Background::Color(iced::Color {
-                r: 0.,
-                g: 0.,
-                b: 0.,
-                a: 0.8,
-            })),
-            border: iced::Border::default().rounded(8),
+            background: Some(
+                self.popup_cfg_override
+                    .background
+                    .unwrap_or(config.background),
+            ),
+            border: self.popup_cfg_override.border.unwrap_or(config.border),
             ..Default::default()
         })
+        .fill_maybe(
+            self.popup_cfg_override
+                .fill_content_to_size
+                .unwrap_or(config.fill_content_to_size),
+        )
         .into()
     }
 
@@ -292,10 +385,12 @@ impl Module for MediaMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
-        _templates: &mut Handlebars,
+        popup_config: &HashMap<String, Option<String>>,
+        templates: &mut Handlebars,
     ) {
         let default = Self::default();
         self.cfg_override = config.into();
+        self.popup_cfg_override.update(popup_config);
         self.icon = config
             .get("icon")
             .and_then(|v| v.clone())
@@ -308,6 +403,59 @@ impl Module for MediaMod {
             .get("max_title_length")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
             .unwrap_or(default.max_title_length);
+        self.players = popup_config
+            .get("players")
+            .and_then(|v| {
+                v.as_ref()
+                    .map(|v| v.split(',').map(|i| i.trim().to_string()).collect())
+            })
+            .unwrap_or(default.players);
+        self.cover_width = popup_config
+            .get("cover_width")
+            .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
+            .unwrap_or(default.cover_width);
+        self.ctrl_icons = {
+            let default = default.ctrl_icons;
+            PlayerCtrlIcons {
+                previous: popup_config
+                    .get("icon_previous")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.previous),
+                play: popup_config
+                    .get("icon_play")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.play),
+                pause: popup_config
+                    .get("icon_pause")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.pause),
+                next: popup_config
+                    .get("icon_next")
+                    .cloned()
+                    .flatten()
+                    .unwrap_or(default.next),
+            }
+        };
+        templates
+            .register_template_string(
+                "media_popup",
+                popup_config.get("format").unescape().unwrap_or(
+                    "{{title}}{{status}}\nin: {{album}}\nby: {{artist}}\n{{length}}".to_string(),
+                ),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup time format: {e}"));
+        templates
+            .register_template_string(
+                "media_popup_length",
+                popup_config
+                    .get("format_length")
+                    .unescape()
+                    .unwrap_or("{{minutes}}min {{seconds}}sec".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup time format: {e}"));
     }
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {

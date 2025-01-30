@@ -17,6 +17,7 @@ use iced::{
     platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
 };
 use module_config::ModuleConfig;
+use popup_config::PopupConfig;
 use tokio::sync::mpsc;
 
 use crate::{registry::Registry, Message};
@@ -27,6 +28,7 @@ mod enabled_modules;
 mod insets;
 pub mod module_config;
 pub mod parse;
+pub mod popup_config;
 mod thrice;
 
 #[derive(Debug)]
@@ -35,6 +37,7 @@ pub struct Config {
     pub enabled_modules: EnabledModules,
     pub enabled_listeners: HashSet<TypeId>,
     pub module_config: ModuleConfig,
+    pub popup_config: PopupConfig,
     pub anchor: BarAnchor,
     pub monitor: Option<String>,
     pub kb_focus: KeyboardInteractivity,
@@ -58,6 +61,7 @@ impl Config {
                 .collect(),
             enabled_modules,
             module_config: ModuleConfig::default(),
+            popup_config: PopupConfig::default(),
             anchor: BarAnchor::default(),
             monitor: None,
             kb_focus: KeyboardInteractivity::None,
@@ -109,13 +113,18 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry, templates: &mut Hand
     registry
         .get_modules_mut(config.enabled_modules.get_all(), &config)
         .map(|m| {
-            let map = ini
+            let name = m.name();
+            let cfg_map = ini
                 .get_map_ref()
-                .get(&format!("module:{}", m.name()))
+                .get(&format!("module:{}", name))
                 .unwrap_or(&empty_map);
-            (m, map)
+            let popup_cfg_map = ini
+                .get_map_ref()
+                .get(&format!("module_popup:{}", name))
+                .unwrap_or(&empty_map);
+            (m, cfg_map, popup_cfg_map)
         })
-        .for_each(|(m, map)| m.read_config(map, templates));
+        .for_each(|(m, cfg_map, popup_cfg_map)| m.read_config(cfg_map, popup_cfg_map, templates));
     config
 }
 

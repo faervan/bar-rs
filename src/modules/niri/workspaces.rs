@@ -14,6 +14,7 @@ use crate::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
         parse::StringExt,
+        popup_config::PopupConfig,
     },
     fill::FillExt,
     impl_wrapper, list,
@@ -99,6 +100,7 @@ impl Module for NiriWorkspaceMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -163,6 +165,7 @@ impl Module for NiriWorkspaceMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
+        _popup_config: &HashMap<String, Option<String>>,
         _templates: &mut Handlebars,
     ) {
         let default = Self::default();

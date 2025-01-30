@@ -6,6 +6,7 @@ use handlebars::Handlebars;
 use iced::widget::{container, text};
 use iced::Element;
 
+use crate::config::popup_config::PopupConfig;
 use crate::impl_wrapper;
 use crate::{
     config::{
@@ -43,6 +44,7 @@ impl Module for TimeMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -76,6 +78,7 @@ impl Module for TimeMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
+        _popup_config: &HashMap<String, Option<String>>,
         _templates: &mut Handlebars,
     ) {
         let default = Self::default();

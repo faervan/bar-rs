@@ -42,6 +42,7 @@ mod config;
 mod list;
 mod button;
 mod fill;
+mod helpers;
 mod listeners;
 mod modules;
 mod registry;
@@ -355,9 +356,11 @@ impl Bar<'_> {
             .popup
             .and_then(|(m_id, p_id)| (p_id == window_id).then_some(m_id))
         {
-            self.registry
-                .get_module_by_id(mod_id)
-                .popup_wrapper(&self.config.anchor)
+            self.registry.get_module_by_id(mod_id).popup_wrapper(
+                &self.config.popup_config,
+                &self.config.anchor,
+                &self.templates,
+            )
         } else {
             "Internal error".into()
         }
@@ -375,7 +378,12 @@ impl Bar<'_> {
                         .map(|m| {
                             m.wrapper(
                                 &self.config.module_config.local,
-                                m.view(&self.config.module_config.local, anchor, &self.templates),
+                                m.view(
+                                    &self.config.module_config.local,
+                                    &self.config.popup_config,
+                                    anchor,
+                                    &self.templates,
+                                ),
                                 anchor,
                             )
                         }),
