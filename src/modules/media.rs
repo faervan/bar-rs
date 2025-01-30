@@ -293,11 +293,17 @@ impl Module for MediaMod {
                     .paused
                     .then_some(" (paused)".to_string())
                     .unwrap_or_default();
-                let length = format!(
-                    "{}min {}sec",
-                    minutes,
-                    ((track.length / 1000000.) - minutes * 60.).round()
-                );
+                let length_ctx = BTreeMap::from([
+                    ("minutes", minutes as u32),
+                    (
+                        "seconds",
+                        ((track.length / 1000000.) - minutes * 60.).round() as u32,
+                    ),
+                ]);
+                let length = template
+                    .render("media_popup_length", &length_ctx)
+                    .map_err(|e| eprintln!("Failed to render media popup length: {e}"))
+                    .unwrap_or_default();
                 let ctx = BTreeMap::from([
                     ("title", &track.title),
                     ("artist", &track.artist),
@@ -344,14 +350,11 @@ impl Module for MediaMod {
                             .spacing(20)
                         )
                         .center_x(Fill),
-                        fmt_text(text!(
-                            "{}{}\nin: {}\nby: {}\n{}min {}sec",
-                            track.title,
-                            track.paused.then_some(" (paused)").unwrap_or_default(),
-                            track.album,
-                            track.artist,
-                            minutes,
-                            ((track.length / 1000000.) - minutes * 60.).round()
+                        fmt_text(text(
+                            template
+                                .render("media_popup", &ctx)
+                                .map_err(|e| eprintln!("Failed to render media popup stats: {e}"))
+                                .unwrap_or_default()
                         )),
                     ]
                     .spacing(self.popup_cfg_override.spacing.unwrap_or(config.spacing)),
@@ -438,10 +441,19 @@ impl Module for MediaMod {
         };
         templates
             .register_template_string(
-                "media",
+                "media_popup",
                 popup_config.get("format").unescape().unwrap_or(
                     "{{title}}{{status}}\nin: {{album}}\nby: {{artist}}\n{{length}}".to_string(),
                 ),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery popup time format: {e}"));
+        templates
+            .register_template_string(
+                "media_popup_length",
+                popup_config
+                    .get("format_length")
+                    .unescape()
+                    .unwrap_or("{{minutes}}min {{seconds}}sec".to_string()),
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery popup time format: {e}"));
     }

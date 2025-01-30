@@ -42,12 +42,12 @@ mod config;
 mod list;
 mod button;
 mod fill;
+mod helpers;
 mod listeners;
 mod modules;
 mod registry;
 mod resolvers;
 mod tooltip;
-mod helpers;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
