@@ -13,7 +13,7 @@ use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
 use iced::{
     theme::Palette,
     widget::{container, Container},
-    Alignment, Color, Theme,
+    Alignment, Color, Event, Theme,
 };
 use iced::{widget::container::Style, Element, Subscription};
 use media::MediaMod;
@@ -96,8 +96,9 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         templates: &mut Handlebars,
     ) {
     }
+    #[allow(unused_variables)]
     /// The action to perform on a on_click event
-    fn on_click(&self) -> Option<&dyn Action> {
+    fn on_click(&self, event: Event) -> Option<&dyn Action> {
         None
     }
     #[allow(unused_variables, dead_code)]
@@ -146,9 +147,35 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
 impl_downcast!(Module);
 
 pub trait Action: Any + Debug + Send + Sync + Downcast {
-    fn into_message(&self) -> Message;
+    fn as_message(&self) -> Message;
 }
 impl_downcast!(Action);
+
+#[derive(Debug)]
+pub struct CommandAction(String);
+
+impl Action for CommandAction {
+    fn as_message(&self) -> Message {
+        Message::command_sh(&self.0)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct OnClickAction<'a> {
+    left: Option<&'a dyn Action>,
+    center: Option<&'a dyn Action>,
+    right: Option<&'a dyn Action>,
+}
+
+impl<'_> OnClickAction<'_> {
+    pub fn event(&self, event: Event) -> Option<&dyn Action> {
+        match event {
+            Event::Mouse(iced::mouse::Event::CursorLeft) => (),
+                _ => ()
+        }
+        None
+    }
+}
 
 pub fn require_listener<T>() -> TypeId
 where
@@ -183,10 +210,10 @@ macro_rules! impl_wrapper {
             anchor: &BarAnchor,
         ) -> Element<'a, Message> {
             iced::widget::container(
-                crate::button::button(content)
+                $crate::button::button(content)
                     .fill(anchor)
                     .padding(self.cfg_override.padding.unwrap_or(config.padding))
-                    .on_event_maybe(self.on_click().map(|evt| evt.into_message()))
+                    .on_event_try(|evt, _, _, _, _| self.on_click(evt).map(|evt| evt.as_message()))
                     .style(|_, _| iced::widget::button::Style {
                         background: self.cfg_override.background.unwrap_or(config.background),
                         border: self.cfg_override.border.unwrap_or(config.border),

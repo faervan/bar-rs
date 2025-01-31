@@ -1,5 +1,5 @@
 use std::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::Debug,
     path::PathBuf,
     process::{exit, Command},
@@ -29,7 +29,7 @@ use iced::{
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
-use modules::{register_modules, Action, Module};
+use modules::{register_modules, Module};
 use registry::Registry;
 use resolvers::register_resolvers;
 use tokio::{
@@ -107,8 +107,8 @@ enum Message {
     Action(Arc<ActionFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     GetReceiver(
-        mpsc::Sender<broadcast::Receiver<Arc<dyn Action>>>,
-        fn(&Registry) -> broadcast::Receiver<Arc<dyn Action>>,
+        mpsc::Sender<broadcast::Receiver<Arc<dyn Any + Send + Sync>>>,
+        fn(&Registry) -> broadcast::Receiver<Arc<dyn Any + Send + Sync>>,
     ),
     Spawn(Arc<Command>),
     ReloadConfig,

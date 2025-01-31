@@ -24,6 +24,7 @@ pub struct DateMod {
     cfg_override: ModuleConfigOverride,
     icon: String,
     fmt: String,
+    action: NotifySend,
 }
 
 impl Default for DateMod {
@@ -32,6 +33,7 @@ impl Default for DateMod {
             cfg_override: Default::default(),
             icon: "".to_string(),
             fmt: "%a, %d. %b".to_string(),
+            action: NotifySend,
         }
     }
 }
@@ -91,5 +93,18 @@ impl Module for DateMod {
             .get("format")
             .and_then(|v| v.clone())
             .unwrap_or(default.fmt);
+    }
+
+    fn on_click(&self) -> Option<&dyn super::Action> {
+        Some(&self.action)
+    }
+}
+
+#[derive(Debug)]
+struct NotifySend;
+
+impl super::Action for NotifySend {
+    fn as_message(&self) -> Message {
+        Message::command_sh("notify-send hello")
     }
 }
