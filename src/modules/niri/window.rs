@@ -11,7 +11,6 @@ use niri_ipc::Window;
 use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
 use crate::helpers::UnEscapeString;
-use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -23,6 +22,7 @@ use crate::{
     modules::{require_listener, Module},
     Message,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 #[derive(Debug, Builder)]
 pub struct NiriWindowMod {
@@ -194,4 +194,6 @@ impl Module for NiriWindowMod {
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery popup format: {e}"));
     }
+
+    impl_on_click!();
 }

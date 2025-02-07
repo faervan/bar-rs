@@ -6,6 +6,8 @@ use iced::{
     Padding,
 };
 
+use crate::modules::OnClickAction;
+
 use super::{parse::StringExt, Thrice};
 
 #[derive(Debug, Default)]
@@ -50,6 +52,7 @@ pub struct LocalModuleConfig {
     pub padding: Padding,
     pub background: Option<Background>,
     pub border: Border,
+    pub action: OnClickAction,
 }
 
 impl Default for LocalModuleConfig {
@@ -66,6 +69,7 @@ impl Default for LocalModuleConfig {
             padding: Padding::default(),
             background: None,
             border: Border::default(),
+            action: OnClickAction::default(),
         }
     }
 }
@@ -83,6 +87,7 @@ pub struct ModuleConfigOverride {
     pub padding: Option<Padding>,
     pub background: Option<Option<Background>>,
     pub border: Option<Border>,
+    pub action: Option<OnClickAction>,
 }
 
 impl From<&HashMap<String, Option<String>>> for ModuleConfigOverride {
@@ -117,6 +122,26 @@ impl From<&HashMap<String, Option<String>>> for ModuleConfigOverride {
                         color: color.unwrap_or_default(),
                         width: width.unwrap_or_default(),
                         radius: radius.unwrap_or_default(),
+                    })
+                } else {
+                    None
+                }
+            },
+            action: {
+                let left = map
+                    .get("on_click")
+                    .and_then(|s| s.as_ref().map(|s| s.into()));
+                let center = map
+                    .get("on_middle_click")
+                    .and_then(|s| s.as_ref().map(|s| s.into()));
+                let right = map
+                    .get("on_right_click")
+                    .and_then(|s| s.as_ref().map(|s| s.into()));
+                if left.is_some() || center.is_some() || right.is_some() {
+                    Some(OnClickAction {
+                        left,
+                        center,
+                        right,
                     })
                 } else {
                     None
@@ -215,6 +240,20 @@ impl From<&Ini> for ModuleConfig {
                         color,
                         width,
                         radius,
+                    }
+                },
+                action: {
+                    let left = ini.get(module_section, "on_click").map(|s| (&s).into());
+                    let center = ini
+                        .get(module_section, "on_middle_click")
+                        .map(|s| (&s).into());
+                    let right = ini
+                        .get(module_section, "on_right_click")
+                        .map(|s| (&s).into());
+                    OnClickAction {
+                        left,
+                        center,
+                        right,
                     }
                 },
             },

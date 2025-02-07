@@ -8,7 +8,6 @@ use iced::Padding;
 
 use crate::config::parse::StringExt;
 use crate::config::popup_config::PopupConfig;
-use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -19,6 +18,7 @@ use crate::{
     modules::Module,
     Message, NERD_FONT,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 /// I am unaware of a IPC method that gives a list of currently active workspaces (the ones with an
 /// open window), and this is generally tricky here, since all workspaces of a wset grid are active
@@ -98,4 +98,6 @@ impl Module for WayfireWorkspaceMod {
             }
         });
     }
+
+    impl_on_click!();
 }

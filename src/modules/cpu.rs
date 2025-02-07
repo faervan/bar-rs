@@ -22,7 +22,7 @@ use crate::{
     },
     fill::FillExt,
     helpers::UnEscapeString,
-    impl_wrapper, Message, NERD_FONT,
+    impl_on_click, impl_wrapper, Message, NERD_FONT,
 };
 
 use super::Module;
@@ -199,6 +199,8 @@ impl Module for CpuMod {
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery popup format: {e}"));
     }
+
+    impl_on_click!();
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {

@@ -1,4 +1,8 @@
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    sync::Arc,
+};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
@@ -17,9 +21,9 @@ use crate::{
         popup_config::PopupConfig,
     },
     fill::FillExt,
-    impl_wrapper, list,
+    impl_on_click, impl_wrapper, list,
     listeners::niri::NiriListener,
-    modules::{require_listener, Action, Module},
+    modules::{require_listener, Module},
     Message, NERD_FONT,
 };
 
@@ -27,7 +31,7 @@ use crate::{
 pub struct NiriWorkspaceMod {
     pub workspaces: HashMap<String, Vec<Workspace>>,
     pub focused: u64,
-    pub sender: broadcast::Sender<Arc<dyn Action>>,
+    pub sender: broadcast::Sender<Arc<dyn Any + Send + Sync>>,
     cfg_override: ModuleConfigOverride,
     icon_padding: Padding,
     icon_background: Option<Background>,
@@ -88,9 +92,6 @@ impl NiriWorkspaceMod {
         }
     }
 }
-
-pub type SelectWorkspace = u64;
-impl Action for SelectWorkspace {}
 
 impl Module for NiriWorkspaceMod {
     fn name(&self) -> String {
@@ -262,4 +263,6 @@ impl Module for NiriWorkspaceMod {
             }
         });
     }
+
+    impl_on_click!();
 }

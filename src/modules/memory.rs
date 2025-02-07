@@ -6,7 +6,6 @@ use iced::widget::container;
 use iced::{widget::text, Element};
 
 use crate::config::popup_config::PopupConfig;
-use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -15,6 +14,7 @@ use crate::{
     fill::FillExt,
     Message, NERD_FONT,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 use super::Module;
 
@@ -84,4 +84,6 @@ impl Module for MemoryMod {
         self.cfg_override = config.into();
         self.icon = config.get("icon").and_then(|v| v.clone());
     }
+
+    impl_on_click!();
 }

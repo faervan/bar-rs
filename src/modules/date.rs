@@ -7,7 +7,6 @@ use iced::widget::{container, text};
 use iced::Element;
 
 use crate::config::popup_config::PopupConfig;
-use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -16,6 +15,7 @@ use crate::{
     fill::FillExt,
     Message, NERD_FONT,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 use super::Module;
 
@@ -92,4 +92,6 @@ impl Module for DateMod {
             .and_then(|v| v.clone())
             .unwrap_or(default.fmt);
     }
+
+    impl_on_click!();
 }

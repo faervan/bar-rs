@@ -62,6 +62,9 @@ This section sets default values for all modules, which can be overridden for ea
 | border_color | The color of the border around this module. | Color | None |
 | border_width | The width of the border. | float | 1 |
 | border_radius | The radius (corner rounding) of the border. | Insets (float) | 0 |
+| on_click | A command to be executed when you click the module with the left mouse button. | String | / |
+| on_middle_click | A command to be executed when you click the module with the middle mouse button. | String | / |
+| on_right_click | A command to be executed when you click the module with the right mouse button. | String | / |
 
 ### Resolvers
 Resolvers are can be used instead of module names and are mapped to modules on specific conditions.

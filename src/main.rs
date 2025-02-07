@@ -1,5 +1,5 @@
 use std::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::Debug,
     path::PathBuf,
     process::{exit, Command},
@@ -29,7 +29,7 @@ use iced::{
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
-use modules::{register_modules, Action, Module};
+use modules::{register_modules, Module};
 use registry::Registry;
 use resolvers::register_resolvers;
 use tokio::{
@@ -41,6 +41,7 @@ mod config;
 #[macro_use]
 mod list;
 mod button;
+mod event_action;
 mod fill;
 mod helpers;
 mod listeners;
@@ -77,7 +78,7 @@ fn main() -> iced::Result {
         .run_with(Bar::new)
 }
 
-struct UpdateFn(Box<dyn FnOnce(&mut Registry) + Send + Sync>);
+pub struct UpdateFn(Box<dyn FnOnce(&mut Registry) + Send + Sync>);
 impl Debug for UpdateFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -86,7 +87,7 @@ impl Debug for UpdateFn {
         )
     }
 }
-struct ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>);
+pub struct ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>);
 impl Debug for ActionFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -97,7 +98,7 @@ impl Debug for ActionFn {
 }
 
 #[derive(Debug, Clone)]
-enum Message {
+pub enum Message {
     Popup {
         type_id: TypeId,
         dimension: Rectangle<i32>,
@@ -106,8 +107,8 @@ enum Message {
     Action(Arc<ActionFn>),
     GetConfig(mpsc::Sender<(Arc<PathBuf>, Arc<Config>)>),
     GetReceiver(
-        mpsc::Sender<broadcast::Receiver<Arc<dyn Action>>>,
-        fn(&Registry) -> broadcast::Receiver<Arc<dyn Action>>,
+        mpsc::Sender<broadcast::Receiver<Arc<dyn Any + Send + Sync>>>,
+        fn(&Registry) -> broadcast::Receiver<Arc<dyn Any + Send + Sync>>,
     ),
     Spawn(Arc<Command>),
     ReloadConfig,

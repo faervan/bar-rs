@@ -13,7 +13,7 @@ use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
 use iced::{
     theme::Palette,
     widget::{container, Container},
-    Alignment, Color, Theme,
+    Alignment, Color, Event, Theme,
 };
 use iced::{widget::container::Style, Element, Subscription};
 use media::MediaMod;
@@ -96,9 +96,18 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         templates: &mut Handlebars,
     ) {
     }
+    #[allow(unused_variables)]
+    /// The action to perform on a on_click event
+    fn on_click<'a>(
+        &'a self,
+        event: iced::Event,
+        config: &'a LocalModuleConfig,
+    ) -> Option<&'a dyn Action> {
+        None
+    }
     #[allow(unused_variables, dead_code)]
     /// Handle an action (likely produced by a user interaction).
-    fn handle_action(&mut self, action: Box<dyn Action>) {}
+    fn handle_action(&mut self, action: &dyn Action) {}
     #[allow(unused_variables)]
     /// The view of a popup
     fn popup_view<'a>(
@@ -141,8 +150,49 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
 }
 impl_downcast!(Module);
 
-pub trait Action: Any + Debug + Send + Sync + Downcast {}
+pub trait Action: Any + Debug + Send + Sync + Downcast {
+    fn as_message(&self) -> Message;
+}
 impl_downcast!(Action);
+
+impl From<&String> for Box<dyn Action> {
+    fn from(value: &String) -> Box<dyn Action> {
+        Box::new(CommandAction(value.clone()))
+    }
+}
+
+#[derive(Debug)]
+pub struct CommandAction(String);
+
+impl Action for CommandAction {
+    fn as_message(&self) -> Message {
+        Message::command_sh(&self.0)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct OnClickAction {
+    pub left: Option<Box<dyn Action>>,
+    pub center: Option<Box<dyn Action>>,
+    pub right: Option<Box<dyn Action>>,
+}
+
+impl OnClickAction {
+    pub fn event(&self, event: Event) -> Option<&dyn Action> {
+        match event {
+            Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
+                self.left.as_deref()
+            }
+            Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Middle)) => {
+                self.center.as_deref()
+            }
+            Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Right)) => {
+                self.right.as_deref()
+            }
+            _ => None,
+        }
+    }
+}
 
 pub fn require_listener<T>() -> TypeId
 where
@@ -177,10 +227,13 @@ macro_rules! impl_wrapper {
             anchor: &BarAnchor,
         ) -> Element<'a, Message> {
             iced::widget::container(
-                iced::widget::container(content)
+                $crate::button::button(content)
                     .fill(anchor)
                     .padding(self.cfg_override.padding.unwrap_or(config.padding))
-                    .style(|_| iced::widget::container::Style {
+                    .on_event_try(|evt, _, _, _, _| {
+                        self.on_click(evt, config).map(|evt| evt.as_message())
+                    })
+                    .style(|_, _| iced::widget::button::Style {
                         background: self.cfg_override.background.unwrap_or(config.background),
                         border: self.cfg_override.border.unwrap_or(config.border),
                         ..Default::default()
@@ -189,6 +242,23 @@ macro_rules! impl_wrapper {
             .fill(anchor)
             .padding(self.cfg_override.margin.unwrap_or(config.margin))
             .into()
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_on_click {
+    () => {
+        fn on_click<'a>(
+            &'a self,
+            event: iced::Event,
+            config: &'a LocalModuleConfig,
+        ) -> Option<&'a dyn $crate::modules::Action> {
+            self.cfg_override
+                .action
+                .as_ref()
+                .unwrap_or(&config.action)
+                .event(event)
         }
     };
 }

@@ -11,7 +11,7 @@ use tokio::{
 
 use crate::{
     config::ConfigEntry,
-    modules::niri::{NiriWindowMod, NiriWorkspaceMod, SelectWorkspace},
+    modules::niri::{NiriWindowMod, NiriWorkspaceMod},
     registry::Registry,
     Message, UpdateFn,
 };
@@ -130,7 +130,7 @@ impl Listener for NiriListener {
                                 buf.clear();
                             }
                         Ok(action) = receiver.recv() => {
-                            if let Some(id) = action.downcast_ref::<SelectWorkspace>() {
+                            if let Some(id) = action.downcast_ref::<u64>() {
                                 let mut socket = UnixStream::connect(&socket_path).await.unwrap();
                                 let buf = serde_json::to_string(&Request::Action(niri_ipc::Action::FocusWorkspace { reference: niri_ipc::WorkspaceReferenceArg::Id(*id) })).unwrap();
                                 socket.write_all(buf.as_bytes()).await.unwrap();

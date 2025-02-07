@@ -30,6 +30,7 @@ where
 {
     Message(Message),
     F(EventHandlerFn<'a, Message>),
+    FMaybe(EventHandlerFn<'a, Option<Message>>),
 }
 
 impl<Message> ButtonEventHandler<'_, Message>
@@ -43,10 +44,11 @@ where
         cursor: iced::mouse::Cursor,
         clipboard: &mut dyn iced::core::Clipboard,
         viewport: &Rectangle,
-    ) -> Message {
+    ) -> Option<Message> {
         match self {
-            ButtonEventHandler::Message(msg) => msg.clone(),
-            ButtonEventHandler::F(f) => f(event, layout, cursor, clipboard, viewport),
+            ButtonEventHandler::Message(msg) => Some(msg.clone()),
+            ButtonEventHandler::F(f) => Some(f(event, layout, cursor, clipboard, viewport)),
+            ButtonEventHandler::FMaybe(f) => f(event, layout, cursor, clipboard, viewport),
         }
     }
 }
@@ -96,7 +98,15 @@ where
         self
     }
 
-    /// Defines the on_event action of the [`Button`]
+    /// Defines the on_event action of the [`Button`], if Some
+    pub fn on_event_maybe(mut self, msg: Option<Message>) -> Self {
+        if let Some(msg) = msg {
+            self.on_event = Some(ButtonEventHandler::Message(msg));
+        }
+        self
+    }
+
+    /// Determines the on_event action of the [`Button`] using a closure
     pub fn on_event_with<F>(mut self, f: F) -> Self
     where
         F: Fn(
@@ -112,7 +122,7 @@ where
         self
     }
 
-    /// Defines the on_event action of the [`Button`], if Some
+    /// Determines the on_event action of the [`Button`] with a closure, if Some
     pub fn on_event_maybe_with<F>(self, f: Option<F>) -> Self
     where
         F: Fn(
@@ -129,6 +139,22 @@ where
         } else {
             self
         }
+    }
+
+    /// Determines the on_event action of the [`Button`] using a closure which might return a Message
+    pub fn on_event_try<F>(mut self, f: F) -> Self
+    where
+        F: Fn(
+                iced::Event,
+                iced::core::Layout,
+                iced::mouse::Cursor,
+                &mut dyn iced::core::Clipboard,
+                &Rectangle,
+            ) -> Option<Message>
+            + 'a,
+    {
+        self.on_event = Some(ButtonEventHandler::FMaybe(Box::new(f)));
+        self
     }
 
     /// Sets the width of the [`Button`].
@@ -266,6 +292,8 @@ where
 
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            | Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Middle))
+            | Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if self.on_event.is_some() {
                     let bounds = layout.bounds();
@@ -280,6 +308,8 @@ where
                 }
             }
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+            | Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Middle))
+            | Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Right))
             | Event::Touch(touch::Event::FingerLifted { .. }) => {
                 if let Some(on_press) = self.on_event.as_ref() {
                     let state = tree.state.downcast_mut::<State>();
@@ -290,7 +320,11 @@ where
                         let bounds = layout.bounds();
 
                         if cursor.is_over(bounds) {
-                            shell.publish(on_press.get(event, layout, cursor, clipboard, viewport));
+                            if let Some(msg) =
+                                on_press.get(event, layout, cursor, clipboard, viewport)
+                            {
+                                shell.publish(msg);
+                            }
                         }
 
                         return event::Status::Captured;
@@ -304,7 +338,10 @@ where
                         && matches!(key, keyboard::Key::Named(keyboard::key::Named::Enter))
                     {
                         state.is_pressed = true;
-                        shell.publish(on_press.get(event, layout, cursor, clipboard, viewport));
+                        if let Some(msg) = on_press.get(event, layout, cursor, clipboard, viewport)
+                        {
+                            shell.publish(msg);
+                        }
                         return event::Status::Captured;
                     }
                 }
