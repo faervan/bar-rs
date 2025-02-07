@@ -21,7 +21,7 @@ use crate::{
         popup_config::PopupConfig,
     },
     fill::FillExt,
-    impl_wrapper, list,
+    impl_on_click, impl_wrapper, list,
     listeners::niri::NiriListener,
     modules::{require_listener, Module},
     Message, NERD_FONT,
@@ -263,4 +263,6 @@ impl Module for NiriWorkspaceMod {
             }
         });
     }
+
+    impl_on_click!();
 }

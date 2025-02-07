@@ -13,7 +13,6 @@ use udev::Device;
 use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
 use crate::helpers::UnEscapeString;
-use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -22,6 +21,7 @@ use crate::{
     fill::FillExt,
     Message, NERD_FONT,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 use super::Module;
 
@@ -313,6 +313,8 @@ impl Module for BatteryMod {
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery popup time format: {e}"));
     }
+
+    impl_on_click!();
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {

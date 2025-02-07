@@ -98,7 +98,11 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     }
     #[allow(unused_variables)]
     /// The action to perform on a on_click event
-    fn on_click(&self, event: Event) -> Option<&dyn Action> {
+    fn on_click<'a>(
+        &'a self,
+        event: iced::Event,
+        config: &'a LocalModuleConfig,
+    ) -> Option<&'a dyn Action> {
         None
     }
     #[allow(unused_variables, dead_code)]
@@ -151,6 +155,12 @@ pub trait Action: Any + Debug + Send + Sync + Downcast {
 }
 impl_downcast!(Action);
 
+impl From<&String> for Box<dyn Action> {
+    fn from(value: &String) -> Box<dyn Action> {
+        Box::new(CommandAction(value.clone()))
+    }
+}
+
 #[derive(Debug)]
 pub struct CommandAction(String);
 
@@ -161,19 +171,26 @@ impl Action for CommandAction {
 }
 
 #[derive(Debug, Default)]
-pub struct OnClickAction<'a> {
-    left: Option<&'a dyn Action>,
-    center: Option<&'a dyn Action>,
-    right: Option<&'a dyn Action>,
+pub struct OnClickAction {
+    pub left: Option<Box<dyn Action>>,
+    pub center: Option<Box<dyn Action>>,
+    pub right: Option<Box<dyn Action>>,
 }
 
-impl<'_> OnClickAction<'_> {
+impl OnClickAction {
     pub fn event(&self, event: Event) -> Option<&dyn Action> {
         match event {
-            Event::Mouse(iced::mouse::Event::CursorLeft) => (),
-                _ => ()
+            Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
+                self.left.as_deref()
+            }
+            Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Middle)) => {
+                self.center.as_deref()
+            }
+            Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Right)) => {
+                self.right.as_deref()
+            }
+            _ => None,
         }
-        None
     }
 }
 
@@ -213,7 +230,9 @@ macro_rules! impl_wrapper {
                 $crate::button::button(content)
                     .fill(anchor)
                     .padding(self.cfg_override.padding.unwrap_or(config.padding))
-                    .on_event_try(|evt, _, _, _, _| self.on_click(evt).map(|evt| evt.as_message()))
+                    .on_event_try(|evt, _, _, _, _| {
+                        self.on_click(evt, config).map(|evt| evt.as_message())
+                    })
                     .style(|_, _| iced::widget::button::Style {
                         background: self.cfg_override.background.unwrap_or(config.background),
                         border: self.cfg_override.border.unwrap_or(config.border),
@@ -223,6 +242,23 @@ macro_rules! impl_wrapper {
             .fill(anchor)
             .padding(self.cfg_override.margin.unwrap_or(config.margin))
             .into()
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_on_click {
+    () => {
+        fn on_click<'a>(
+            &'a self,
+            event: iced::Event,
+            config: &'a LocalModuleConfig,
+        ) -> Option<&'a dyn $crate::modules::Action> {
+            self.cfg_override
+                .action
+                .as_ref()
+                .unwrap_or(&config.action)
+                .event(event)
         }
     };
 }

@@ -10,7 +10,6 @@ use tokio::{
 };
 
 use crate::config::popup_config::PopupConfig;
-use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -19,6 +18,7 @@ use crate::{
     fill::FillExt,
     Message, NERD_FONT,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 use super::Module;
 
@@ -77,6 +77,8 @@ impl Module for VolumeMod {
     ) {
         self.cfg_override = config.into();
     }
+
+    impl_on_click!();
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {

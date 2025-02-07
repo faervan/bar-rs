@@ -6,7 +6,6 @@ use iced::widget::{container, rich_text, span, text};
 use iced::Element;
 
 use crate::config::popup_config::PopupConfig;
-use crate::impl_wrapper;
 use crate::tooltip::ElementExt;
 use crate::{
     config::{
@@ -18,6 +17,7 @@ use crate::{
     modules::Module,
     Message,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 #[derive(Debug, Builder)]
 pub struct WayfireWindowMod {
@@ -93,4 +93,6 @@ impl Module for WayfireWindowMod {
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
             .unwrap_or(Self::default().max_length);
     }
+
+    impl_on_click!();
 }

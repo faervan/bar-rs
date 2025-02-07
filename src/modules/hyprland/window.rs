@@ -9,7 +9,6 @@ use iced::{
 };
 
 use crate::config::popup_config::PopupConfig;
-use crate::impl_wrapper;
 use crate::tooltip::ElementExt;
 use crate::{
     config::{
@@ -20,6 +19,7 @@ use crate::{
     listeners::hyprland::HyprListener,
     modules::{require_listener, Message, Module},
 };
+use crate::{impl_on_click, impl_wrapper};
 
 #[derive(Debug, Builder)]
 pub struct HyprWindowMod {
@@ -95,6 +95,8 @@ impl Module for HyprWindowMod {
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
             .unwrap_or(Self::default().max_length);
     }
+
+    impl_on_click!();
 }
 
 pub async fn update_window(sender: &mut Sender<Message>, title: Option<String>) {

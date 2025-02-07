@@ -292,6 +292,8 @@ where
 
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            | Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Middle))
+            | Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if self.on_event.is_some() {
                     let bounds = layout.bounds();
@@ -306,6 +308,8 @@ where
                 }
             }
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+            | Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Middle))
+            | Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Right))
             | Event::Touch(touch::Event::FingerLifted { .. }) => {
                 if let Some(on_press) = self.on_event.as_ref() {
                     let state = tree.state.downcast_mut::<State>();

@@ -78,7 +78,7 @@ fn main() -> iced::Result {
         .run_with(Bar::new)
 }
 
-struct UpdateFn(Box<dyn FnOnce(&mut Registry) + Send + Sync>);
+pub struct UpdateFn(Box<dyn FnOnce(&mut Registry) + Send + Sync>);
 impl Debug for UpdateFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -87,7 +87,7 @@ impl Debug for UpdateFn {
         )
     }
 }
-struct ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>);
+pub struct ActionFn(Box<dyn FnOnce(&Registry) + Send + Sync>);
 impl Debug for ActionFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -98,7 +98,7 @@ impl Debug for ActionFn {
 }
 
 #[derive(Debug, Clone)]
-enum Message {
+pub enum Message {
     Popup {
         type_id: TypeId,
         dimension: Rectangle<i32>,

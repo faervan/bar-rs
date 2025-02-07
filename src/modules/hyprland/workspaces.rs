@@ -20,7 +20,7 @@ use crate::{
         popup_config::PopupConfig,
     },
     fill::FillExt,
-    impl_wrapper,
+    impl_on_click, impl_wrapper,
     list::list,
     listeners::hyprland::HyprListener,
     modules::{require_listener, Module},
@@ -176,6 +176,8 @@ impl Module for HyprWorkspaceMod {
             }
         };
     }
+
+    impl_on_click!();
 }
 
 pub async fn get_workspaces(active: Option<i32>) -> (usize, Vec<(String, bool)>) {

@@ -7,7 +7,6 @@ use iced::widget::{container, text};
 use iced::Element;
 
 use crate::config::popup_config::PopupConfig;
-use crate::impl_wrapper;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -16,6 +15,7 @@ use crate::{
     fill::FillExt,
     Message, NERD_FONT,
 };
+use crate::{impl_on_click, impl_wrapper};
 
 use super::Module;
 
@@ -24,7 +24,6 @@ pub struct DateMod {
     cfg_override: ModuleConfigOverride,
     icon: String,
     fmt: String,
-    action: NotifySend,
 }
 
 impl Default for DateMod {
@@ -33,7 +32,6 @@ impl Default for DateMod {
             cfg_override: Default::default(),
             icon: "".to_string(),
             fmt: "%a, %d. %b".to_string(),
-            action: NotifySend,
         }
     }
 }
@@ -95,16 +93,5 @@ impl Module for DateMod {
             .unwrap_or(default.fmt);
     }
 
-    fn on_click(&self) -> Option<&dyn super::Action> {
-        Some(&self.action)
-    }
-}
-
-#[derive(Debug)]
-struct NotifySend;
-
-impl super::Action for NotifySend {
-    fn as_message(&self) -> Message {
-        Message::command_sh("notify-send hello")
-    }
+    impl_on_click!();
 }
