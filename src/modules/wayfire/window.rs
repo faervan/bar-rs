@@ -55,6 +55,10 @@ impl Module for WayfireWindowMod {
         "wayfire.window".to_string()
     }
 
+    fn active(&self) -> bool {
+        self.title.is_some()
+    }
+
     fn view(
         &self,
         config: &LocalModuleConfig,

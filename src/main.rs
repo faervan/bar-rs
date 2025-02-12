@@ -376,6 +376,7 @@ impl Bar<'_> {
                     anchor,
                     self.registry
                         .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
+                        .filter(|&m| m.active())
                         .map(|m| {
                             m.wrapper(
                                 &self.config.module_config.local,

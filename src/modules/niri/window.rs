@@ -80,6 +80,10 @@ impl Module for NiriWindowMod {
         "niri.window".to_string()
     }
 
+    fn active(&self) -> bool {
+        self.focused.is_some()
+    }
+
     fn view(
         &self,
         config: &LocalModuleConfig,

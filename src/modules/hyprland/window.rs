@@ -57,6 +57,10 @@ impl Module for HyprWindowMod {
         "hyprland.window".to_string()
     }
 
+    fn active(&self) -> bool {
+        self.title.is_some()
+    }
+
     fn view(
         &self,
         config: &LocalModuleConfig,
