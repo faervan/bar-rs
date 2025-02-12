@@ -376,17 +376,19 @@ impl Bar<'_> {
                     anchor,
                     self.registry
                         .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
-                        .map(|m| {
-                            m.wrapper(
-                                &self.config.module_config.local,
-                                m.view(
+                        .filter_map(|m| {
+                            m.active().then(|| {
+                                m.wrapper(
                                     &self.config.module_config.local,
-                                    &self.config.popup_config,
+                                    m.view(
+                                        &self.config.module_config.local,
+                                        &self.config.popup_config,
+                                        anchor,
+                                        &self.templates,
+                                    ),
                                     anchor,
-                                    &self.templates,
-                                ),
-                                anchor,
-                            )
+                                )
+                            })
                         }),
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),

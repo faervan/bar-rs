@@ -191,6 +191,10 @@ impl Module for MediaMod {
         "media".to_string()
     }
 
+    fn active(&self) -> bool {
+        self.track.is_some()
+    }
+
     fn view(
         &self,
         config: &LocalModuleConfig,
@@ -480,41 +484,51 @@ impl Module for MediaMod {
                 let mut reader = BufReader::new(stdout).lines();
                 let mut last_track = String::new();
 
-                while let Some(track) = reader
-                    .next_line()
-                    .await
-                    .ok()
-                    .flatten()
-                    .and_then(|line| serde_json::from_str::<TrackInfo>(line.as_str()).ok())
-                {
-                    if let Some(url) = (!track.art_is_local).then_some(track.art_url.clone()) {
-                        if url != last_track {
-                            last_track = url.clone();
-                            let mut sender = sender.clone();
-                            tokio::task::spawn(async move {
-                                let Ok(response) = reqwest::get(&url).await else {
-                                    eprintln!("Failed to get media cover: \"{url}\"");
-                                    return;
-                                };
-                                let Ok(bytes) = response.bytes().await else {
-                                    eprintln!("Failed to get bytes from media cover: \"{url}\"");
-                                    return;
-                                };
-                                sender
-                                    .send(Message::update(move |reg| {
-                                        reg.get_module_mut::<MediaMod>().img = Some(bytes.to_vec())
-                                    }))
-                                    .await
-                                    .unwrap();
-                            });
+                loop {
+                    let line = reader.next_line().await.ok().flatten();
+                    if let Some(track) = line
+                        .as_ref()
+                        .and_then(|line| serde_json::from_str::<TrackInfo>(line.as_str()).ok())
+                    {
+                        if let Some(url) = (!track.art_is_local).then_some(track.art_url.clone()) {
+                            if url != last_track {
+                                last_track = url.clone();
+                                let mut sender = sender.clone();
+                                tokio::task::spawn(async move {
+                                    let Ok(response) = reqwest::get(&url).await else {
+                                        eprintln!("Failed to get media cover: \"{url}\"");
+                                        return;
+                                    };
+                                    let Ok(bytes) = response.bytes().await else {
+                                        eprintln!(
+                                            "Failed to get bytes from media cover: \"{url}\""
+                                        );
+                                        return;
+                                    };
+                                    sender
+                                        .send(Message::update(move |reg| {
+                                            reg.get_module_mut::<MediaMod>().img =
+                                                Some(bytes.to_vec())
+                                        }))
+                                        .await
+                                        .unwrap();
+                                });
+                            }
                         }
+                        sender
+                            .send(Message::update(move |reg| {
+                                reg.get_module_mut::<MediaMod>().new_track(track)
+                            }))
+                            .await
+                            .unwrap();
+                    } else if matches!(line.as_ref().map(|l| l.trim()), Some("")) {
+                        sender
+                            .send(Message::update(move |reg| {
+                                reg.get_module_mut::<MediaMod>().track = None
+                            }))
+                            .await
+                            .unwrap();
                     }
-                    sender
-                        .send(Message::update(move |reg| {
-                            reg.get_module_mut::<MediaMod>().new_track(track)
-                        }))
-                        .await
-                        .unwrap();
                 }
             })
         }))

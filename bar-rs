@@ -62,10 +62,14 @@ case "$1" in
     kill)
         close
         ;;
+    reopen)
+        close
+        open $@
+        ;;
     uninstall)
         uninstall
         ;;
     *)
-        echo "bar-rs: bar-rs [open | kill | uninstall] [--debug]"
+        echo "bar-rs: bar-rs [open | kill | reopen | uninstall] [--debug]"
         ;;
 esac

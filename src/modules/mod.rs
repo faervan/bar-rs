@@ -46,6 +46,10 @@ pub mod wayfire;
 pub trait Module: Any + Debug + Send + Sync + Downcast {
     /// The name used to enable the Module in the config.
     fn name(&self) -> String;
+    /// Whether the module is currently active and should be shown.
+    fn active(&self) -> bool {
+        true
+    }
     /// What the module actually shows.
     /// See [widgets-and-elements](https://docs.iced.rs/iced/#widgets-and-elements).
     fn view(
