@@ -20,6 +20,7 @@ The following modules are currently available:
 | [battery](./Modules:-Battery.md) | Shows the current capacity and remaining time |
 | [media](./Modules:-Media.md) | Shows the currently playing media as reported by `playerctl` |
 | [volume](./Modules:-Volume.md) | Shows the current audio volume as reported by `wpctl`, updated by `pactl` |
+| [disk_usage](./Modules:-Disk-usage.md) | Shows filesystem statistics fetched by the `statvfs` syscall |
 | [hyprland.window](./Modules:-Hyprland.md) | Shows the title of the currently focused window |
 | [hyprland.workspaces](./Modules:-Hyprland.md) | Shows the currently open workspaces |
 | [wayfire.window](./Modules:-Wayfire.md) | Shows the title of the currently focused window |
