@@ -98,7 +98,7 @@ impl Module for DiskUsageMod {
             list![
                 anchor,
                 container(
-                    text!("{}", self.icon.as_ref().unwrap_or(&"󰻠".to_string()))
+                    text!("{}", self.icon.as_ref().unwrap_or(&"󰦚".to_string()))
                         .fill(anchor)
                         .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
                         .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
@@ -207,7 +207,7 @@ impl Module for DiskUsageMod {
                 popup_config
                     .get("format")
                     .unescape()
-                    .unwrap_or("Total: {{total_gb}}GB\nUsed: {{used_gb}}GB ({{used_perc}}%)\nFree: {{free_gb}}GB ({{free_perc}}%)".to_string()),
+                    .unwrap_or("Total: {{total_gb}} GB\nUsed: {{used_gb}} GB ({{used_perc}}%)\nFree: {{free_gb}} GB ({{free_perc}}%)".to_string()),
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery popup format: {e}"));
     }
@@ -215,6 +215,8 @@ impl Module for DiskUsageMod {
     impl_on_click!();
 }
 
+/// Get file system statistics using the statvfs system call, see
+/// https://man7.org/linux/man-pages/man3/statvfs.3.html
 fn get_stats(path: &CString) -> Result<FileSystemStats, ()> {
     let mut raw_stats: statvfs = unsafe { mem::zeroed() };
     if unsafe { libc::statvfs(path.as_ptr(), &mut raw_stats) } != 0 {
