@@ -546,6 +546,7 @@ dependencies = [
  "handlebars",
  "hyprland",
  "iced",
+ "libc",
  "niri-ipc",
  "notify",
  "reqwest",

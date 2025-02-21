@@ -7,6 +7,7 @@ use std::{
 use battery::BatteryMod;
 use cpu::CpuMod;
 use date::DateMod;
+use disk_usage::DiskUsageMod;
 use downcast_rs::{impl_downcast, Downcast};
 use handlebars::Handlebars;
 use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
@@ -34,6 +35,7 @@ use crate::{
 pub mod battery;
 pub mod cpu;
 pub mod date;
+pub mod disk_usage;
 pub mod hyprland;
 pub mod media;
 pub mod memory;
@@ -213,6 +215,7 @@ pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<MediaMod>();
     registry.register_module::<DateMod>();
     registry.register_module::<TimeMod>();
+    registry.register_module::<DiskUsageMod>();
     registry.register_module::<HyprWindowMod>();
     registry.register_module::<HyprWorkspaceMod>();
     registry.register_module::<WayfireWorkspaceMod>();
