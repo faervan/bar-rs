@@ -48,7 +48,7 @@ mod listeners;
 mod modules;
 mod registry;
 mod resolvers;
-mod tooltip;
+mod template_engine;
 
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 

@@ -90,6 +90,41 @@ pub struct ModuleConfigOverride {
     pub action: Option<OnClickAction>,
 }
 
+#[derive(Debug)]
+pub struct MergedModuleConfig<'a> {
+    pub text_color: Color,
+    pub icon_color: Color,
+    pub font_size: f32,
+    pub icon_size: f32,
+    pub text_margin: Padding,
+    pub icon_margin: Padding,
+    pub spacing: f32,
+    pub margin: Padding,
+    pub padding: Padding,
+    pub background: Option<Background>,
+    pub border: Border,
+    pub action: &'a OnClickAction,
+}
+
+impl LocalModuleConfig {
+    pub fn override_cfg<'a>(&'a self, other: &'a ModuleConfigOverride) -> MergedModuleConfig<'a> {
+        MergedModuleConfig {
+            text_color: other.text_color.unwrap_or(self.text_color),
+            icon_color: other.icon_color.unwrap_or(self.icon_color),
+            font_size: other.font_size.unwrap_or(self.font_size),
+            icon_size: other.icon_size.unwrap_or(self.icon_size),
+            text_margin: other.text_margin.unwrap_or(self.text_margin),
+            icon_margin: other.icon_margin.unwrap_or(self.icon_margin),
+            spacing: other.spacing.unwrap_or(self.spacing),
+            margin: other.margin.unwrap_or(self.margin),
+            padding: other.padding.unwrap_or(self.padding),
+            background: other.background.unwrap_or(self.background),
+            border: other.border.unwrap_or(self.border),
+            action: other.action.as_ref().unwrap_or(&self.action),
+        }
+    }
+}
+
 impl From<&HashMap<String, Option<String>>> for ModuleConfigOverride {
     fn from(map: &HashMap<String, Option<String>>) -> Self {
         Self {

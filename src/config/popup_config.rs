@@ -65,6 +65,47 @@ pub struct PopupConfigOverride {
     pub border: Option<Border>,
 }
 
+#[derive(Debug)]
+pub struct MergedPopupConfig<'a> {
+    pub width: &'a i32,
+    pub height: &'a i32,
+    /// Whether the content of the popup should fill the size of the popup window
+    pub fill_content_to_size: &'a bool,
+    pub padding: &'a Padding,
+    pub text_color: &'a Color,
+    pub icon_color: &'a Color,
+    pub font_size: &'a f32,
+    pub icon_size: &'a f32,
+    pub text_margin: &'a Padding,
+    pub icon_margin: &'a Padding,
+    pub spacing: &'a f32,
+    pub background: &'a Background,
+    pub border: &'a Border,
+}
+
+impl PopupConfig {
+    pub fn override_cfg<'a>(&'a self, other: &'a PopupConfigOverride) -> MergedPopupConfig<'a> {
+        MergedPopupConfig {
+            width: other.width.as_ref().unwrap_or(&self.width),
+            height: other.height.as_ref().unwrap_or(&self.height),
+            fill_content_to_size: other
+                .fill_content_to_size
+                .as_ref()
+                .unwrap_or(&self.fill_content_to_size),
+            padding: other.padding.as_ref().unwrap_or(&self.padding),
+            text_color: other.text_color.as_ref().unwrap_or(&self.text_color),
+            icon_color: other.icon_color.as_ref().unwrap_or(&self.icon_color),
+            font_size: other.font_size.as_ref().unwrap_or(&self.font_size),
+            icon_size: other.icon_size.as_ref().unwrap_or(&self.icon_size),
+            text_margin: other.text_margin.as_ref().unwrap_or(&self.text_margin),
+            icon_margin: other.icon_margin.as_ref().unwrap_or(&self.icon_margin),
+            spacing: other.spacing.as_ref().unwrap_or(&self.spacing),
+            background: other.background.as_ref().unwrap_or(&self.background),
+            border: other.border.as_ref().unwrap_or(&self.border),
+        }
+    }
+}
+
 impl From<&Ini> for PopupConfig {
     fn from(ini: &Ini) -> Self {
         let default = Self::default();
