@@ -26,12 +26,26 @@ use crate::{
 
 use super::Module;
 
-#[derive(Debug, Builder, Default)]
+#[derive(Debug, Builder)]
 pub struct DiskUsageMod {
     icon: Option<String>,
     cfg_override: ModuleConfigOverride,
     popup_cfg_override: PopupConfigOverride,
     path: CString,
+}
+
+impl Default for DiskUsageMod {
+    fn default() -> Self {
+        Self {
+            icon: None,
+            cfg_override: ModuleConfigOverride::default(),
+            popup_cfg_override: PopupConfigOverride {
+                width: Some(180),
+                ..Default::default()
+            },
+            path: CString::default(),
+        }
+    }
 }
 
 #[derive(Debug, Default)]

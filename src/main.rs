@@ -41,7 +41,6 @@ mod config;
 #[macro_use]
 mod list;
 mod button;
-mod event_action;
 mod fill;
 mod helpers;
 mod listeners;

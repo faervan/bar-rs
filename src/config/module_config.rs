@@ -91,7 +91,7 @@ pub struct ModuleConfigOverride {
 }
 
 #[derive(Debug)]
-pub struct MergedModuleConfig<'a> {
+pub struct MergedModuleConfig {
     pub text_color: Color,
     pub icon_color: Color,
     pub font_size: f32,
@@ -103,11 +103,11 @@ pub struct MergedModuleConfig<'a> {
     pub padding: Padding,
     pub background: Option<Background>,
     pub border: Border,
-    pub action: &'a OnClickAction,
+    pub action: OnClickAction,
 }
 
 impl LocalModuleConfig {
-    pub fn override_cfg<'a>(&'a self, other: &'a ModuleConfigOverride) -> MergedModuleConfig<'a> {
+    pub fn override_cfg(&self, other: &ModuleConfigOverride) -> MergedModuleConfig {
         MergedModuleConfig {
             text_color: other.text_color.unwrap_or(self.text_color),
             icon_color: other.icon_color.unwrap_or(self.icon_color),
@@ -120,7 +120,7 @@ impl LocalModuleConfig {
             padding: other.padding.unwrap_or(self.padding),
             background: other.background.unwrap_or(self.background),
             border: other.border.unwrap_or(self.border),
-            action: other.action.as_ref().unwrap_or(&self.action),
+            action: other.action.unwrap_or(self.action.cl),
         }
     }
 }

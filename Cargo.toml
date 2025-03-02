@@ -34,6 +34,7 @@ handlebars = "6.3.0"
 serde = { version = "1.0.217", features = ["derive"] }
 reqwest = "0.12.12"
 libc = "0.2.169"
+regex = "1.11.1"
 
 [profile.dev.package."*"]
 opt-level = 3

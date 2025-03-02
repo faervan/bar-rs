@@ -161,9 +161,9 @@ pub trait Action: Any + Debug + Send + Sync + Downcast {
 }
 impl_downcast!(Action);
 
-impl From<&String> for Box<dyn Action> {
-    fn from(value: &String) -> Box<dyn Action> {
-        Box::new(CommandAction(value.clone()))
+impl<T: ToString> From<T> for Box<dyn Action> {
+    fn from(value: T) -> Box<dyn Action> {
+        Box::new(CommandAction(value.to_string()))
     }
 }
 

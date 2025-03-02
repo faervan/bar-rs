@@ -6,7 +6,9 @@ use handlebars::Handlebars;
 use iced::widget::{container, text};
 use iced::Element;
 
-use crate::config::popup_config::PopupConfig;
+use crate::config::module_config::MergedModuleConfig;
+use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
+use crate::template_engine::TemplateEngine;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -20,23 +22,26 @@ use crate::{impl_on_click, impl_wrapper};
 use super::Module;
 
 #[derive(Debug, Builder)]
-pub struct TimeMod {
+pub struct TimeMod<'a> {
     cfg_override: ModuleConfigOverride,
+    engine: TemplateEngine<'a, &'a str>,
     icon: String,
     fmt: String,
 }
 
-impl Default for TimeMod {
+impl<'a> Default for TimeMod<'a> {
     fn default() -> Self {
+        let cfg_override = ModuleConfigOverride::default();
         Self {
-            cfg_override: Default::default(),
+            engine: TemplateEngine::new(LocalModuleConfig::default().override_cfg(&cfg_override), PopupConfig::default().override_cfg(&PopupConfigOverride::default())),
+            cfg_override,
             icon: "".to_string(),
             fmt: "%H:%M".to_string(),
         }
     }
 }
 
-impl Module for TimeMod {
+impl<'a> Module for TimeMod<'a> {
     fn name(&self) -> String {
         "time".to_string()
     }
