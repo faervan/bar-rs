@@ -50,11 +50,11 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn name(&self) -> String;
     /// The context to use when rendering the module. `context` refers to the data that shall be
     /// displayed by this module.
-    fn context(&self) -> BTreeMap<&str, Box<dyn ToString + '_>>;
+    fn context<'a>(&'a self) -> BTreeMap<String, Box<dyn ToString + Send + Sync>>;
     /// Like context, but meant for nested rendering. This is used for example to store the
     /// indivial data of cpu cores in the cpu module. There, the outer `BTreeMap` contains a
     /// "cores" entry, which holds a different context for every core in the `Vec`.
-    fn extra_context<'a>(&self) -> ExtraContext<'a> {
+    fn extra_context<'a>(&self) -> ExtraContext {
         BTreeMap::new()
     }
     /// Whether the module is currently active and should be shown.
@@ -77,28 +77,28 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         &mut self,
         config: &HashMap<String, Option<String>>,
         popup_config: &HashMap<String, Option<String>>,
-        engine: &mut TemplateEngine<'a>,
+        engine: &mut TemplateEngine,
     ) {
     }
     /// Using the context provided by `context()` and `extra_context()` this format defines how the
     /// module should be rendered, unless `view()` is overridden.
-    fn module_format(&self) -> &str;
+    fn module_format(&self) -> String;
     /// What the module shows. This by default relies on `module_format()`.
     /// See [widgets-and-elements](https://docs.iced.rs/iced/#widgets-and-elements).
     fn module_view<'a>(
-        &'a self,
+        &self,
         config: &LocalModuleConfig,
-        engine: &'a TemplateEngine<'a>,
+        engine: &'static TemplateEngine,
     ) -> Element<'a, Message> {
         engine.render_module(self.type_id(), self.module_format(), config)
     }
     /// The wrapper around this module, which defines things like background color or border for
     /// this module.
     fn module_wrapper<'a>(
-        &'a self,
+        &self,
         config: &'a LocalModuleConfig,
         anchor: &BarAnchor,
-        engine: &'a TemplateEngine<'a>,
+        engine: &'static TemplateEngine,
     ) -> Element<'a, Message> {
         let cfg = engine.get_module_config(self.type_id(), config);
         container(
@@ -121,7 +121,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         &'a self,
         event: iced::Event,
         config: &'a LocalModuleConfig,
-        engine: &'a TemplateEngine<'a>,
+        engine: &'static TemplateEngine,
     ) -> Option<&'a dyn Action> {
         engine
             .get_module_config(self.type_id(), config)
@@ -131,24 +131,24 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     #[allow(unused_variables, dead_code)]
     /// Using the context provided by `context()` and `extra_context()` this format defines how the
     /// module popup should be rendered, unless `popup_view()` is overridden.
-    fn popup_format(&self) -> &str {
-        "Missing implementation"
+    fn popup_format(&self) -> String {
+        String::from("Missing implementation")
     }
     #[allow(unused_variables)]
     /// The `module_view` but for the popup.
     fn popup_view<'a>(
-        &'a self,
+        &self,
         config: &'a PopupConfig,
-        engine: &'a TemplateEngine<'a>,
+        engine: &'static TemplateEngine,
     ) -> Element<'a, Message> {
         engine.render_popup(self.type_id(), self.popup_format(), config)
     }
     /// Like `module_wrapper` but for the popup.
     fn popup_wrapper<'a>(
-        &'a self,
+        &self,
         config: &'a PopupConfig,
         anchor: &BarAnchor,
-        engine: &'a TemplateEngine<'a>,
+        engine: &'static TemplateEngine,
     ) -> Element<'a, Message> {
         let align = |elem: Container<'a, Message>| -> Container<'a, Message> {
             match anchor {

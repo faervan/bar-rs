@@ -24,13 +24,14 @@ impl Module for TimeMod {
     fn name(&self) -> String {
         "time".to_string()
     }
-    fn context(&self) -> BTreeMap<&str, Box<dyn ToString + '_>> {
+    fn context<'a>(&'a self) -> BTreeMap<String, Box<dyn ToString + Send + Sync>> {
         let time = Local::now();
-        let mut map: BTreeMap<&str, Box<dyn ToString>> = BTreeMap::new();
-        map.insert("time", Box::new(time.format(&self.fmt)));
+        let mut map: BTreeMap<String, Box<dyn ToString + Send + Sync>> = BTreeMap::new();
+        map.insert("time".to_string(), Box::new(time.format(&self.fmt).to_string()));
         map
     }
-    fn module_format(&self) -> &str {
-        "row(icon(), {{time}})"
+    fn module_format(&self) -> String {
+        let time = Local::now();
+        format!("row(icon(), {})", time.format(&self.fmt))
     }
 }

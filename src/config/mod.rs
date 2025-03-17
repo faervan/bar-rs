@@ -123,7 +123,7 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry, engine: &mut Templat
                 .unwrap_or(&empty_map);
             (m, cfg_map, popup_cfg_map)
         })
-        .for_each(|(m, cfg_map, popup_cfg_map)| m.read_config(cfg_map, popup_cfg_map, templates));
+        .for_each(|(m, cfg_map, popup_cfg_map)| m.read_config(cfg_map, popup_cfg_map, engine));
     config
 }
 

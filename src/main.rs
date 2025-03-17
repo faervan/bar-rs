@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
     path::PathBuf,
     process::{exit, Command},
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -29,6 +29,7 @@ use iced::{
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
 use modules::{register_modules, Module};
+use once_cell::sync::Lazy;
 use registry::Registry;
 use resolvers::register_resolvers;
 use smithay_client_toolkit::{
@@ -200,8 +201,10 @@ impl Message {
     }
 }
 
+static mut ENGINE: Lazy<Mutex<TemplateEngine>> = Lazy::new(|| Mutex::new(TemplateEngine::new()));
+
 #[derive(Debug)]
-struct Bar<'a> {
+struct Bar {
     config_file: Arc<PathBuf>,
     config: Arc<Config>,
     registry: Registry,
@@ -211,20 +214,19 @@ struct Bar<'a> {
     layer_id: Id,
     open: bool,
     popup: Option<(TypeId, Id)>,
-    engine: TemplateEngine<'a>,
 }
 
-impl<'a> Bar<'a> {
+impl Bar {
     fn new() -> (Self, Task<Message>) {
         let mut registry = Registry::default();
         register_modules(&mut registry);
         register_listeners(&mut registry);
         register_resolvers(&mut registry);
 
-        let mut engine = TemplateEngine::new();
+        let engine = TemplateEngine::from_static();
 
         let config_file = get_config_dir();
-        let config = read_config(&config_file, &mut registry, &mut engine);
+        let config = read_config(&config_file, &mut registry, engine);
 
         ctrlc::set_handler(|| {
             println!("Received exit signal...Exiting");
@@ -236,6 +238,9 @@ impl<'a> Bar<'a> {
             config::module_config::ModuleConfigOverride::default(),
         );
 
+        let ctx = registry.get_module::<modules::time::TimeMod>().context();
+        engine.set_context::<modules::time::TimeMod>(ctx, std::collections::BTreeMap::new());
+
         let bar = Self {
             config_file: config_file.into(),
             config: config.into(),
@@ -246,12 +251,12 @@ impl<'a> Bar<'a> {
             layer_id: Id::unique(),
             open: false,
             popup: None,
-            engine,
         };
-        let task = match &bar.config.monitor {
+        /*let task = match &bar.config.monitor {
             Some(_) => bar.try_get_output(),
             None => bar.open(),
-        };
+        };*/
+        let task = bar.open();
 
         (bar, task)
     }
@@ -318,7 +323,7 @@ impl<'a> Bar<'a> {
                     self.config_file.to_string_lossy()
                 );
                 self.config =
-                    read_config(&self.config_file, &mut self.registry, &mut self.engine).into();
+                    read_config(&self.config_file, &mut self.registry, TemplateEngine::from_static()).into();
                 if self.config.hard_reload {
                     self.open = false;
                     self.registry = Registry::default();
@@ -332,7 +337,7 @@ impl<'a> Bar<'a> {
                 register_listeners(&mut self.registry);
                 register_resolvers(&mut self.registry);
                 self.config =
-                    read_config(&self.config_file, &mut self.registry, &mut self.engine).into();
+                    read_config(&self.config_file, &mut self.registry, TemplateEngine::from_static()).into();
                 self.open = true;
             }
             Message::NewOutput { info, wl_output } => {
@@ -359,7 +364,7 @@ impl<'a> Bar<'a> {
             self.registry.get_module_by_id(mod_id).popup_wrapper(
                 &self.config.popup_config,
                 &self.config.anchor,
-                &self.engine,
+                TemplateEngine::from_static(),
             )
         } else {
             "Internal error".into()
@@ -377,14 +382,10 @@ impl<'a> Bar<'a> {
                         .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
                         .filter(|&m| m.active())
                         .map(|m| {
-                            m.wrapper(
+                            m.module_wrapper(
                                 &self.config.module_config.local,
-                                m.view(
-                                    &self.config.module_config.local,
-                                    &self.config.popup_config,
-                                    anchor,
-                                ),
                                 anchor,
+                                TemplateEngine::from_static(),
                             )
                         }),
                 )
@@ -433,7 +434,7 @@ impl<'a> Bar<'a> {
         })
     }
 
-    fn try_get_output(&self) -> Task<Message> {
+    /*fn try_get_output(&self) -> Task<Message> {
         let monitor = self.config.monitor.clone();
         get_output(move |output_state| {
             output_state
@@ -464,7 +465,7 @@ impl<'a> Bar<'a> {
                 .clone()
         })
         .map(Message::GotOutputInfo)
-    }
+    }*/
 
     fn theme(&self, window_id: Id) -> Theme {
         if let Some(mod_id) = self
