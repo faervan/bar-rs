@@ -1,5 +1,6 @@
 use std::{
     any::{Any, TypeId},
+    collections::HashMap,
     fmt::Debug,
     path::PathBuf,
     process::{exit, Command},
@@ -9,12 +10,10 @@ use std::{
 
 use config::{anchor::BarAnchor, get_config_dir, read_config, Config, EnabledModules, Thrice};
 use fill::FillExt;
-use handlebars::Handlebars;
 use iced::{
     daemon,
     platform_specific::shell::commands::{
         layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
-        output::{get_output, get_output_info, OutputInfo},
         popup::{destroy_popup, get_popup},
     },
     runtime::platform_specific::wayland::{
@@ -32,6 +31,10 @@ use listeners::register_listeners;
 use modules::{register_modules, Module};
 use registry::Registry;
 use resolvers::register_resolvers;
+use smithay_client_toolkit::{
+    output::OutputInfo, reexports::client::protocol::wl_output::WlOutput,
+};
+use template_engine::TemplateEngine;
 use tokio::{
     sync::{broadcast, mpsc},
     time::sleep,
@@ -112,8 +115,11 @@ pub enum Message {
     Spawn(Arc<Command>),
     ReloadConfig,
     LoadRegistry,
-    GotOutput(Option<IcedOutput>),
-    GotOutputInfo(Option<OutputInfo>),
+    NewOutput {
+        info: OutputInfo,
+        wl_output: WlOutput,
+    },
+    NewOutputInfo(OutputInfo),
 }
 
 impl Message {
@@ -201,23 +207,24 @@ struct Bar<'a> {
     registry: Registry,
     logical_size: Option<(u32, u32)>,
     output: IcedOutput,
+    outputs: HashMap<u32, (OutputInfo, WlOutput)>,
     layer_id: Id,
     open: bool,
     popup: Option<(TypeId, Id)>,
-    templates: Handlebars<'a>,
+    engine: TemplateEngine<'a>,
 }
 
-impl Bar<'_> {
+impl<'a> Bar<'a> {
     fn new() -> (Self, Task<Message>) {
         let mut registry = Registry::default();
         register_modules(&mut registry);
         register_listeners(&mut registry);
         register_resolvers(&mut registry);
 
-        let mut templates = Handlebars::new();
+        let mut engine = TemplateEngine::new();
 
         let config_file = get_config_dir();
-        let config = read_config(&config_file, &mut registry, &mut templates);
+        let config = read_config(&config_file, &mut registry, &mut engine);
 
         ctrlc::set_handler(|| {
             println!("Received exit signal...Exiting");
@@ -225,16 +232,21 @@ impl Bar<'_> {
         })
         .unwrap();
 
+        engine.set_module_cfg::<modules::time::TimeMod>(
+            config::module_config::ModuleConfigOverride::default(),
+        );
+
         let bar = Self {
             config_file: config_file.into(),
             config: config.into(),
             registry,
             logical_size: None,
             output: IcedOutput::Active,
+            outputs: HashMap::new(),
             layer_id: Id::unique(),
-            open: true,
+            open: false,
             popup: None,
-            templates,
+            engine,
         };
         let task = match &bar.config.monitor {
             Some(_) => bar.try_get_output(),
@@ -262,6 +274,8 @@ impl Bar<'_> {
                     },
                     parent_size: None,
                     grab: true,
+                    close_with_children: false,
+                    input_zone: None,
                 };
                 return match self.popup {
                     None => {
@@ -304,7 +318,7 @@ impl Bar<'_> {
                     self.config_file.to_string_lossy()
                 );
                 self.config =
-                    read_config(&self.config_file, &mut self.registry, &mut self.templates).into();
+                    read_config(&self.config_file, &mut self.registry, &mut self.engine).into();
                 if self.config.hard_reload {
                     self.open = false;
                     self.registry = Registry::default();
@@ -318,32 +332,18 @@ impl Bar<'_> {
                 register_listeners(&mut self.registry);
                 register_resolvers(&mut self.registry);
                 self.config =
-                    read_config(&self.config_file, &mut self.registry, &mut self.templates).into();
+                    read_config(&self.config_file, &mut self.registry, &mut self.engine).into();
                 self.open = true;
             }
-            Message::GotOutput(optn) => {
-                return match optn {
-                    Some(output) => {
-                        self.output = output;
-                        self.try_get_output_info()
-                    }
-                    None => Task::stream(stream::channel(1, |_| async {
-                        sleep(Duration::from_millis(500)).await;
-                    }))
-                    .chain(self.try_get_output()),
-                }
+            Message::NewOutput { info, wl_output } => {
+                self.outputs.insert(info.id, (info, wl_output));
+                return Task::stream(stream::channel(1, |_| async {
+                    sleep(Duration::from_millis(500)).await;
+                }))
+                .chain(self.open());
             }
-            Message::GotOutputInfo(optn) => {
-                return match optn {
-                    Some(info) => {
-                        self.logical_size = info.logical_size.map(|(x, y)| (x as u32, y as u32));
-                        self.open()
-                    }
-                    None => Task::stream(stream::channel(1, |_| async {
-                        sleep(Duration::from_millis(500)).await;
-                    }))
-                    .chain(self.try_get_output_info()),
-                }
+            Message::NewOutputInfo(info) => {
+                self.logical_size = info.logical_size.map(|(x, y)| (x as u32, y as u32));
             }
         }
         Task::none()
@@ -359,7 +359,7 @@ impl Bar<'_> {
             self.registry.get_module_by_id(mod_id).popup_wrapper(
                 &self.config.popup_config,
                 &self.config.anchor,
-                &self.templates,
+                &self.engine,
             )
         } else {
             "Internal error".into()
@@ -383,7 +383,6 @@ impl Bar<'_> {
                                     &self.config.module_config.local,
                                     &self.config.popup_config,
                                     anchor,
-                                    &self.templates,
                                 ),
                                 anchor,
                             )

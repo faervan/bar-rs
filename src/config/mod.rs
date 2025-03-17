@@ -11,7 +11,6 @@ use anchor::BarAnchor;
 use configparser::ini::{Ini, IniDefault};
 use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
-use handlebars::Handlebars;
 use iced::{
     futures::{channel::mpsc::Sender, SinkExt},
     platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
@@ -20,7 +19,7 @@ use module_config::ModuleConfig;
 use popup_config::PopupConfig;
 use tokio::sync::mpsc;
 
-use crate::{registry::Registry, Message};
+use crate::{registry::Registry, template_engine::TemplateEngine, Message};
 pub use thrice::Thrice;
 
 pub mod anchor;
@@ -99,7 +98,7 @@ pub fn get_config_dir() -> PathBuf {
     config_file
 }
 
-pub fn read_config(path: &PathBuf, registry: &mut Registry, templates: &mut Handlebars) -> Config {
+pub fn read_config(path: &PathBuf, registry: &mut Registry, engine: &mut TemplateEngine) -> Config {
     let mut ini = Ini::new();
     let mut defaults = IniDefault::default();
     defaults.delimiters = vec!['='];
