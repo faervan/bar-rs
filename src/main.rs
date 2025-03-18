@@ -29,7 +29,6 @@ use iced::{
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
 use modules::{register_modules, Module};
-use once_cell::sync::Lazy;
 use registry::Registry;
 use resolvers::register_resolvers;
 use smithay_client_toolkit::{
@@ -201,8 +200,6 @@ impl Message {
     }
 }
 
-static mut ENGINE: Lazy<Mutex<TemplateEngine>> = Lazy::new(|| Mutex::new(TemplateEngine::new()));
-
 #[derive(Debug)]
 struct Bar {
     config_file: Arc<PathBuf>,
@@ -214,6 +211,7 @@ struct Bar {
     layer_id: Id,
     open: bool,
     popup: Option<(TypeId, Id)>,
+    engine: TemplateEngine,
 }
 
 impl Bar {
@@ -223,10 +221,10 @@ impl Bar {
         register_listeners(&mut registry);
         register_resolvers(&mut registry);
 
-        let engine = TemplateEngine::from_static();
+        let mut engine = TemplateEngine::new();
 
         let config_file = get_config_dir();
-        let config = read_config(&config_file, &mut registry, engine);
+        let config = read_config(&config_file, &mut registry, &mut engine);
 
         ctrlc::set_handler(|| {
             println!("Received exit signal...Exiting");
@@ -241,6 +239,12 @@ impl Bar {
         let ctx = registry.get_module::<modules::time::TimeMod>().context();
         engine.set_context::<modules::time::TimeMod>(ctx, std::collections::BTreeMap::new());
 
+        let time = chrono::Local::now();
+        engine.generate_token(
+            &format!("row(icon(), {})", time.format("%H:%M")),
+            TypeId::of::<modules::time::TimeMod>(),
+        );
+
         let bar = Self {
             config_file: config_file.into(),
             config: config.into(),
@@ -251,6 +255,7 @@ impl Bar {
             layer_id: Id::unique(),
             open: false,
             popup: None,
+            engine,
         };
         /*let task = match &bar.config.monitor {
             Some(_) => bar.try_get_output(),
@@ -323,7 +328,7 @@ impl Bar {
                     self.config_file.to_string_lossy()
                 );
                 self.config =
-                    read_config(&self.config_file, &mut self.registry, TemplateEngine::from_static()).into();
+                    read_config(&self.config_file, &mut self.registry, &mut self.engine).into();
                 if self.config.hard_reload {
                     self.open = false;
                     self.registry = Registry::default();
@@ -337,7 +342,7 @@ impl Bar {
                 register_listeners(&mut self.registry);
                 register_resolvers(&mut self.registry);
                 self.config =
-                    read_config(&self.config_file, &mut self.registry, TemplateEngine::from_static()).into();
+                    read_config(&self.config_file, &mut self.registry, &mut self.engine).into();
                 self.open = true;
             }
             Message::NewOutput { info, wl_output } => {
@@ -354,7 +359,7 @@ impl Bar {
         Task::none()
     }
 
-    fn view(&self, window_id: Id) -> Element<Message> {
+    fn view<'a>(&'a self, window_id: Id) -> Element<'a, Message> {
         if window_id == self.layer_id {
             self.bar_view()
         } else if let Some(mod_id) = self
@@ -364,7 +369,7 @@ impl Bar {
             self.registry.get_module_by_id(mod_id).popup_wrapper(
                 &self.config.popup_config,
                 &self.config.anchor,
-                TemplateEngine::from_static(),
+                &self.engine,
             )
         } else {
             "Internal error".into()
@@ -382,11 +387,7 @@ impl Bar {
                         .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
                         .filter(|&m| m.active())
                         .map(|m| {
-                            m.module_wrapper(
-                                &self.config.module_config.local,
-                                anchor,
-                                TemplateEngine::from_static(),
-                            )
+                            m.module_wrapper(&self.config.module_config.local, anchor, &self.engine)
                         }),
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),

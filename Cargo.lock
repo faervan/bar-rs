@@ -523,7 +523,6 @@ dependencies = [
  "libc",
  "niri-ipc",
  "notify",
- "once_cell",
  "regex",
  "reqwest",
  "serde",

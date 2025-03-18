@@ -88,9 +88,9 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn module_view<'a>(
         &self,
         config: &LocalModuleConfig,
-        engine: &'static TemplateEngine,
+        engine: &'a TemplateEngine,
     ) -> Element<'a, Message> {
-        engine.render_module(self.type_id(), self.module_format(), config)
+        engine.render_module(self.type_id(), config)
     }
     /// The wrapper around this module, which defines things like background color or border for
     /// this module.
@@ -98,7 +98,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         &self,
         config: &'a LocalModuleConfig,
         anchor: &BarAnchor,
-        engine: &'static TemplateEngine,
+        engine: &'a TemplateEngine,
     ) -> Element<'a, Message> {
         let cfg = engine.get_module_config(self.type_id(), config);
         container(
@@ -121,7 +121,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         &'a self,
         event: iced::Event,
         config: &'a LocalModuleConfig,
-        engine: &'static TemplateEngine,
+        engine: &'a TemplateEngine,
     ) -> Option<&'a dyn Action> {
         engine
             .get_module_config(self.type_id(), config)
@@ -139,16 +139,16 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn popup_view<'a>(
         &self,
         config: &'a PopupConfig,
-        engine: &'static TemplateEngine,
+        engine: &'a TemplateEngine,
     ) -> Element<'a, Message> {
-        engine.render_popup(self.type_id(), self.popup_format(), config)
+        engine.render_popup(self.type_id(), config)
     }
     /// Like `module_wrapper` but for the popup.
     fn popup_wrapper<'a>(
         &self,
         config: &'a PopupConfig,
         anchor: &BarAnchor,
-        engine: &'static TemplateEngine,
+        engine: &'a TemplateEngine,
     ) -> Element<'a, Message> {
         let align = |elem: Container<'a, Message>| -> Container<'a, Message> {
             match anchor {
