@@ -12,6 +12,7 @@ use config::{anchor::BarAnchor, get_config_dir, read_config, Config, EnabledModu
 use fill::FillExt;
 use iced::{
     daemon,
+    event::{listen_with, wayland, PlatformSpecific},
     platform_specific::shell::commands::{
         layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
         popup::{destroy_popup, get_popup},
@@ -59,23 +60,43 @@ fn main() -> iced::Result {
         .theme(Bar::theme)
         .font(include_bytes!("../assets/3270/3270NerdFont-Regular.ttf"))
         .subscription(|state| {
-            if state.open {
-                Subscription::batch({
-                    state
-                        .registry
-                        .get_modules(state.config.enabled_modules.get_all(), &state.config)
-                        .filter(|m| state.config.enabled_modules.contains(&m.name()))
-                        .filter_map(|m| m.subscription())
-                        .chain(
-                            state
-                                .registry
-                                .get_listeners(&state.config.enabled_listeners)
-                                .map(|l| l.subscription()),
-                        )
-                })
-            } else {
-                Subscription::none()
-            }
+            Subscription::batch([
+                listen_with(|event, _, _| {
+                    if let iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                        wayland::Event::Output(oevent, wl_output),
+                    )) = event
+                    {
+                        match oevent {
+                            wayland::OutputEvent::Created(info_maybe) => {
+                                info_maybe.map(|info| Message::NewOutput { info, wl_output })
+                            }
+                            wayland::OutputEvent::InfoUpdate(info) => {
+                                Some(Message::NewOutputInfo(info))
+                            }
+                            wayland::OutputEvent::Removed => None,
+                        }
+                    } else {
+                        None
+                    }
+                }),
+                if state.open {
+                    Subscription::batch({
+                        state
+                            .registry
+                            .get_modules(state.config.enabled_modules.get_all(), &state.config)
+                            .filter(|m| state.config.enabled_modules.contains(&m.name()))
+                            .filter_map(|m| m.subscription())
+                            .chain(
+                                state
+                                    .registry
+                                    .get_listeners(&state.config.enabled_listeners)
+                                    .map(|l| l.subscription()),
+                            )
+                    })
+                } else {
+                    Subscription::none()
+                },
+            ])
         })
         .run_with(Bar::new)
 }

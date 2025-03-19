@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
 };
 
-use iced::Element;
+use iced::{Element, Length};
 use regex::Regex;
 
 use crate::{
@@ -12,7 +12,8 @@ use crate::{
         module_config::{LocalModuleConfig, MergedModuleConfig, ModuleConfigOverride},
         popup_config::{MergedPopupConfig, PopupConfig, PopupConfigOverride},
     },
-    modules::Module,
+    helpers::SplitExt,
+    modules::{Module, OnClickAction},
     Message, NERD_FONT,
 };
 
@@ -44,6 +45,8 @@ impl TemplateEngine {
                 ("icon", Self::icon),
                 ("row", Self::row),
                 ("column", Self::column),
+                ("button", Self::button),
+                ("image", Self::image),
             ]),
             module_cfg: HashMap::new(),
             popup_cfg: HashMap::new(),
@@ -90,6 +93,40 @@ impl TemplateEngine {
         ))
     }
 
+    fn button(&self, content: &str) -> Box<dyn Token> {
+        let [cnt, left, center, right] = content.split_checked(',')[..] else {
+            eprintln!("Insufficient amount of button arguments! button() needs 4 args");
+            return Box::new(TextToken(content.to_string()));
+        };
+        let action = OnClickAction {
+            left: (left.trim().is_empty()).then(|| left.into()),
+            center: (center.trim().is_empty()).then(|| center.into()),
+            right: (right.trim().is_empty()).then(|| right.into()),
+        };
+        Box::new(ButtonToken {
+            content: self.render_token(cnt),
+            action,
+        })
+    }
+
+    fn image(&self, content: &str) -> Box<dyn Token> {
+        let [path, width, height] = content.split_checked(',')[..] else {
+            eprintln!("Insufficient amount of image arguments! image() needs 3 args");
+            return Box::new(TextToken(content.to_string()));
+        };
+        Box::new(ImageToken {
+            path: path.to_string(),
+            width: width
+                .parse::<f32>()
+                .map(Length::Fixed)
+                .unwrap_or(Length::Fill),
+            height: height
+                .parse::<f32>()
+                .map(Length::Fixed)
+                .unwrap_or(Length::Fill),
+        })
+    }
+
     pub fn set_module_cfg<T: Module>(&mut self, cfg: ModuleConfigOverride) {
         self.module_cfg.insert(TypeId::of::<T>(), cfg);
     }
@@ -131,9 +168,13 @@ impl TemplateEngine {
             eprintln!("Context was not registered");
             return "Missing context".into();
         }
+        if !self.module_cfg.contains_key(&id) {
+            eprintln!("Module config was not registered");
+            return "Missing module config".into();
+        }
         self.render(
             &id,
-            &Config::Module(cfg.override_cfg(self.module_cfg.get(&id).unwrap())),
+            &Config::Module(cfg.override_cfg(&self.module_cfg[&id])),
         )
     }
 
@@ -146,10 +187,11 @@ impl TemplateEngine {
             eprintln!("Context was not registered");
             return "Missing context".into();
         }
-        self.render(
-            &id,
-            &Config::Popup(cfg.override_cfg(self.popup_cfg.get(&id).unwrap())),
-        )
+        if !self.popup_cfg.contains_key(&id) {
+            eprintln!("Popup config was not registered");
+            return "Missing popup config".into();
+        }
+        self.render(&id, &Config::Popup(cfg.override_cfg(&self.popup_cfg[&id])))
     }
 
     fn render<'a>(&'a self, id: &TypeId, config: &Config) -> Element<'a, Message> {
@@ -217,6 +259,36 @@ impl Token for ColumnToken {
     fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message> {
         iced::widget::column(self.0.iter().map(|t| t.render(context, config)))
             .spacing(config.spacing())
+            .into()
+    }
+}
+
+struct ButtonToken {
+    content: Box<dyn Token>,
+    action: OnClickAction,
+}
+
+impl Token for ButtonToken {
+    fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message> {
+        crate::button::button(self.content.render(context, config))
+            .on_event_try(move |evt, _, _, _, _| {
+                self.action.event(evt).map(|action| action.as_message())
+            })
+            .style(|_, _| iced::widget::button::Style::default())
+            .into()
+    }
+}
+struct ImageToken {
+    path: String,
+    width: Length,
+    height: Length,
+}
+
+impl Token for ImageToken {
+    fn render<'a>(&'a self, _context: Context<'a>, _config: &Config) -> Element<'a, Message> {
+        iced::widget::image(&self.path)
+            .width(self.width)
+            .height(self.height)
             .into()
     }
 }
