@@ -1,7 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use bar_rs_derive::Builder;
 use chrono::Local;
+
+use crate::template_engine::TemplateEngine;
 
 use super::Module;
 
@@ -26,28 +28,27 @@ impl Module for TimeMod {
     fn name(&self) -> String {
         "time".to_string()
     }
-    fn context<'a>(&'a self) -> BTreeMap<String, Box<dyn ToString + Send + Sync>> {
+    fn context<'a>(&'a self) -> HashMap<String, Box<dyn ToString + Send + Sync>> {
         let time = Local::now();
-        BTreeMap::from([
-            (
-                "time".to_string(),
-                Box::new(time.format(&self.time_fmt).to_string())
-                    as Box<dyn ToString + Send + Sync>,
-            ),
-            ("icon".to_string(), Box::new(self.icon.clone())),
-        ])
+        create_map!(
+            ("time", time.format(&self.time_fmt).to_string()),
+            ("icon", self.icon.clone())
+        )
     }
     fn module_format(&self) -> &str {
         &self.format
     }
     fn read_config<'a>(
         &mut self,
-        config: &std::collections::HashMap<String, Option<String>>,
-        _popup_config: &std::collections::HashMap<String, Option<String>>,
-        _engine: &mut crate::template_engine::TemplateEngine,
+        config: &HashMap<String, Option<String>>,
+        _popup_config: &HashMap<String, Option<String>>,
+        _engine: &mut TemplateEngine,
     ) {
-        if let Some(format) = config.get("format").and_then(|f| f.clone()) {
-            self.format = format;
-        }
+        let get = |cfg, default| config.get(cfg).cloned().flatten().unwrap_or(default);
+        let default = Self::default();
+
+        self.icon = get("icon", default.icon);
+        self.format = get("format", default.format);
+        self.time_fmt = get("time_fmt", default.time_fmt);
     }
 }

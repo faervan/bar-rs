@@ -1,13 +1,13 @@
 use std::{
     any::{Any, TypeId},
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     fmt::Debug,
 };
 
-/*use battery::BatteryMod;
+//use battery::BatteryMod;
 use cpu::CpuMod;
 use date::DateMod;
-use disk_usage::DiskUsageMod;*/
+//use disk_usage::DiskUsageMod;
 use downcast_rs::{impl_downcast, Downcast};
 //use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
 use iced::{
@@ -32,10 +32,10 @@ use crate::{
     Message,
 };
 
-/*pub mod battery;
+//pub mod battery;
 pub mod cpu;
 pub mod date;
-pub mod disk_usage;
+/*pub mod disk_usage;
 pub mod hyprland;
 pub mod media;
 pub mod memory;
@@ -50,12 +50,12 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn name(&self) -> String;
     /// The context to use when rendering the module. `context` refers to the data that shall be
     /// displayed by this module.
-    fn context<'a>(&'a self) -> BTreeMap<String, Box<dyn ToString + Send + Sync>>;
+    fn context<'a>(&'a self) -> HashMap<String, Box<dyn ToString + Send + Sync>>;
     /// Like context, but meant for nested rendering. This is used for example to store the
-    /// indivial data of cpu cores in the cpu module. There, the outer `BTreeMap` contains a
+    /// indivial data of cpu cores in the cpu module. There, the outer `HashMap` contains a
     /// "cores" entry, which holds a different context for every core in the `Vec`.
     fn extra_context<'a>(&self) -> ExtraContext {
-        BTreeMap::new()
+        HashMap::new()
     }
     /// Whether the module is currently active and should be shown.
     fn active(&self) -> bool {
@@ -89,20 +89,21 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         &self,
         config: &LocalModuleConfig,
         engine: &'a TemplateEngine,
+        anchor: &'a BarAnchor,
     ) -> Element<'a, Message> {
-        engine.render_module(self.type_id(), config)
+        engine.render_module(self.type_id(), config, anchor)
     }
     /// The wrapper around this module, which defines things like background color or border for
     /// this module.
     fn module_wrapper<'a>(
         &self,
         config: &'a LocalModuleConfig,
-        anchor: &BarAnchor,
+        anchor: &'a BarAnchor,
         engine: &'a TemplateEngine,
     ) -> Element<'a, Message> {
         let cfg = engine.get_module_config(self.type_id(), config);
         container(
-            container(self.module_view(config, engine))
+            container(self.module_view(config, engine, anchor))
                 .fill(anchor)
                 .padding(cfg.padding)
                 .style(move |_| Style {
@@ -115,7 +116,6 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         .padding(cfg.margin)
         .into()
     }
-    #[allow(unused_variables)]
     /// The action to perform when a on_click event occurs
     fn on_click<'a>(
         &'a self,
@@ -128,26 +128,25 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
             .action
             .event(event)
     }
-    #[allow(unused_variables, dead_code)]
     /// Using the context provided by `context()` and `extra_context()` this format defines how the
     /// module popup should be rendered, unless `popup_view()` is overridden.
     fn popup_format(&self) -> &str {
         "Missing implementation"
     }
-    #[allow(unused_variables)]
     /// The `module_view` but for the popup.
     fn popup_view<'a>(
         &self,
         config: &'a PopupConfig,
         engine: &'a TemplateEngine,
+        anchor: &'a BarAnchor,
     ) -> Element<'a, Message> {
-        engine.render_popup(self.type_id(), config)
+        engine.render_popup(self.type_id(), config, anchor)
     }
     /// Like `module_wrapper` but for the popup.
     fn popup_wrapper<'a>(
         &self,
         config: &'a PopupConfig,
-        anchor: &BarAnchor,
+        anchor: &'a BarAnchor,
         engine: &'a TemplateEngine,
     ) -> Element<'a, Message> {
         let align = |elem: Container<'a, Message>| -> Container<'a, Message> {
@@ -158,7 +157,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
                 BarAnchor::Right => elem.align_x(Alignment::End),
             }
         };
-        align(container(self.popup_view(config, engine)).fill(anchor)).into()
+        align(container(self.popup_view(config, engine, anchor)).fill(anchor)).into()
     }
     /// The theme of a popup
     fn popup_theme(&self) -> Theme {
@@ -228,12 +227,12 @@ where
 }
 
 pub fn register_modules(registry: &mut Registry) {
-    /*registry.register_module::<CpuMod>();
-    registry.register_module::<MemoryMod>();
+    registry.register_module::<CpuMod>();
+    /*registry.register_module::<MemoryMod>();
     registry.register_module::<BatteryMod>();
     registry.register_module::<VolumeMod>();
-    registry.register_module::<MediaMod>();
-    registry.register_module::<DateMod>();*/
+    registry.register_module::<MediaMod>();*/
+    registry.register_module::<DateMod>();
     registry.register_module::<TimeMod>();
     /*registry.register_module::<DiskUsageMod>();
     registry.register_module::<HyprWindowMod>();

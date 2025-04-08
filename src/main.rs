@@ -50,6 +50,7 @@ mod config;
 mod list;
 mod button;
 mod fill;
+#[macro_use]
 mod helpers;
 mod listeners;
 mod modules;
@@ -246,19 +247,6 @@ impl Bar {
         })
         .unwrap();
 
-        /*engine.set_module_cfg::<modules::time::TimeMod>(
-            config::module_config::ModuleConfigOverride::default(),
-        );
-
-        let ctx = registry.get_module::<modules::time::TimeMod>().context();
-        engine.set_context::<modules::time::TimeMod>(ctx, std::collections::BTreeMap::new());
-
-        let time = chrono::Local::now();
-        engine.generate_token(
-            &format!("row(icon(), {})", time.format("%H:%M")),
-            TypeId::of::<modules::time::TimeMod>(),
-        );*/
-
         let bar = Self {
             config_file: config_file.into(),
             config: config.into(),
@@ -314,6 +302,15 @@ impl Bar {
             }
             Message::Update(task) => {
                 Arc::into_inner(task).unwrap().0(&mut self.registry);
+                self.registry
+                    .get_modules(self.config.enabled_modules.get_all(), &self.config)
+                    .for_each(|m| {
+                        self.engine.set_context(
+                            m.as_any().type_id(),
+                            m.context(),
+                            m.extra_context(),
+                        );
+                    });
             }
             Message::Action(task) => {
                 Arc::into_inner(task).unwrap().0(&self.registry);

@@ -1,11 +1,6 @@
-use std::{
-    any::TypeId,
-    collections::{BTreeMap, HashMap},
-    fmt::Debug,
-};
+use std::{any::TypeId, collections::HashMap, fmt::Debug};
 
 use iced::{Element, Length};
-use regex::Regex;
 
 use crate::{
     config::{
@@ -14,7 +9,7 @@ use crate::{
         popup_config::{MergedPopupConfig, PopupConfig, PopupConfigOverride},
     },
     fill::FillExt,
-    helpers::SplitExt,
+    helpers::{ParseTemplate, SplitExt},
     modules::{Module, OnClickAction},
     Message, NERD_FONT,
 };
@@ -23,10 +18,10 @@ pub trait Token {
     fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message>;
 }
 
-type Renderer = fn(&TemplateEngine, &str) -> Box<dyn Token>;
+type ToTokenRenderer = fn(&TemplateEngine, &str) -> Box<dyn Token>;
 
 pub struct TemplateEngine {
-    registry: HashMap<&'static str, Renderer>,
+    registry: HashMap<&'static str, ToTokenRenderer>,
     module_cfg: HashMap<TypeId, ModuleConfigOverride>,
     popup_cfg: HashMap<TypeId, PopupConfigOverride>,
     context_map: HashMap<TypeId, (GeneralContext, ExtraContext)>,
@@ -43,7 +38,7 @@ impl TemplateEngine {
     pub fn new() -> TemplateEngine {
         TemplateEngine {
             registry: HashMap::from([
-                ("text", Self::text as Renderer),
+                ("text", Self::text as ToTokenRenderer),
                 ("icon", Self::icon),
                 ("row", Self::row),
                 ("column", Self::column),
@@ -100,13 +95,12 @@ impl TemplateEngine {
     }
 
     fn container(&self, content: &str) -> Box<dyn Token> {
-        let [cnt, anchor, icon_margin] = content.split_checked(',')[..] else {
-            eprintln!("Insufficient amount of container arguments! container() needs 3 args");
+        let [cnt, icon_margin] = content.split_checked(',')[..] else {
+            eprintln!("Insufficient amount of container arguments! container() needs 2 args");
             return Box::new(TextToken(content.to_string()));
         };
         Box::new(BoxToken {
             content: self.render_token(cnt),
-            anchor: anchor.into(),
             icon_margin: icon_margin.parse().unwrap(),
         })
     }
@@ -157,7 +151,7 @@ impl TemplateEngine {
         self.context_map.insert(id, (general, extra));
     }
 
-    pub fn register_renderer(&mut self, name: &'static str, renderer: Renderer) {
+    pub fn register_renderer(&mut self, name: &'static str, renderer: ToTokenRenderer) {
         self.registry.insert(name, renderer);
     }
 
@@ -177,6 +171,7 @@ impl TemplateEngine {
         &'a self,
         id: TypeId,
         cfg: &LocalModuleConfig,
+        anchor: &'a BarAnchor,
     ) -> Element<'a, Message> {
         if !self.token_map.contains_key(&id) {
             eprintln!("Token was not generated");
@@ -193,10 +188,16 @@ impl TemplateEngine {
         self.render(
             &id,
             &Config::Module(cfg.override_cfg(&self.module_cfg[&id])),
+            anchor,
         )
     }
 
-    pub fn render_popup<'a>(&'a self, id: TypeId, cfg: &PopupConfig) -> Element<'a, Message> {
+    pub fn render_popup<'a>(
+        &'a self,
+        id: TypeId,
+        cfg: &PopupConfig,
+        anchor: &'a BarAnchor,
+    ) -> Element<'a, Message> {
         if !self.token_map.contains_key(&id) {
             eprintln!("Token was not generated");
             return "Missing token".into();
@@ -209,11 +210,20 @@ impl TemplateEngine {
             eprintln!("Popup config was not registered");
             return "Missing popup config".into();
         }
-        self.render(&id, &Config::Popup(cfg.override_cfg(&self.popup_cfg[&id])))
+        self.render(
+            &id,
+            &Config::Popup(cfg.override_cfg(&self.popup_cfg[&id])),
+            anchor,
+        )
     }
 
-    fn render<'a>(&'a self, id: &TypeId, config: &Config) -> Element<'a, Message> {
-        self.token_map[id].render(Context::new(&self.context_map[id]), config)
+    fn render<'a>(
+        &'a self,
+        id: &TypeId,
+        config: &Config,
+        anchor: &'a BarAnchor,
+    ) -> Element<'a, Message> {
+        self.token_map[id].render(Context::new(&self.context_map[id], anchor), config)
     }
 
     fn parse_wrapper<'a>(&self, content: &'a str) -> Option<(&'a str, &'a str)> {
@@ -237,10 +247,12 @@ struct TextToken(String);
 impl Token for TextToken {
     fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message> {
         iced::widget::container(
-            iced::widget::text(context.parse_text(&self.0))
+            iced::widget::text(context.get().parse_template(&self.0))
+                .fill(context.anchor)
                 .size(config.font_size())
                 .color(config.text_color()),
         )
+        .fill(context.anchor)
         .padding(config.text_margin())
         .into()
     }
@@ -251,11 +263,13 @@ struct IconToken(String);
 impl Token for IconToken {
     fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message> {
         iced::widget::container(
-            iced::widget::text(context.parse_text(&self.0))
+            iced::widget::text(context.get().parse_template(&self.0))
+                .fill(context.anchor)
                 .size(config.icon_size())
                 .color(config.icon_color())
                 .font(NERD_FONT),
         )
+        .fill(context.anchor)
         .padding(config.icon_margin())
         .into()
     }
@@ -283,14 +297,13 @@ impl Token for ColumnToken {
 
 struct BoxToken {
     content: Box<dyn Token>,
-    anchor: BarAnchor,
     icon_margin: bool,
 }
 
 impl Token for BoxToken {
     fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message> {
         iced::widget::container(self.content.render(context, config))
-            .fill(&self.anchor)
+            .fill(context.anchor)
             .padding(match self.icon_margin {
                 true => config.icon_margin(),
                 false => config.text_margin(),
@@ -334,14 +347,16 @@ pub struct Context<'a> {
     current: Option<(&'a str, usize)>,
     general: &'a GeneralContext,
     extra: &'a ExtraContext,
+    anchor: &'a BarAnchor,
 }
 
 impl<'a> Context<'a> {
-    fn new((general, extra): &'a (GeneralContext, ExtraContext)) -> Self {
+    fn new((general, extra): &'a (GeneralContext, ExtraContext), anchor: &'a BarAnchor) -> Self {
         Self {
             current: None,
             general,
             extra,
+            anchor,
         }
     }
 
@@ -350,28 +365,16 @@ impl<'a> Context<'a> {
         self
     }
 
-    fn get_context(&self) -> &'a GeneralContext {
+    fn get(&self) -> &'a GeneralContext {
         match &self.current {
             Some((key, id)) => &self.extra[*key][*id],
             None => self.general,
         }
     }
-
-    fn parse_text(&self, template: &str) -> String {
-        let regex = Regex::new(r"\{\{(.*?)\}\}").unwrap();
-        regex
-            .replace_all(template, |caps: &regex::Captures| {
-                let key = &caps[1];
-                self.get_context()
-                    .get(key)
-                    .map_or_else(|| format!("{{{{{}}}}}", key), |v| v.to_string())
-            })
-            .to_string()
-    }
 }
 
-pub type GeneralContext = BTreeMap<String, Box<dyn ToString + Send + Sync>>;
-pub type ExtraContext = BTreeMap<String, Vec<GeneralContext>>;
+pub type GeneralContext = HashMap<String, Box<dyn ToString + Send + Sync>>;
+pub type ExtraContext = HashMap<String, Vec<GeneralContext>>;
 
 pub enum Config<'a> {
     Module(MergedModuleConfig<'a>),

@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use regex::Regex;
+
 pub trait UnEscapeString {
     /// Unescape special characters like '\n' and '\t'
     fn unescape(self) -> Option<String>;
@@ -51,4 +55,36 @@ impl SplitExt for &str {
         }
         result
     }
+}
+
+pub trait ParseTemplate {
+    fn parse_template(&self, template: &str) -> String;
+}
+
+impl ParseTemplate for HashMap<String, Box<dyn ToString + Send + Sync>> {
+    fn parse_template(&self, template: &str) -> String {
+        let regex = Regex::new(r"\{\{(.*?)\}\}").unwrap();
+        regex
+            .replace_all(template, |caps: &regex::Captures| {
+                let key = &caps[1];
+                self.get(key)
+                    .map_or_else(|| format!("{{{{{}}}}}", key), |v| v.to_string())
+            })
+            .to_string()
+    }
+}
+
+/// Create a `HashMap<String, Box<dyn ToString + Send + Sync>>` from a list of ("key", "value")
+/// tuples
+macro_rules! create_map {
+    ( $( ($key:expr, $value:expr) ),* ) => {{
+        let mut map = HashMap::new();
+        $(
+            map.insert(
+                $key.to_string(),
+                Box::new($value) as Box<dyn ToString + Send + Sync>,
+            );
+        )*
+        map
+    }};
 }
