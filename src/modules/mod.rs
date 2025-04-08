@@ -82,7 +82,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     }
     /// Using the context provided by `context()` and `extra_context()` this format defines how the
     /// module should be rendered, unless `view()` is overridden.
-    fn module_format(&self) -> String;
+    fn module_format(&self) -> &str;
     /// What the module shows. This by default relies on `module_format()`.
     /// See [widgets-and-elements](https://docs.iced.rs/iced/#widgets-and-elements).
     fn module_view<'a>(
@@ -131,8 +131,8 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     #[allow(unused_variables, dead_code)]
     /// Using the context provided by `context()` and `extra_context()` this format defines how the
     /// module popup should be rendered, unless `popup_view()` is overridden.
-    fn popup_format(&self) -> String {
-        String::from("Missing implementation")
+    fn popup_format(&self) -> &str {
+        "Missing implementation"
     }
     #[allow(unused_variables)]
     /// The `module_view` but for the popup.

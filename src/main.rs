@@ -12,7 +12,11 @@ use config::{anchor::BarAnchor, get_config_dir, read_config, Config, EnabledModu
 use fill::FillExt;
 use iced::{
     daemon,
-    event::{listen_with, wayland, PlatformSpecific},
+    event::{
+        listen_with,
+        wayland::{self, OutputEvent},
+        PlatformSpecific,
+    },
     platform_specific::shell::commands::{
         layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
         popup::{destroy_popup, get_popup},
@@ -63,18 +67,10 @@ fn main() -> iced::Result {
             Subscription::batch([
                 listen_with(|event, _, _| {
                     if let iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
-                        wayland::Event::Output(oevent, wl_output),
+                        wayland::Event::Output(event, wl_output),
                     )) = event
                     {
-                        match oevent {
-                            wayland::OutputEvent::Created(info_maybe) => {
-                                info_maybe.map(|info| Message::NewOutput { info, wl_output })
-                            }
-                            wayland::OutputEvent::InfoUpdate(info) => {
-                                Some(Message::NewOutputInfo(info))
-                            }
-                            wayland::OutputEvent::Removed => None,
-                        }
+                        Some(Message::OutputEvent { event, wl_output })
                     } else {
                         None
                     }
@@ -136,11 +132,10 @@ pub enum Message {
     Spawn(Arc<Command>),
     ReloadConfig,
     LoadRegistry,
-    NewOutput {
-        info: OutputInfo,
+    OutputEvent {
+        event: OutputEvent,
         wl_output: WlOutput,
     },
-    NewOutputInfo(OutputInfo),
 }
 
 impl Message {
@@ -226,9 +221,7 @@ struct Bar {
     config_file: Arc<PathBuf>,
     config: Arc<Config>,
     registry: Registry,
-    logical_size: Option<(u32, u32)>,
-    output: IcedOutput,
-    outputs: HashMap<u32, (OutputInfo, WlOutput)>,
+    outputs: HashMap<WlOutput, Option<OutputInfo>>,
     layer_id: Id,
     open: bool,
     popup: Option<(TypeId, Id)>,
@@ -253,7 +246,7 @@ impl Bar {
         })
         .unwrap();
 
-        engine.set_module_cfg::<modules::time::TimeMod>(
+        /*engine.set_module_cfg::<modules::time::TimeMod>(
             config::module_config::ModuleConfigOverride::default(),
         );
 
@@ -264,27 +257,20 @@ impl Bar {
         engine.generate_token(
             &format!("row(icon(), {})", time.format("%H:%M")),
             TypeId::of::<modules::time::TimeMod>(),
-        );
+        );*/
 
         let bar = Self {
             config_file: config_file.into(),
             config: config.into(),
             registry,
-            logical_size: None,
-            output: IcedOutput::Active,
             outputs: HashMap::new(),
             layer_id: Id::unique(),
             open: false,
             popup: None,
             engine,
         };
-        /*let task = match &bar.config.monitor {
-            Some(_) => bar.try_get_output(),
-            None => bar.open(),
-        };*/
-        let task = bar.open();
 
-        (bar, task)
+        (bar, Task::none())
     }
 
     fn update(&mut self, msg: Message) -> Task<Message> {
@@ -366,16 +352,25 @@ impl Bar {
                     read_config(&self.config_file, &mut self.registry, &mut self.engine).into();
                 self.open = true;
             }
-            Message::NewOutput { info, wl_output } => {
-                self.outputs.insert(info.id, (info, wl_output));
-                return Task::stream(stream::channel(1, |_| async {
-                    sleep(Duration::from_millis(500)).await;
-                }))
-                .chain(self.open());
-            }
-            Message::NewOutputInfo(info) => {
-                self.logical_size = info.logical_size.map(|(x, y)| (x as u32, y as u32));
-            }
+            Message::OutputEvent { event, wl_output } => match event {
+                OutputEvent::Created(info_maybe) => {
+                    self.outputs.insert(wl_output, info_maybe);
+                    //println!("new output! {:#?}", self.outputs);
+                    if !self.open {
+                        self.open = true;
+                        return Task::stream(stream::channel(1, |_| async {
+                            sleep(Duration::from_millis(500)).await;
+                        }))
+                        .chain(self.open());
+                    }
+                }
+                OutputEvent::InfoUpdate(info) => {
+                    self.outputs.insert(wl_output, Some(info));
+                }
+                OutputEvent::Removed => {
+                    self.outputs.remove(&wl_output);
+                }
+            },
         }
         Task::none()
     }
@@ -431,7 +426,24 @@ impl Bar {
     }
 
     fn open(&self) -> Task<Message> {
-        let (x, y) = self.logical_size.unwrap_or((1920, 1080));
+        let (output, info) = self
+            .outputs
+            .iter()
+            .find(|(_, info)| {
+                info.as_ref()
+                    .is_some_and(|info| info.name == self.config.monitor)
+            })
+            .map(|(o, info)| (IcedOutput::Output(o.clone()), info))
+            .unwrap_or_else(|| {
+                if let Some(m) = self.config.monitor.as_ref() {
+                    eprintln!("No output with name {m} could be found!");
+                }
+                (IcedOutput::Active, &None)
+            });
+        let (x, y) = info
+            .as_ref()
+            .and_then(|i| i.logical_size.map(|(x, y)| (x as u32, y as u32)))
+            .unwrap_or((1920, 1080));
         let (width, height) = match self.config.anchor.vertical() {
             true => (
                 self.config.module_config.global.width.unwrap_or(30),
@@ -449,45 +461,12 @@ impl Bar {
             exclusive_zone: self.config.exclusive_zone(),
             size: Some((Some(width), Some(height))),
             namespace: "bar-rs".to_string(),
-            output: self.output.clone(),
+            output,
             margin: self.config.module_config.global.margin,
             id: self.layer_id,
             ..Default::default()
         })
     }
-
-    /*fn try_get_output(&self) -> Task<Message> {
-        let monitor = self.config.monitor.clone();
-        get_output(move |output_state| {
-            output_state
-                .outputs()
-                .find(|o| {
-                    output_state
-                        .info(o)
-                        .map(|info| info.name == monitor)
-                        .unwrap_or(false)
-                })
-                .clone()
-        })
-        .map(|optn| Message::GotOutput(optn.map(IcedOutput::Output)))
-    }
-
-    fn try_get_output_info(&self) -> Task<Message> {
-        let monitor = self.config.monitor.clone();
-        get_output_info(move |output_state| {
-            output_state
-                .outputs()
-                .find(|o| {
-                    output_state
-                        .info(o)
-                        .map(|info| info.name == monitor)
-                        .unwrap_or(false)
-                })
-                .and_then(|o| output_state.info(&o))
-                .clone()
-        })
-        .map(Message::GotOutputInfo)
-    }*/
 
     fn theme(&self, window_id: Id) -> Theme {
         if let Some(mod_id) = self

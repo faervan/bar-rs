@@ -15,7 +15,7 @@ use iced::{
     futures::{channel::mpsc::Sender, SinkExt},
     platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
 };
-use module_config::ModuleConfig;
+use module_config::{ModuleConfig, ModuleConfigOverride};
 use popup_config::PopupConfig;
 use tokio::sync::mpsc;
 
@@ -123,7 +123,13 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry, engine: &mut Templat
                 .unwrap_or(&empty_map);
             (m, cfg_map, popup_cfg_map)
         })
-        .for_each(|(m, cfg_map, popup_cfg_map)| m.read_config(cfg_map, popup_cfg_map, engine));
+        .for_each(|(m, module_cfg, popup_cfg)| {
+            let id = m.type_id();
+            engine.set_module_cfg(id, ModuleConfigOverride::from(module_cfg));
+            engine.set_context(id, m.context(), m.extra_context());
+            m.read_config(module_cfg, popup_cfg, engine);
+            engine.generate_token(id, m.module_format());
+        });
     config
 }
 

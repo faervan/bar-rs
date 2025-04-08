@@ -40,3 +40,18 @@ impl From<&BarAnchor> for Anchor {
         }
     }
 }
+
+impl From<&str> for BarAnchor {
+    fn from(value: &str) -> Self {
+        match value.trim() {
+            "top" => BarAnchor::Top,
+            "bottom" => BarAnchor::Bottom,
+            "left" => BarAnchor::Left,
+            "right" => BarAnchor::Right,
+            _ => {
+                eprintln!("{value} is not a valid BarAnchor! Defaulting to Top.");
+                BarAnchor::Top
+            }
+        }
+    }
+}

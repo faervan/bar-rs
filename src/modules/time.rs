@@ -8,14 +8,16 @@ use super::Module;
 #[derive(Debug, Builder)]
 pub struct TimeMod {
     icon: String,
-    fmt: String,
+    time_fmt: String,
+    format: String,
 }
 
 impl Default for TimeMod {
     fn default() -> Self {
         Self {
             icon: "".to_string(),
-            fmt: "%H:%M".to_string(),
+            time_fmt: "%H:%M".to_string(),
+            format: "row(icon({{icon}}), {{time}})".to_string(),
         }
     }
 }
@@ -26,12 +28,26 @@ impl Module for TimeMod {
     }
     fn context<'a>(&'a self) -> BTreeMap<String, Box<dyn ToString + Send + Sync>> {
         let time = Local::now();
-        let mut map: BTreeMap<String, Box<dyn ToString + Send + Sync>> = BTreeMap::new();
-        map.insert("time".to_string(), Box::new(time.format(&self.fmt).to_string()));
-        map
+        BTreeMap::from([
+            (
+                "time".to_string(),
+                Box::new(time.format(&self.time_fmt).to_string())
+                    as Box<dyn ToString + Send + Sync>,
+            ),
+            ("icon".to_string(), Box::new(self.icon.clone())),
+        ])
     }
-    fn module_format(&self) -> String {
-        let time = Local::now();
-        format!("row(icon(), {})", time.format(&self.fmt))
+    fn module_format(&self) -> &str {
+        &self.format
+    }
+    fn read_config<'a>(
+        &mut self,
+        config: &std::collections::HashMap<String, Option<String>>,
+        _popup_config: &std::collections::HashMap<String, Option<String>>,
+        _engine: &mut crate::template_engine::TemplateEngine,
+    ) {
+        if let Some(format) = config.get("format").and_then(|f| f.clone()) {
+            self.format = format;
+        }
     }
 }

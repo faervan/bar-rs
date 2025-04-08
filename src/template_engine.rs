@@ -9,9 +9,11 @@ use regex::Regex;
 
 use crate::{
     config::{
+        anchor::BarAnchor,
         module_config::{LocalModuleConfig, MergedModuleConfig, ModuleConfigOverride},
         popup_config::{MergedPopupConfig, PopupConfig, PopupConfigOverride},
     },
+    fill::FillExt,
     helpers::SplitExt,
     modules::{Module, OnClickAction},
     Message, NERD_FONT,
@@ -45,6 +47,8 @@ impl TemplateEngine {
                 ("icon", Self::icon),
                 ("row", Self::row),
                 ("column", Self::column),
+                ("container", Self::container),
+                ("box", Self::container),
                 ("button", Self::button),
                 ("image", Self::image),
             ]),
@@ -55,7 +59,7 @@ impl TemplateEngine {
         }
     }
 
-    pub fn generate_token(&mut self, content: &str, id: TypeId) {
+    pub fn generate_token(&mut self, id: TypeId, content: &str) {
         self.token_map.insert(id, self.render_token(content));
     }
 
@@ -78,7 +82,8 @@ impl TemplateEngine {
     fn row(&self, content: &str) -> Box<dyn Token> {
         Box::new(RowToken(
             content
-                .split(',')
+                .split_checked(',')
+                .iter()
                 .map(|s| self.render_token(s.trim()))
                 .collect(),
         ))
@@ -87,10 +92,23 @@ impl TemplateEngine {
     fn column(&self, content: &str) -> Box<dyn Token> {
         Box::new(ColumnToken(
             content
-                .split(',')
+                .split_checked(',')
+                .iter()
                 .map(|s| self.render_token(s.trim()))
                 .collect(),
         ))
+    }
+
+    fn container(&self, content: &str) -> Box<dyn Token> {
+        let [cnt, anchor, icon_margin] = content.split_checked(',')[..] else {
+            eprintln!("Insufficient amount of container arguments! container() needs 3 args");
+            return Box::new(TextToken(content.to_string()));
+        };
+        Box::new(BoxToken {
+            content: self.render_token(cnt),
+            anchor: anchor.into(),
+            icon_margin: icon_margin.parse().unwrap(),
+        })
     }
 
     fn button(&self, content: &str) -> Box<dyn Token> {
@@ -127,16 +145,16 @@ impl TemplateEngine {
         })
     }
 
-    pub fn set_module_cfg<T: Module>(&mut self, cfg: ModuleConfigOverride) {
-        self.module_cfg.insert(TypeId::of::<T>(), cfg);
+    pub fn set_module_cfg(&mut self, id: TypeId, cfg: ModuleConfigOverride) {
+        self.module_cfg.insert(id, cfg);
     }
 
-    pub fn set_popup_cfg<T: Module>(&mut self, cfg: PopupConfigOverride) {
-        self.popup_cfg.insert(TypeId::of::<T>(), cfg);
+    pub fn set_popup_cfg(&mut self, id: TypeId, cfg: PopupConfigOverride) {
+        self.popup_cfg.insert(id, cfg);
     }
 
-    pub fn set_context<T: Module>(&mut self, general: GeneralContext, extra: ExtraContext) {
-        self.context_map.insert(TypeId::of::<T>(), (general, extra));
+    pub fn set_context(&mut self, id: TypeId, general: GeneralContext, extra: ExtraContext) {
+        self.context_map.insert(id, (general, extra));
     }
 
     pub fn register_renderer(&mut self, name: &'static str, renderer: Renderer) {
@@ -259,6 +277,24 @@ impl Token for ColumnToken {
     fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message> {
         iced::widget::column(self.0.iter().map(|t| t.render(context, config)))
             .spacing(config.spacing())
+            .into()
+    }
+}
+
+struct BoxToken {
+    content: Box<dyn Token>,
+    anchor: BarAnchor,
+    icon_margin: bool,
+}
+
+impl Token for BoxToken {
+    fn render<'a>(&'a self, context: Context<'a>, config: &Config) -> Element<'a, Message> {
+        iced::widget::container(self.content.render(context, config))
+            .fill(&self.anchor)
+            .padding(match self.icon_margin {
+                true => config.icon_margin(),
+                false => config.text_margin(),
+            })
             .into()
     }
 }

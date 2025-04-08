@@ -94,13 +94,8 @@ impl StringExt for &Option<String> {
         })
     }
     fn into_anchor(self) -> Option<BarAnchor> {
-        self.as_ref().and_then(|value| match value.as_str() {
-            "top" => Some(BarAnchor::Top),
-            "bottom" => Some(BarAnchor::Bottom),
-            "left" => Some(BarAnchor::Left),
-            "right" => Some(BarAnchor::Right),
-            _ => None,
-        })
+        self.as_ref()
+            .and_then(|value| Some(BarAnchor::from(value.as_str())))
     }
     fn into_insets(self) -> Option<Insets> {
         self.as_ref().and_then(|value| {
