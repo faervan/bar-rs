@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use regex::Regex;
 
@@ -13,6 +13,20 @@ impl UnEscapeString for Option<&Option<String>> {
             s.as_ref()
                 .map(|s| s.replace(r"\n", "\n").replace(r"\t", "\t"))
         })
+    }
+}
+
+pub trait ParseKeyExt {
+    /// Parse get a value from a map and parse it to `T`
+    /// used primarly in the config module
+    fn parse_key<T: FromStr>(&self, key: &str) -> Option<T>;
+}
+
+impl ParseKeyExt for HashMap<String, Option<String>> {
+    fn parse_key<T: FromStr>(&self, key: &str) -> Option<T> {
+        self.get(key)
+            .and_then(|s| s.as_ref())
+            .and_then(|s| s.parse::<T>().ok())
     }
 }
 

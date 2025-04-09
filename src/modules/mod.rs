@@ -24,6 +24,7 @@ use time::TimeMod;
 //use wayfire::{WayfireWindowMod, WayfireWorkspaceMod};
 
 use crate::{
+    button::button,
     config::{anchor::BarAnchor, module_config::LocalModuleConfig, popup_config::PopupConfig},
     fill::FillExt,
     listeners::Listener,
@@ -88,22 +89,38 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     fn module_view<'a>(
         &self,
         config: &LocalModuleConfig,
+        popup_config: &PopupConfig,
         engine: &'a TemplateEngine,
         anchor: &'a BarAnchor,
     ) -> Element<'a, Message> {
-        engine.render_module(self.type_id(), config, anchor)
+        let module = engine.render_module(self.type_id(), config, anchor);
+        if self.popup_format().is_some() {
+            let cfg = engine.get_popup_config(self.type_id(), popup_config);
+            button(module)
+                .on_event_with(Message::popup(
+                    self.type_id(),
+                    cfg.width,
+                    cfg.height,
+                    anchor,
+                ))
+                .style(|_, _| iced::widget::button::Style::default())
+                .into()
+        } else {
+            module
+        }
     }
     /// The wrapper around this module, which defines things like background color or border for
     /// this module.
     fn module_wrapper<'a>(
         &self,
         config: &'a LocalModuleConfig,
+        popup_config: &PopupConfig,
         anchor: &'a BarAnchor,
         engine: &'a TemplateEngine,
     ) -> Element<'a, Message> {
         let cfg = engine.get_module_config(self.type_id(), config);
         container(
-            container(self.module_view(config, engine, anchor))
+            container(self.module_view(config, popup_config, engine, anchor))
                 .fill(anchor)
                 .padding(cfg.padding)
                 .style(move |_| Style {
@@ -130,8 +147,8 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     }
     /// Using the context provided by `context()` and `extra_context()` this format defines how the
     /// module popup should be rendered, unless `popup_view()` is overridden.
-    fn popup_format(&self) -> &str {
-        "Missing implementation"
+    fn popup_format(&self) -> Option<&str> {
+        None
     }
     /// The `module_view` but for the popup.
     fn popup_view<'a>(

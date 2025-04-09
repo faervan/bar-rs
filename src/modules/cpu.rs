@@ -1,5 +1,4 @@
 use std::{
-    any::TypeId,
     collections::HashMap,
     fs::File,
     io::{self, BufRead, BufReader},
@@ -79,8 +78,8 @@ impl Module for CpuMod {
         &self.format
     }
 
-    fn popup_format(&self) -> &str {
-        &self.popup_format
+    fn popup_format(&self) -> Option<&str> {
+        Some(&self.popup_format)
     }
 
     fn subscription(&self) -> Option<Subscription<Message>> {

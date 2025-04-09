@@ -16,7 +16,7 @@ use iced::{
     platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
 };
 use module_config::{ModuleConfig, ModuleConfigOverride};
-use popup_config::PopupConfig;
+use popup_config::{PopupConfig, PopupConfigOverride};
 use tokio::sync::mpsc;
 
 use crate::{registry::Registry, template_engine::TemplateEngine, Message};
@@ -126,9 +126,12 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry, engine: &mut Templat
         .for_each(|(m, module_cfg, popup_cfg)| {
             let id = m.type_id();
             engine.set_module_cfg(id, ModuleConfigOverride::from(module_cfg));
+            if m.popup_format().is_some() {
+                engine.set_popup_cfg(id, PopupConfigOverride::from(popup_cfg));
+            }
             engine.set_context(id, m.context(), m.extra_context());
             m.read_config(module_cfg, popup_cfg, engine);
-            engine.generate_token(id, m.module_format());
+            engine.generate_token(id, m.module_format(), m.popup_format());
         });
     config
 }
@@ -145,9 +148,9 @@ pub async fn get_config(sender: &mut Sender<Message>) -> (Arc<PathBuf>, Arc<Conf
 }
 
 pub struct ConfigEntry {
-    pub section: String,
-    pub name: String,
-    pub default: bool,
+    section: String,
+    name: String,
+    default: bool,
 }
 
 impl ConfigEntry {

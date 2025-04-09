@@ -26,6 +26,7 @@ pub struct TemplateEngine {
     popup_cfg: HashMap<TypeId, PopupConfigOverride>,
     context_map: HashMap<TypeId, (GeneralContext, ExtraContext)>,
     token_map: HashMap<TypeId, Box<dyn Token>>,
+    popup_token_map: HashMap<TypeId, Box<dyn Token>>,
 }
 
 impl Debug for TemplateEngine {
@@ -51,11 +52,15 @@ impl TemplateEngine {
             popup_cfg: HashMap::new(),
             context_map: HashMap::new(),
             token_map: HashMap::new(),
+            popup_token_map: HashMap::new(),
         }
     }
 
-    pub fn generate_token(&mut self, id: TypeId, content: &str) {
-        self.token_map.insert(id, self.render_token(content));
+    pub fn generate_token(&mut self, id: TypeId, module_fmt: &str, popup_fmt: Option<&str>) {
+        self.token_map.insert(id, self.render_token(module_fmt));
+        if let Some(fmt) = popup_fmt {
+            self.popup_token_map.insert(id, self.render_token(fmt));
+        }
     }
 
     fn render_token(&self, content: &str) -> Box<dyn Token> {
@@ -163,8 +168,8 @@ impl TemplateEngine {
         cfg.override_cfg(self.module_cfg.get(&id).unwrap())
     }
 
-    pub fn get_popup_config<T: Module>(&self, cfg: &PopupConfig) -> MergedPopupConfig {
-        cfg.override_cfg(self.popup_cfg.get(&TypeId::of::<T>()).unwrap())
+    pub fn get_popup_config(&self, id: TypeId, cfg: &PopupConfig) -> MergedPopupConfig {
+        cfg.override_cfg(self.popup_cfg.get(&id).unwrap())
     }
 
     pub fn render_module<'a>(
@@ -223,7 +228,11 @@ impl TemplateEngine {
         config: &Config,
         anchor: &'a BarAnchor,
     ) -> Element<'a, Message> {
-        self.token_map[id].render(Context::new(&self.context_map[id], anchor), config)
+        match config.is_popup() {
+            true => &self.popup_token_map[id],
+            false => &self.token_map[id],
+        }
+        .render(Context::new(&self.context_map[id], anchor), config)
     }
 
     fn parse_wrapper<'a>(&self, content: &'a str) -> Option<(&'a str, &'a str)> {

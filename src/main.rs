@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
     path::PathBuf,
     process::{exit, Command},
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 
@@ -171,7 +171,8 @@ impl Message {
         cmd.arg(arg);
         Message::Spawn(Arc::new(cmd))
     }
-    fn popup<'a, T>(
+    fn popup<'a>(
+        id: TypeId,
         width: i32,
         height: i32,
         anchor: &BarAnchor,
@@ -182,10 +183,7 @@ impl Message {
         &mut dyn iced::core::Clipboard,
         &Rectangle,
     ) -> Message
-           + 'a
-    where
-        T: Module,
-    {
+           + 'a {
         let anchor = *anchor;
         move |_: iced::Event,
               layout: iced::core::Layout,
@@ -205,7 +203,7 @@ impl Message {
                 _ => position.y as i32,
             };
             Message::Popup {
-                type_id: TypeId::of::<T>(),
+                type_id: id,
                 dimension: Rectangle {
                     x,
                     y,
@@ -400,7 +398,12 @@ impl Bar {
                         .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
                         .filter(|&m| m.active())
                         .map(|m| {
-                            m.module_wrapper(&self.config.module_config.local, anchor, &self.engine)
+                            m.module_wrapper(
+                                &self.config.module_config.local,
+                                &self.config.popup_config,
+                                anchor,
+                                &self.engine,
+                            )
                         }),
                 )
                 .spacing(spacing(&self.config.module_config.global.spacing)),
