@@ -1,6 +1,7 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use iced::{
+    event::{listen_with, wayland, PlatformSpecific},
     futures::{future::BoxFuture, SinkExt},
     stream,
 };
@@ -17,7 +18,7 @@ use crate::{
 
 impl State {
     pub fn subscribe(&self) -> iced::Subscription<Message> {
-        iced::Subscription::run(|| {
+        let module_subs = iced::Subscription::run(|| {
             stream::channel(1, |mut sender| async move {
                 let (sx, rx) = oneshot::channel();
                 sender.send(Message::FetchSubscriptions(sx)).await.unwrap();
@@ -44,7 +45,7 @@ impl State {
                                 return;
                             }
                         },
-                        _ = sleep(Duration::from_secs_f32(config.reload_interval)) => {}
+                        _ = sleep(Duration::from_secs_f64(config.reload_interval)) => {}
                     }
                     sender
                         .send(Message::Update(std::mem::take(&mut updates)))
@@ -52,7 +53,21 @@ impl State {
                         .unwrap();
                 }
             })
-        })
+        });
+
+        iced::Subscription::batch([
+            listen_with(|event, _, _| {
+                if let iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                    wayland::Event::Output(event, wl_output),
+                )) = event
+                {
+                    Some(Message::OutputEvent { event, wl_output })
+                } else {
+                    None
+                }
+            }),
+            module_subs,
+        ])
     }
 }
 

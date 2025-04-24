@@ -1,6 +1,10 @@
 use std::{fmt::Debug, sync::Arc};
 
-use iced::futures::{channel::mpsc, SinkExt};
+use iced::{
+    event::wayland::OutputEvent,
+    futures::{channel::mpsc, SinkExt},
+};
+use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
 use tokio::sync::oneshot;
 
 use crate::{config::Config, subscription::Subscription};
@@ -18,6 +22,11 @@ pub enum Message {
     FetchSubscriptions(oneshot::Sender<Vec<Subscription>>),
     FetchConfig(oneshot::Sender<Arc<Config>>),
     Update(Vec<UpdateFn>),
+    ReloadConfig,
+    OutputEvent {
+        event: OutputEvent,
+        wl_output: WlOutput,
+    },
 }
 
 pub async fn get_config(sender: &mut mpsc::Sender<Message>) -> Arc<Config> {
