@@ -1,10 +1,12 @@
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
-use config::ValueKind;
-use iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
-use serde::{Deserialize, Serialize};
-use serde_variant::to_variant_name;
-use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity};
+use insets::Insets;
+use serde::Deserialize;
+use types::{BarAnchor, KbFocus};
+
+mod insets;
+/// All the custom config types and their parsing implementations
+mod types;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -15,7 +17,9 @@ pub struct Config {
     pub reload_interval: f64,
     width: Option<u32>,
     height: Option<u32>,
-    pub margin: Padding<i32>,
+    pub margin: Insets<i32>,
+    pub hot_reloading: bool,
+    pub hard_reloading: bool,
 }
 
 impl Default for Config {
@@ -31,7 +35,9 @@ impl Default for Config {
             reload_interval: 3.,
             width: None,
             height: None,
-            margin: Padding::all(0),
+            margin: Insets::all(0),
+            hot_reloading: true,
+            hard_reloading: false,
         }
     }
 }
@@ -45,6 +51,8 @@ impl Config {
             .set_default("anchor", &default.anchor)?
             .set_default("kb_focus", &default.kb_focus)?
             .set_default("reload_interval", default.reload_interval)?
+            .set_default("hot_reloading", default.hot_reloading)?
+            .set_default("hard_reloading", default.hard_reloading)?
             .add_source(config::File::from(path))
             .build()?;
         Ok(config.try_deserialize()?)
@@ -64,129 +72,5 @@ impl Config {
             false => [self.width.unwrap_or(x), self.height.unwrap_or(30)],
         };
         Some((Some(width), Some(height)))
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BarAnchor {
-    Top,
-    Bottom,
-    Left,
-    Right,
-}
-
-impl From<&BarAnchor> for ValueKind {
-    fn from(value: &BarAnchor) -> Self {
-        let s = to_variant_name(value).unwrap();
-        ValueKind::String(s.to_owned())
-    }
-}
-
-impl From<&BarAnchor> for Anchor {
-    fn from(value: &BarAnchor) -> Self {
-        match value {
-            BarAnchor::Top => Anchor::TOP,
-            BarAnchor::Bottom => Anchor::BOTTOM,
-            BarAnchor::Left => Anchor::LEFT,
-            BarAnchor::Right => Anchor::RIGHT,
-        }
-    }
-}
-
-impl BarAnchor {
-    pub fn is_vertical(&self) -> bool {
-        match self {
-            BarAnchor::Top | BarAnchor::Bottom => false,
-            _ => true,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum KbFocus {
-    None,
-    Exclusive,
-    OnDemand,
-}
-
-impl From<&KbFocus> for ValueKind {
-    fn from(value: &KbFocus) -> Self {
-        let s = to_variant_name(value).unwrap();
-        ValueKind::String(s.to_owned())
-    }
-}
-
-impl From<&KbFocus> for KeyboardInteractivity {
-    fn from(value: &KbFocus) -> Self {
-        match value {
-            KbFocus::None => KeyboardInteractivity::None,
-            KbFocus::Exclusive => KeyboardInteractivity::Exclusive,
-            KbFocus::OnDemand => KeyboardInteractivity::OnDemand,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Padding<T: FromStr> {
-    t: T,
-    b: T,
-    l: T,
-    r: T,
-}
-
-impl<T: FromStr + Copy> Padding<T> {
-    fn all(v: T) -> Self {
-        Padding {
-            t: v,
-            b: v,
-            l: v,
-            r: v,
-        }
-    }
-}
-
-impl From<&Padding<i32>> for IcedMargin {
-    fn from(p: &Padding<i32>) -> Self {
-        IcedMargin {
-            top: p.t,
-            right: p.r,
-            bottom: p.b,
-            left: p.l,
-        }
-    }
-}
-
-impl<'de, T> Deserialize<'de> for Padding<T>
-where
-    T: FromStr,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        let parts: Vec<&str> = s.trim().split_whitespace().collect();
-
-        let parse = |v: &str| {
-            v.parse().map_err(|_| {
-                serde::de::Error::invalid_type(serde::de::Unexpected::Str(v), &"a number")
-            })
-        };
-
-        if let [t, r, b, l] = parts[..] {
-            return Ok(Padding {
-                t: parse(t)?,
-                b: parse(b)?,
-                l: parse(l)?,
-                r: parse(r)?,
-            });
-        }
-
-        Err(serde::de::Error::invalid_length(
-            4,
-            &"expected 1, 2 or 4 arguments",
-        ))
     }
 }
