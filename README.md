@@ -5,6 +5,10 @@
 
 A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (specifically the [pop-os fork](https://github.com/pop-os/iced/) of iced, which supports the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1))
 
+> [!Note]
+> `bar-rs` is currently undergoing a full rewrite, see [#24](https://github.com/Faervan/bar-rs/issues/24) for the reasons.
+> Progress is a bit slow since I am working on some other, smaller projects which I will complete first.
+
 ![image](https://github.com/user-attachments/assets/c62d8399-0f80-4c3b-8cb8-a325db13fc32)
 
 ![image](https://github.com/user-attachments/assets/d71b0fc2-a9fb-43e9-b358-9b1f2cb3d487)
