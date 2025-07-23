@@ -2,6 +2,7 @@
 name = "bar-rs"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.80.1"  # from image-webp@0.2.1
 
 [dependencies]
 chrono = "0.4.39"
