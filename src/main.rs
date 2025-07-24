@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 
+use fern::colors::ColoredLevelConfig;
 use log::error;
 
 use config::Config;
@@ -23,11 +24,33 @@ mod modules;
 mod registry;
 mod subscription;
 
-fn main() -> iced::Result {
-    env_logger::init();
+fn main() -> anyhow::Result<()> {
+    let colors = ColoredLevelConfig::new()
+        .trace(fern::colors::Color::BrightBlue)
+        .debug(fern::colors::Color::BrightMagenta)
+        .info(fern::colors::Color::Blue)
+        .warn(fern::colors::Color::Magenta)
+        .error(fern::colors::Color::Red);
+
+    fern::Dispatch::new()
+        .format(move |out, msg, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                chrono::Local::now().to_rfc3339(),
+                colors.color(record.level()),
+                record.target(),
+                msg
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(std::io::stdout())
+        .apply()?;
+
     iced::daemon("Crabbar", State::update, State::view)
         .subscription(State::subscribe)
-        .run_with(State::new)
+        .run_with(State::new)?;
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -73,7 +96,7 @@ impl State {
                 }
             }
             ReloadConfig => {
-                let config = match Config::load(Some(&self.config.path)) {
+                let config = match Config::load(self.config.path.as_ref()) {
                     Ok(c) => c,
                     Err(e) => {
                         error!("Got an error trying to load the config: {e}");
@@ -101,7 +124,7 @@ impl State {
                 }
             },
         }
-        log::info!("config: {:#?}", self.config);
+        log::debug!("config: {:#?}", self.config);
         Task::none()
     }
 
@@ -124,19 +147,21 @@ impl State {
                 }
                 (IcedOutput::Active, &None)
             });
+
         let (x, y) = info
             .as_ref()
             .and_then(|i| i.logical_size.map(|(x, y)| (x as u32, y as u32)))
             .unwrap_or((1920, 1080));
+
         get_layer_surface(SctkLayerSurfaceSettings {
             layer: Layer::Top,
             keyboard_interactivity: (&self.config.kb_focus).into(),
-            anchor: (&self.config.anchor).into(),
+            anchor: (&self.config.style.anchor).into(),
             exclusive_zone: self.config.exclusive_zone(),
             size: self.config.dimension(x, y),
             namespace: "crabbar".to_string(),
             output,
-            margin: (&self.config.margin).into(),
+            margin: (&self.config.style.margin).into(),
             id: self.layer_id,
             ..Default::default()
         })

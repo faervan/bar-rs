@@ -3,18 +3,19 @@ use serde::{Deserialize, Serialize};
 use serde_variant::to_variant_name;
 use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum BarAnchor {
+    #[default]
     Top,
     Bottom,
     Left,
     Right,
 }
 
-impl From<&BarAnchor> for ValueKind {
-    fn from(value: &BarAnchor) -> Self {
-        let s = to_variant_name(value).unwrap();
+impl From<BarAnchor> for ValueKind {
+    fn from(value: BarAnchor) -> Self {
+        let s = to_variant_name(&value).unwrap();
         ValueKind::String(s.to_owned())
     }
 }
@@ -47,9 +48,9 @@ pub enum KbFocus {
     OnDemand,
 }
 
-impl From<&KbFocus> for ValueKind {
-    fn from(value: &KbFocus) -> Self {
-        let s = to_variant_name(value).unwrap();
+impl From<KbFocus> for ValueKind {
+    fn from(value: KbFocus) -> Self {
+        let s = to_variant_name(&value).unwrap();
         ValueKind::String(s.to_owned())
     }
 }

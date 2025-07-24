@@ -1,17 +1,18 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
+use config::ValueKind;
 use iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
 use serde::Deserialize;
 
-#[derive(Debug)]
-pub struct Insets<T: FromStr> {
+#[derive(Debug, Default)]
+pub struct Insets<T> {
     t: T,
     b: T,
     l: T,
     r: T,
 }
 
-impl<T: FromStr + Copy> Insets<T> {
+impl<T: Copy> Insets<T> {
     pub fn all(v: T) -> Self {
         Insets {
             t: v,
@@ -35,7 +36,7 @@ impl From<&Insets<i32>> for IcedMargin {
 
 impl<'de, T> Deserialize<'de> for Insets<T>
 where
-    T: FromStr,
+    T: FromStr + Copy,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -57,11 +58,46 @@ where
                 l: parse(l)?,
                 r: parse(r)?,
             });
+        } else if let [v, h] = parts[..] {
+            let v = parse(v)?;
+            let h = parse(h)?;
+            return Ok(Insets {
+                t: v,
+                b: v,
+                l: h,
+                r: h,
+            });
+        } else if let [all] = parts[..] {
+            return Ok(Insets::all(parse(all)?));
         }
 
         Err(serde::de::Error::invalid_length(
             4,
             &"expected 1, 2 or 4 arguments",
         ))
+    }
+}
+
+impl<T> ToString for Insets<T>
+where
+    T: Display + PartialEq,
+{
+    fn to_string(&self) -> String {
+        if self.t == self.b && self.t == self.l && self.t == self.r {
+            format!("{}", self.t)
+        } else if self.t == self.b && self.l == self.r {
+            format!("{} {}", self.t, self.l)
+        } else {
+            format!("{} {} {} {}", self.t, self.r, self.b, self.l)
+        }
+    }
+}
+
+impl<T> From<Insets<T>> for ValueKind
+where
+    T: Display + PartialEq,
+{
+    fn from(value: Insets<T>) -> Self {
+        ValueKind::String(value.to_string())
     }
 }
