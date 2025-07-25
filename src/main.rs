@@ -143,7 +143,7 @@ impl State {
             .map(|(o, info)| (IcedOutput::Output(o.clone()), info))
             .unwrap_or_else(|| {
                 if let Some(m) = self.config.monitor.as_ref() {
-                    eprintln!("No output with name {m} could be found!");
+                    error!("No output with name {m} could be found!");
                 }
                 (IcedOutput::Active, &None)
             });
