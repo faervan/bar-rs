@@ -2,9 +2,13 @@ use clap::Parser as _;
 use cli::{handle_cli_commands, CliArgs};
 
 mod cli;
+mod config;
 mod daemon;
 mod directories;
 mod logger;
+mod message;
+mod state;
+mod subscription;
 
 fn main() -> anyhow::Result<()> {
     logger::init()?;

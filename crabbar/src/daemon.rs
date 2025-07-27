@@ -1,7 +1,7 @@
 use std::{fs, io::Read, os::unix::net::UnixListener, path::Path};
 
 use daemonize::Daemonize;
-use ipc::IpcCommand;
+use ipc::IpcRequest;
 use log::{error, info};
 
 pub fn create_instance(path: &Path) -> anyhow::Result<()> {
@@ -10,11 +10,11 @@ pub fn create_instance(path: &Path) -> anyhow::Result<()> {
     for mut stream in listener.incoming().flatten() {
         let mut msg = String::new();
         stream.read_to_string(&mut msg)?;
-        match ron::from_str::<IpcCommand>(&msg) {
+        match ron::from_str::<IpcRequest>(&msg) {
             Ok(cmd) => {
                 info!("Got command: {cmd:?}");
-                if matches!(cmd, IpcCommand::Close) {
-                    info!("Closing this instance.");
+                if matches!(cmd, IpcRequest::CloseAll) {
+                    info!("Closing `crabbar`");
                     fs::remove_file(path)?;
                     return Ok(());
                 }
@@ -36,12 +36,12 @@ pub fn daemonize(id: usize, log_dir: &Path, run_dir: &Path) -> anyhow::Result<()
         .stderr(stderr)
         .pid_file(run_dir.join(format!("crabbar{id}.pid")));
 
-    daemon.start()?;
-
     info!(
-        "Successfully daemonized this process. \
+        "Daemonizeing this process. \
         Run `crabbar close -i {id}` to terminate the daemon."
     );
+
+    daemon.start()?;
 
     Ok(())
 }
