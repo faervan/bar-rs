@@ -1,0 +1,8 @@
+[package]
+name = "crabbar-ipc"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true

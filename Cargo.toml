@@ -1,31 +1,37 @@
-[package]
-name = "crabbar"
+[workspace]
+resolver = "3"
+members = ["crabbar", "derive", "ipc"]
+
+[workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
-[dependencies]
+[workspace.dependencies]
+crabbar.path = "crabbar"
+derive = { path = "derive", package = "crabbar-derive" }
+ipc = { path = "ipc", package = "crabbar-ipc" }
+
 iced = { git = "https://github.com/pop-os/iced.git", branch = "master", features = [
-    "tokio",
-    "wayland",
-    "winit",
-    "image",
+  "tokio",
+  "wayland",
+  "winit",
+  "image",
 ] }
-bar-rs_derive = { path = "crates/crabbar_derive" }
-tokio = { version = "1.45.1", features = [
-    "io-util",
-    "macros",
-    "process",
-    "sync",
-] }
+tokio = { version = "1.46.1", features = ["macros", "sync"] }
 log = "0.4.27"
-config = "0.15.11"
 anyhow = "1.0.98"
-serde = "1.0.219"
+serde = { version = "1.0.219", features = ["derive"] }
 smithay-client-toolkit = "0.19.2"
-serde_variant = "0.1.3"
 fern = { version = "0.7.1", features = ["colored"] }
+toml = "0.9.2"
+toml_edit = "0.23.2"
+toml-example = "0.13.0"
+clap = { version = "4.5.41", features = ["derive", "string"] }
+daemonize = "0.5.0"
+ctrlc = "3.4.7"
+ron = "0.10.1"
 chrono = "0.4.41"
-csscolorparser = "0.7.2"
 
-[profile.dev.package."*"]
-opt-level = 3
+proc-macro2 = "1.0.92"
+quote = "1.0.38"
+syn = "2.0.94"

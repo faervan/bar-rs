@@ -42,7 +42,7 @@ pub fn style_dir() -> Option<String> {
     })
 }
 
-/// TODO! This can not be predefined, it has to depend on the packaging.
+/// `TODO`! This cannot be predefined, it has to depend on the packaging.
 /// https://refspecs.linuxfoundation.org/FHS_3.0/fhs/ch04s11.html
 /// https://wiki.archlinux.org/title/Arch_package_guidelines#Directories
 fn default_config_dir() -> &'static str {

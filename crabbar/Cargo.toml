@@ -1,0 +1,24 @@
+[package]
+name = "crabbar"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+derive.workspace = true
+ipc.workspace = true
+
+iced.workspace = true
+tokio.workspace = true
+log.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+smithay-client-toolkit.workspace = true
+fern.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
+toml-example.workspace = true
+clap.workspace = true
+daemonize.workspace = true
+ctrlc.workspace = true
+ron.workspace = true
+chrono.workspace = true
