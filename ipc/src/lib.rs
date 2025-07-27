@@ -15,7 +15,8 @@ pub enum IpcRequest {
         // TODO!: has to be None if cmd is Open
         id: Option<usize>,
     },
-    #[command(skip)]
+    #[command(name = "close", display_order = 1)]
+    /// Close `crabbar` (with all windows)
     CloseAll,
 }
 
@@ -29,6 +30,7 @@ pub enum WindowCommand {
     Reopen,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub enum IpcResponse {
     WindowOpened { id: usize },
     WindowList(Vec<usize>),

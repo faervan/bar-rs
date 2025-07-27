@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, ops::Deref, sync::Arc};
 
 use iced::{
     event::wayland::OutputEvent,
@@ -8,7 +8,7 @@ use ipc::IpcRequest;
 use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
 use tokio::sync::oneshot;
 
-use crate::{config::Config, subscription::Subscription};
+use crate::{config::Config, state::State, subscription::Subscription};
 
 pub struct UpdateFn(pub Arc<Box<dyn Fn() + Send + Sync>>);
 
@@ -18,10 +18,23 @@ impl Debug for UpdateFn {
     }
 }
 
+pub struct ReadFn<T>(Arc<Box<dyn FnOnce(&T) + Send + Sync>>);
+impl<T> Debug for ReadFn<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ReadFn<{}>", std::any::type_name::<T>())
+    }
+}
+impl<T> ReadFn<T> {
+    pub fn execute(self, t: &T) {
+        Arc::into_inner(self.0).unwrap()(t)
+    }
+}
+
 #[derive(Debug)]
 pub enum Message {
+    ReadState(ReadFn<State>),
     FetchSubscriptions(oneshot::Sender<Vec<Subscription>>),
-    // FetchConfig(oneshot::Sender<Arc<Config>>),
+    FetchConfig(oneshot::Sender<Arc<Config>>),
     Update(Vec<UpdateFn>),
     ReloadConfig,
     OutputEvent {
@@ -31,9 +44,17 @@ pub enum Message {
     IpcCommand(IpcRequest),
 }
 
+impl Message {
+    pub fn read_state<F>(f: F) -> Self
+    where
+        F: FnOnce(&State) + Send + Sync + 'static,
+    {
+        Self::ReadState(ReadFn(Arc::new(Box::new(f))))
+    }
+}
+
 pub async fn get_config(sender: &mut mpsc::Sender<Message>) -> Arc<Config> {
     let (sx, rx) = oneshot::channel();
-    todo!();
-    // sender.send(Message::FetchConfig(sx)).await.unwrap();
+    sender.send(Message::FetchConfig(sx)).await.unwrap();
     rx.await.unwrap()
 }

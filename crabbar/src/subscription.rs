@@ -5,13 +5,14 @@ use iced::{
     futures::{future::BoxFuture, SinkExt},
     stream,
 };
-use log::warn;
+use log::{error, warn};
 use tokio::{
     sync::{mpsc, oneshot},
     time::sleep,
 };
 
 use crate::{
+    daemon,
     message::{get_config, Message, UpdateFn},
     state::State,
 };
@@ -56,6 +57,7 @@ impl State {
         });
 
         iced::Subscription::batch([
+            // Window events
             listen_with(|event, _, _| {
                 if let iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Output(event, wl_output),
@@ -68,6 +70,21 @@ impl State {
                 } else {
                     None
                 }
+            }),
+            // IPC commands
+            iced::Subscription::run(|| {
+                stream::channel(1, |mut sender| async move {
+                    let listener = match daemon::bind_to_ipc(&mut sender).await {
+                        Ok(l) => l,
+                        Err(e) => {
+                            error!("Failed to bind to IPC socket: {e}");
+                            return;
+                        }
+                    };
+                    if let Err(e) = daemon::publish_ipc_commands(sender, listener).await {
+                        error!("IPC publisher failed: {e}");
+                    }
+                })
             }),
             module_subs,
         ])

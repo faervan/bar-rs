@@ -9,10 +9,7 @@ use clap::{Parser, Subcommand};
 use ipc::IpcRequest;
 use log::{error, info};
 
-use crate::{
-    daemon::{create_instance, daemonize},
-    directories,
-};
+use crate::{daemon, directories};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -35,6 +32,7 @@ pub struct CliArgs {
 
 #[derive(Subcommand, Debug)]
 enum Command {
+    #[command(display_order = 0)]
     /// Open the `crabbar` daemon
     Open {
         #[arg(short = 'd', long)]
@@ -43,12 +41,10 @@ enum Command {
         #[arg(short = 'D', long)]
         /// Keep `crabbar` attached to this terminal
         dont_daemonize: bool,
-        #[arg(long, default_value = from_env_or("/var/log/crabbar", "CRABBAR_LOG_DIR"))]
+        #[arg(long, default_value = get_log_dir())]
         /// Log file directory. Only applies when the process is daemonized.
         log_dir: PathBuf,
     },
-    /// Close `crabbar` (with all windows)
-    Close,
     #[command(flatten)]
     Ipc(IpcRequest),
 }
@@ -63,10 +59,8 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
             log_dir,
         } => {
             std::fs::create_dir_all(&args.run_dir)?;
-            let mut id = 0;
-            if let Some(last_id) = last_instance_id(&args.run_dir) {
-                id = last_id + 1;
-                return Err(anyhow::Error::msg("`crabbar` is running already!"));
+            if fs::exists(&socket_path)? {
+                return Err(anyhow::anyhow!("`crabbar` is running already!"));
             }
 
             let path2 = socket_path.clone();
@@ -78,17 +72,11 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                 std::process::exit(0);
             })?;
 
-            if !dont_daemonize {
-                daemonize(id, &log_dir, &args.run_dir)?;
-            }
-
-            create_instance(&socket_path)?;
-        }
-        Command::Close => {
-            send_ipc_command(IpcRequest::CloseAll, &socket_path)?;
+            daemon::run(!dry, !dont_daemonize, &log_dir, socket_path)?;
         }
         Command::Ipc(cmd) => {
-            send_ipc_command(IpcRequest::CloseAll, &socket_path)?;
+            let mut stream = UnixStream::connect(socket_path)?;
+            stream.write_all(ron::to_string(&cmd)?.as_bytes())?;
             // TODO! print response
         }
     }
@@ -111,9 +99,8 @@ fn get_runtime_dir() -> std::ffi::OsString {
     from_env_or(fallback_dir, "CRABBAR_RUN_DIR")
 }
 
-fn send_ipc_command(cmd: IpcRequest, socket_path: &Path) -> anyhow::Result<()> {
-    let mut stream = UnixStream::connect(socket_path)?;
-    stream.write_all(ron::to_string(&cmd)?.as_bytes())?;
-
-    Ok(())
+fn get_log_dir() -> std::ffi::OsString {
+    let home = std::env::var("HOME").unwrap();
+    let fallback_dir = from_env_or(format!("{home}/.local/state"), "XDG_STATE_HOME");
+    from_env_or(fallback_dir, "CRABBAR_LOG_DIR")
 }

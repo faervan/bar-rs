@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
 use iced::{
     event::wayland,
@@ -18,32 +18,44 @@ use crate::{config::Config, message::Message};
 
 #[derive(Debug)]
 pub struct State {
+    pub socket_path: PathBuf,
     outputs: HashMap<WlOutput, Option<OutputInfo>>,
     open: bool,
     layer_id: Id,
+    config: Arc<Config>,
     config_path: String,
 }
 
 impl State {
-    fn new() -> (Self, Task<Message>) {
-        (
-            State {
-                outputs: HashMap::new(),
-                open: false,
-                layer_id: Id::unique(),
-                // TODO!
-                config_path: String::new(),
-            },
-            Task::none(),
-        )
+    pub fn new(socket_path: PathBuf, open_window: bool) -> (Self, Task<Message>) {
+        let state = State {
+            socket_path,
+            outputs: HashMap::new(),
+            open: false,
+            layer_id: Id::unique(),
+            // TODO!
+            config: Arc::new(Config::default()),
+            config_path: String::new(),
+        };
+        let task = match open_window {
+            true => state.open(),
+            false => Task::none(),
+        };
+        (state, task)
     }
 
-    fn update(&mut self, msg: Message) -> Task<Message> {
+    pub fn title(&self, _id: Id) -> String {
+        "crabbar".to_string()
+    }
+
+    pub fn update(&mut self, msg: Message) -> Task<Message> {
         use Message::*;
         match msg {
+            ReadState(f) => f.execute(self),
             FetchSubscriptions(sx) => {
                 sx.send(vec![]).unwrap();
             }
+            FetchConfig(sx) => sx.send(self.config.clone()).unwrap(),
             Update(updates) => {
                 for updatefn in updates {
                     Arc::into_inner(updatefn.0).unwrap()()
@@ -67,13 +79,28 @@ impl State {
                     self.outputs.remove(&wl_output);
                 }
             },
-            IpcCommand(cmd) => info!("Received ipc cmd: {cmd:?}"),
+            IpcCommand(cmd) => {
+                info!("Received ipc cmd: {cmd:?}");
+                use ipc::IpcRequest::*;
+                match cmd {
+                    CloseAll => {
+                        if let Err(e) = std::fs::remove_file(&self.socket_path) {
+                            error!(
+                                "Failed to remove the IPC socket at {}: {e}",
+                                self.socket_path.display()
+                            );
+                        }
+                        return iced::exit();
+                    }
+                    _ => {}
+                }
+            }
             _ => todo!(),
         }
         Task::none()
     }
 
-    fn view(&self, _: Id) -> Element<Message> {
+    pub fn view(&self, _: Id) -> Element<Message> {
         "hello".into()
     }
 
