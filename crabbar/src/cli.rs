@@ -8,6 +8,7 @@ use std::{
 use clap::{Parser, Subcommand};
 use ipc::IpcRequest;
 use log::{error, info};
+use nix::unistd::Pid;
 
 use crate::{daemon, directories};
 
@@ -59,25 +60,51 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
             log_dir,
         } => {
             std::fs::create_dir_all(&args.run_dir)?;
+            let pid_path = args.run_dir.join("crabbar.pid");
+
             if fs::exists(&socket_path)? {
-                return Err(anyhow::anyhow!("`crabbar` is running already!"));
+                if fs::read_to_string(&pid_path)
+                    .ok()
+                    .and_then(|s| s.parse::<i32>().ok())
+                    .is_some_and(|pid| nix::sys::signal::kill(Pid::from_raw(pid), None).is_ok())
+                {
+                    return Err(anyhow::anyhow!("`crabbar` is running already!"));
+                }
+                info!("The previous crabbar instance did not exit gracefully, removing the socket file.");
+                if let Err(e) = fs::remove_file(&socket_path) {
+                    error!("Could not remove socket file at {socket_path:?}: {e}");
+                }
             }
 
-            let path2 = socket_path.clone();
-
+            let socket_path2 = socket_path.clone();
+            let pid_path2 = pid_path.clone();
             ctrlc::set_handler(move || {
-                if let Err(e) = fs::remove_file(&path2) {
-                    error!("Could not remove socket file at {path2:?}: {e}");
-                }
+                daemon::exit_cleanup(&socket_path2, &pid_path2);
                 std::process::exit(0);
             })?;
 
-            daemon::run(!dry, !dont_daemonize, &log_dir, socket_path)?;
+            daemon::run(!dry, !dont_daemonize, &log_dir, socket_path, pid_path)?;
         }
         Command::Ipc(cmd) => {
-            let mut stream = UnixStream::connect(socket_path)?;
-            stream.write_all(ron::to_string(&cmd)?.as_bytes())?;
-            // TODO! print response
+            let response = ipc::request(cmd, &socket_path)?;
+            use ipc::IpcResponse::*;
+            match response {
+                WindowList(windows) => match windows.is_empty() {
+                    true => info!("No windows are open!"),
+                    false => info!(
+                        "{} windows are open: {}",
+                        windows.len(),
+                        windows
+                            .iter()
+                            .map(usize::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                },
+                Closing => info!("Closing the crabbar daemon."),
+                Error(msg) => error!("{msg}"),
+                Window { id, event } => todo!(),
+            }
         }
     }
 

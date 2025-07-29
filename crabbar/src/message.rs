@@ -1,10 +1,10 @@
-use std::{fmt::Debug, ops::Deref, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
 use iced::{
     event::wayland::OutputEvent,
     futures::{channel::mpsc, SinkExt},
 };
-use ipc::IpcRequest;
+use ipc::{IpcRequest, IpcResponse};
 use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
 use tokio::sync::oneshot;
 
@@ -41,7 +41,10 @@ pub enum Message {
         event: Box<OutputEvent>,
         wl_output: WlOutput,
     },
-    IpcCommand(IpcRequest),
+    IpcCommand {
+        request: IpcRequest,
+        responder: oneshot::Sender<IpcResponse>,
+    },
 }
 
 impl Message {

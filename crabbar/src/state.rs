@@ -1,44 +1,51 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, VecDeque},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use iced::{
-    event::wayland,
-    platform_specific::shell::commands::layer_surface::get_layer_surface,
-    runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
-    stream,
-    window::Id,
-    Element, Task,
+    event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
+    stream, window::Id, Element, Task,
 };
 use log::{error, info};
 use smithay_client_toolkit::{
-    output::OutputInfo, reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Layer,
+    output::OutputInfo, reexports::client::protocol::wl_output::WlOutput,
 };
 use tokio::time::sleep;
 
-use crate::{config::Config, message::Message};
+use crate::{config::Config, daemon, message::Message, window::Window};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct State {
     pub socket_path: PathBuf,
+    pid_path: PathBuf,
     outputs: HashMap<WlOutput, Option<OutputInfo>>,
-    open: bool,
-    layer_id: Id,
+    /// If false, we have to wait for new Outputs before opening a window
+    outputs_ready: bool,
+    // TODO! Remove config from State
     config: Arc<Config>,
-    config_path: String,
+    windows: HashMap<Id, Window>,
+    window_ids: HashMap<usize, Id>,
+    opening_queue: VecDeque<Id>,
+    /// Every opened window gets a unique ID equal to the count of windows opened beforehand
+    id_count: usize,
 }
 
 impl State {
-    pub fn new(socket_path: PathBuf, open_window: bool) -> (Self, Task<Message>) {
-        let state = State {
+    pub fn new(
+        socket_path: PathBuf,
+        pid_path: PathBuf,
+        open_window: bool,
+    ) -> (Self, Task<Message>) {
+        let mut state = State {
             socket_path,
-            outputs: HashMap::new(),
-            open: false,
-            layer_id: Id::unique(),
-            // TODO!
-            config: Arc::new(Config::default()),
-            config_path: String::new(),
+            pid_path,
+            ..Default::default()
         };
         let task = match open_window {
-            true => state.open(),
+            true => state.open_window().0,
             false => Task::none(),
         };
         (state, task)
@@ -61,15 +68,17 @@ impl State {
                     Arc::into_inner(updatefn.0).unwrap()()
                 }
             }
+            ReloadConfig => todo!(),
             OutputEvent { event, wl_output } => match *event {
                 wayland::OutputEvent::Created(info_maybe) => {
+                    let first_output = self.outputs.is_empty();
                     self.outputs.insert(wl_output, info_maybe);
-                    if !self.open {
-                        self.open = true;
+                    if !self.outputs_ready && first_output {
+                        self.outputs_ready = true;
                         return Task::stream(stream::channel(1, |_| async {
                             sleep(Duration::from_millis(500)).await;
                         }))
-                        .chain(self.open());
+                        .chain(self.flush_opening_queue());
                     }
                 }
                 wayland::OutputEvent::InfoUpdate(info) => {
@@ -79,64 +88,113 @@ impl State {
                     self.outputs.remove(&wl_output);
                 }
             },
-            IpcCommand(cmd) => {
-                info!("Received ipc cmd: {cmd:?}");
+            IpcCommand { request, responder } => {
                 use ipc::IpcRequest::*;
-                match cmd {
-                    CloseAll => {
-                        if let Err(e) = std::fs::remove_file(&self.socket_path) {
-                            error!(
-                                "Failed to remove the IPC socket at {}: {e}",
-                                self.socket_path.display()
-                            );
-                        }
-                        return iced::exit();
+                use ipc::IpcResponse;
+
+                info!("Received ipc request: {request:?}");
+
+                let mut task = Task::none();
+                let response: ipc::IpcResponse;
+                match request {
+                    ListWindows => todo!(),
+                    Close => {
+                        info!("closing the daemon");
+                        daemon::exit_cleanup(&self.socket_path, &self.pid_path);
+                        task = iced::exit();
+                        response = IpcResponse::Closing;
                     }
-                    _ => {}
+                    Window { cmd, id } => {
+                        use ipc::WindowCommand::*;
+                        use ipc::WindowResponse;
+                        match cmd {
+                            Open => {
+                                info!("Opening new window");
+                                let naive_id;
+                                (task, naive_id) = self.open_window();
+                                response = IpcResponse::Window {
+                                    id: naive_id,
+                                    event: WindowResponse::Opened,
+                                };
+                            }
+                            _ => {
+                                if self.windows.is_empty() {
+                                    response = IpcResponse::error(
+                                        "Command failed because no windows are open",
+                                    );
+                                } else if id.is_some_and(|id| !self.window_ids.contains_key(&id)) {
+                                    response = IpcResponse::error(
+                                        "No window with the specified ID is open",
+                                    );
+                                } else {
+                                    let (naive_id, window_id) = id
+                                        .map_or_else(
+                                            || self.window_ids.iter().last(),
+                                            |id| self.window_ids.get_key_value(&id),
+                                        )
+                                        .map(|(k, v)| (*k, *v))
+                                        .expect("Previously checked");
+                                    match cmd {
+                                        Close => {
+                                            self.window_ids.remove(&naive_id);
+                                            self.windows.remove(&window_id);
+                                            info!("Closing window with id {naive_id}");
+                                            task = destroy_layer_surface(window_id);
+                                            response = IpcResponse::Window {
+                                                id: naive_id,
+                                                event: WindowResponse::Closed,
+                                            };
+                                        }
+                                        Reopen => {
+                                            info!("Reopening window with id {naive_id}");
+                                            response = IpcResponse::Window {
+                                                id: naive_id,
+                                                event: WindowResponse::Reopened,
+                                            };
+                                        }
+                                        Open => unreachable!(),
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+                if responder.send(response).is_err() {
+                    error!("IPC response channel closed");
+                }
+                return task;
             }
-            _ => todo!(),
         }
         Task::none()
     }
 
-    pub fn view(&self, _: Id) -> Element<Message> {
-        "hello".into()
+    pub fn view(&self, id: Id) -> Element<Message> {
+        match self.windows.get(&id) {
+            Some(window) => window.view(),
+            None => "Invalid window ID".into(),
+        }
     }
 
-    fn open(&self) -> Task<Message> {
-        let (output, info) = self
-            .outputs
-            .iter()
-            .find(|(_, info)| {
-                true
-                // info.as_ref()
-                //     .is_some_and(|info| info.name == self.config.monitor)
-            })
-            .map(|(o, info)| (IcedOutput::Output(o.clone()), info))
-            .unwrap_or_else(|| {
-                // if let Some(m) = self.config.monitor.as_ref() {
-                //     error!("No output with name {m} could be found!");
-                // }
-                (IcedOutput::Active, &None)
-            });
+    fn open_window(&mut self) -> (Task<Message>, usize) {
+        let naive_id = self.id_count;
+        let window = Window::new(naive_id);
+        let mut task = Task::none();
+        if self.outputs_ready {
+            task = window.open(&self.outputs);
+        } else {
+            self.opening_queue.push_back(window.window_id());
+        }
+        self.window_ids.insert(naive_id, window.window_id());
+        self.windows.insert(window.window_id(), window);
+        self.id_count += 1;
+        (task, naive_id)
+    }
 
-        let (x, y) = info
-            .as_ref()
-            .and_then(|i| i.logical_size.map(|(x, y)| (x as u32, y as u32)))
-            .unwrap_or((1920, 1080));
-
-        get_layer_surface(SctkLayerSurfaceSettings {
-            layer: Layer::Top,
-            // keyboard_interactivity: (&self.config.kb_focus).into(),
-            // anchor: (&self.config.style.anchor).into(),
-            // exclusive_zone: self.config.exclusive_zone(),
-            // size: self.config.dimension(x, y),
-            namespace: "crabbar".to_string(),
-            output,
-            // margin: (&self.config.style.margin).into(),
-            id: self.layer_id,
-            ..Default::default()
-        })
+    fn flush_opening_queue(&mut self) -> Task<Message> {
+        let mut task = Task::none();
+        while let Some(id) = self.opening_queue.pop_front() {
+            task = task.chain(self.windows[&id].open(&self.outputs));
+        }
+        task
     }
 }

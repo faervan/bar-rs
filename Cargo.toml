@@ -37,6 +37,7 @@ daemonize = "0.5.0"
 ctrlc = "3.4.7"
 ron = "0.10.1"
 chrono = "0.4.41"
+nix = "0.30.1"
 
 proc-macro2 = "1.0.92"
 quote = "1.0.38"

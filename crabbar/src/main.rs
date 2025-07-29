@@ -9,6 +9,7 @@ mod logger;
 mod message;
 mod state;
 mod subscription;
+mod window;
 
 fn main() -> anyhow::Result<()> {
     logger::init()?;

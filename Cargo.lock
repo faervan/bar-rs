@@ -1072,6 +1072,7 @@ dependencies = [
  "fern",
  "iced",
  "log",
+ "nix 0.30.1",
  "ron",
  "serde",
  "smithay-client-toolkit",
@@ -1094,7 +1095,9 @@ dependencies = [
 name = "crabbar-ipc"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clap",
+ "ron",
  "serde",
 ]
 

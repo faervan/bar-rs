@@ -12,7 +12,7 @@ pub fn init() -> Result<(), log::SetLoggerError> {
         .format(move |out, msg, record| {
             out.finish(format_args!(
                 "[{} {} {}] {}",
-                chrono::Local::now().to_rfc3339(),
+                chrono::Local::now().format("%d/%m/%Y %H:%M:%S"),
                 colors.color(record.level()),
                 record.target(),
                 msg
