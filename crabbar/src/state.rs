@@ -95,17 +95,15 @@ impl State {
                 info!("Received ipc request: {request:?}");
 
                 let mut task = Task::none();
-                let response: ipc::IpcResponse;
-                match request {
+                let response = match request {
                     ListWindows => {
-                        response =
-                            IpcResponse::WindowList(self.window_ids.keys().cloned().collect())
+                        IpcResponse::WindowList(self.window_ids.keys().cloned().collect())
                     }
                     Close => {
                         info!("closing the daemon");
                         daemon::exit_cleanup(&self.socket_path, &self.pid_path);
                         task = iced::exit();
-                        response = IpcResponse::Closing;
+                        IpcResponse::Closing
                     }
                     Window { cmd, id } => {
                         use ipc::WindowCommand::*;
@@ -115,20 +113,16 @@ impl State {
                                 info!("Opening new window");
                                 let naive_id;
                                 (task, naive_id) = self.open_window();
-                                response = IpcResponse::Window {
+                                IpcResponse::Window {
                                     id: naive_id,
                                     event: WindowResponse::Opened,
-                                };
+                                }
                             }
                             _ => {
                                 if self.windows.is_empty() {
-                                    response = IpcResponse::error(
-                                        "Command failed because no windows are open",
-                                    );
+                                    IpcResponse::error("Command failed because no windows are open")
                                 } else if id.is_some_and(|id| !self.window_ids.contains_key(&id)) {
-                                    response = IpcResponse::error(
-                                        "No window with the specified ID is open",
-                                    );
+                                    IpcResponse::error("No window with the specified ID is open")
                                 } else {
                                     let (naive_id, window_id) = id
                                         .map_or_else(
@@ -143,20 +137,20 @@ impl State {
                                             self.windows.remove(&window_id);
                                             info!("Closing window with id {naive_id}");
                                             task = destroy_layer_surface(window_id);
-                                            response = IpcResponse::Window {
+                                            IpcResponse::Window {
                                                 id: naive_id,
                                                 event: WindowResponse::Closed,
-                                            };
+                                            }
                                         }
                                         Reopen => {
                                             info!("Reopening window with id {naive_id}");
                                             task = destroy_layer_surface(window_id).chain(
                                                 self.windows[&window_id].open(&self.outputs),
                                             );
-                                            response = IpcResponse::Window {
+                                            IpcResponse::Window {
                                                 id: naive_id,
                                                 event: WindowResponse::Reopened,
-                                            };
+                                            }
                                         }
                                         Open => unreachable!(),
                                     }
@@ -164,7 +158,7 @@ impl State {
                             }
                         }
                     }
-                }
+                };
                 if responder.send(response).is_err() {
                     error!("IPC response channel closed");
                 }
