@@ -97,7 +97,10 @@ impl State {
                 let mut task = Task::none();
                 let response: ipc::IpcResponse;
                 match request {
-                    ListWindows => todo!(),
+                    ListWindows => {
+                        response =
+                            IpcResponse::WindowList(self.window_ids.keys().cloned().collect())
+                    }
                     Close => {
                         info!("closing the daemon");
                         daemon::exit_cleanup(&self.socket_path, &self.pid_path);
@@ -147,6 +150,9 @@ impl State {
                                         }
                                         Reopen => {
                                             info!("Reopening window with id {naive_id}");
+                                            task = destroy_layer_surface(window_id).chain(
+                                                self.windows[&window_id].open(&self.outputs),
+                                            );
                                             response = IpcResponse::Window {
                                                 id: naive_id,
                                                 event: WindowResponse::Reopened,

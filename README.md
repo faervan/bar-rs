@@ -8,22 +8,22 @@
 See [#24](https://github.com/Faervan/bar-rs/issues/24) for the motivation behind this and [#25](https://github.com/Faervan/bar-rs/pull/25) for the to-do list.
 
 ## Features
-- [-] Dynamic module activation/ordering
-- [-] Hot config reloading
-- [-] very basic style customization
-- [-] basic vertical bar support
-- [-] a base set of useful modules
-- [-] Module interactivity (popups, buttons)
-- [-] hyprland workspace + window modules
-- [-] wayfire workspace + window modules
-- [-] niri workspace + window modules
-- [-] sway workspace + window modules
-- [-] custom modules
-- [-] additional modules (wifi, pacman updates...)
-- [-] system tray support
-- [-] plugin api (for custom rust modules)
-- [-] custom fonts
-- [-] X11 support
+- [ ] Dynamic module activation/ordering
+- [ ] Hot config reloading
+- [ ] very basic style customization
+- [ ] basic vertical bar support
+- [ ] a base set of useful modules
+- [ ] Module interactivity (popups, buttons)
+- [ ] hyprland workspace + window modules
+- [ ] wayfire workspace + window modules
+- [ ] niri workspace + window modules
+- [ ] sway workspace + window modules
+- [ ] custom modules
+- [ ] additional modules (wifi, pacman updates...)
+- [ ] system tray support
+- [ ] plugin api (for custom rust modules)
+- [ ] custom fonts
+- [ ] X11 support
 - ...
 
 ## Recommendations + feature requests

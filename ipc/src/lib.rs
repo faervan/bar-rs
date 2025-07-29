@@ -17,7 +17,7 @@ pub enum IpcRequest {
     Window {
         #[command(subcommand)]
         cmd: WindowCommand,
-        #[arg(long)]
+        #[arg(long, global = true)]
         /// Optional ID of the window. Will fallback to the most recently opened if not specified.
         id: Option<usize>,
     },

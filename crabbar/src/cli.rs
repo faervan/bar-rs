@@ -103,7 +103,14 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                 },
                 Closing => info!("Closing the crabbar daemon."),
                 Error(msg) => error!("{msg}"),
-                Window { id, event } => todo!(),
+                Window { id, event } => {
+                    use ipc::WindowResponse::*;
+                    match event {
+                        Opened => info!("Opened new window with id {id}"),
+                        Closed => info!("Closed window with id {id}"),
+                        Reopened => info!("Reopened window with id {id}"),
+                    }
+                }
             }
         }
     }
