@@ -1,0 +1,16 @@
+[package]
+name = "crabbar-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true
+anyhow.workspace = true
+log.workspace = true
+iced.workspace = true
+smithay-client-toolkit.workspace = true
+toml-example.workspace = true
+optfield.workspace = true
+csscolorparser.workspace = true
+darkmode.workspace = true

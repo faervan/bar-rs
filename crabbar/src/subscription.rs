@@ -1,8 +1,8 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use iced::{
-    event::{listen_with, wayland, PlatformSpecific},
-    futures::{future::BoxFuture, SinkExt},
+    event::{PlatformSpecific, listen_with, wayland},
+    futures::{SinkExt, future::BoxFuture},
     stream,
 };
 use log::{error, warn};
@@ -13,7 +13,7 @@ use tokio::{
 
 use crate::{
     daemon,
-    message::{get_config, Message, UpdateFn},
+    message::{Message, UpdateFn, get_config},
     state::State,
 };
 

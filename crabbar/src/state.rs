@@ -1,3 +1,4 @@
+use core::window::Window;
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
@@ -6,16 +7,17 @@ use std::{
 };
 
 use iced::{
-    event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
-    stream, window::Id, Element, Task,
+    Element, Task, event::wayland,
+    platform_specific::shell::commands::layer_surface::destroy_layer_surface, stream, window::Id,
 };
+use ipc::{IpcRequest, IpcResponse};
 use log::{error, info};
 use smithay_client_toolkit::{
     output::OutputInfo, reexports::client::protocol::wl_output::WlOutput,
 };
 use tokio::time::sleep;
 
-use crate::{config::Config, daemon, message::Message, window::Window};
+use crate::{config::Config, daemon, message::Message};
 
 #[derive(Debug, Default)]
 pub struct State {
@@ -89,24 +91,25 @@ impl State {
                 }
             },
             IpcCommand { request, responder } => {
-                use ipc::IpcRequest::*;
-                use ipc::IpcResponse;
+                use ipc::WindowRequest::*;
 
                 info!("Received ipc request: {request:?}");
 
                 let mut task = Task::none();
                 let response = match request {
-                    ListWindows => {
-                        IpcResponse::WindowList(self.window_ids.keys().cloned().collect())
-                    }
-                    Close => {
+                    IpcRequest::ListWindows => IpcResponse::WindowList(
+                        self.windows
+                            .values()
+                            .map(|w| (w.naive_id(), w.clone()))
+                            .collect(),
+                    ),
+                    IpcRequest::Close => {
                         info!("closing the daemon");
                         daemon::exit_cleanup(&self.socket_path, &self.pid_path);
                         task = iced::exit();
                         IpcResponse::Closing
                     }
-                    Window { cmd, id } => {
-                        use ipc::WindowCommand::*;
+                    IpcRequest::Window { cmd, id } => {
                         use ipc::WindowResponse;
                         match cmd {
                             Open => {

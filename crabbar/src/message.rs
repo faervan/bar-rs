@@ -2,7 +2,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use iced::{
     event::wayland::OutputEvent,
-    futures::{channel::mpsc, SinkExt},
+    futures::{SinkExt, channel::mpsc},
 };
 use ipc::{IpcRequest, IpcResponse};
 use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;

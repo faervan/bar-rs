@@ -1,32 +1,22 @@
-use std::{
-    fs,
-    io::Write as _,
-    os::unix::net::UnixStream,
-    path::{Path, PathBuf},
-};
+use core::directories;
+use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 use ipc::IpcRequest;
 use log::{error, info};
 use nix::unistd::Pid;
 
-use crate::{daemon, directories};
+use crate::daemon;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct CliArgs {
-    #[arg(long, default_value = get_runtime_dir())]
+    #[arg(long, default_value = directories::runtime_dir())]
     /// Runtime directory to be used for IPC socket communication
     run_dir: PathBuf,
-    #[arg(short, long, default_value = directories::config().unwrap())]
-    /// Path of the main configuration file
-    config_path: PathBuf,
-    #[arg(long, default_value = directories::theme_dir().unwrap())]
-    /// Directory of theme configurations
-    theme_dir: PathBuf,
-    #[arg(long, default_value = directories::style_dir().unwrap())]
-    /// Directory of style configurations
-    style_dir: PathBuf,
+    #[arg(short, long, default_value = directories::config_dir())]
+    /// Path of the main configuration directory
+    config_dir: PathBuf,
     #[command(subcommand)]
     command: Command,
 }
@@ -42,7 +32,7 @@ enum Command {
         #[arg(short = 'D', long)]
         /// Keep `crabbar` attached to this terminal
         dont_daemonize: bool,
-        #[arg(long, default_value = get_log_dir())]
+        #[arg(long, default_value = directories::log_dir())]
         /// Log file directory. Only applies when the process is daemonized.
         log_dir: PathBuf,
     },
@@ -70,7 +60,9 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                 {
                     return Err(anyhow::anyhow!("`crabbar` is running already!"));
                 }
-                info!("The previous crabbar instance did not exit gracefully, removing the socket file.");
+                info!(
+                    "The previous crabbar instance did not exit gracefully, removing the socket file."
+                );
                 if let Err(e) = fs::remove_file(&socket_path) {
                     error!("Could not remove socket file at {socket_path:?}: {e}");
                 }
@@ -91,15 +83,14 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
             match response {
                 WindowList(windows) => match windows.is_empty() {
                     true => info!("No windows are open!"),
-                    false => info!(
-                        "{} windows are open: {}",
-                        windows.len(),
-                        windows
-                            .iter()
-                            .map(usize::to_string)
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ),
+                    false => {
+                        info!("{} windows are open:", windows.len(),);
+                        let mut windows: Vec<_> = windows.into_iter().collect();
+                        windows.sort_by_key(|&(id, _)| id);
+                        for (id, window) in windows {
+                            println!("\t{id}:\t{window:?}")
+                        }
+                    }
                 },
                 Closing => info!("Closing the crabbar daemon."),
                 Error(msg) => error!("{msg}"),
@@ -116,25 +107,4 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-fn from_env_or<S: AsRef<std::ffi::OsStr>, T: Into<std::ffi::OsString>>(
-    default: T,
-    key: S,
-) -> std::ffi::OsString {
-    std::env::var(key)
-        .map(Into::into)
-        .unwrap_or_else(|_| default.into())
-}
-
-fn get_runtime_dir() -> std::ffi::OsString {
-    let mut fallback_dir = from_env_or("/tmp", "XDG_RUNTIME_DIR");
-    fallback_dir.push("/crabbar");
-    from_env_or(fallback_dir, "CRABBAR_RUN_DIR")
-}
-
-fn get_log_dir() -> std::ffi::OsString {
-    let home = std::env::var("HOME").unwrap();
-    let fallback_dir = from_env_or(format!("{home}/.local/state"), "XDG_STATE_HOME");
-    from_env_or(fallback_dir, "CRABBAR_LOG_DIR")
 }

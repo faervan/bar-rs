@@ -1066,6 +1066,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "crabbar-core",
  "crabbar-derive",
  "crabbar-ipc",
  "ctrlc",
@@ -1084,6 +1085,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "crabbar-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "csscolorparser",
+ "darkmode",
+ "iced",
+ "log",
+ "optfield",
+ "serde",
+ "smithay-client-toolkit",
+ "toml-example",
+]
+
+[[package]]
 name = "crabbar-derive"
 version = "0.1.0"
 dependencies = [
@@ -1098,6 +1115,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "crabbar-core",
  "ron",
  "serde",
 ]
@@ -1153,6 +1171,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "csscolorparser"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fda6aace1fbef3aa217b27f4c8d7d071ef2a70a5ca51050b1f17d40299d3f16"
+dependencies = [
+ "phf",
+ "serde",
+]
+
+[[package]]
 name = "ctor-lite"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1192,6 +1220,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab8bfdaacb3c887a54d41bdf48d3af8873b3f5566469f8ba21b92057509f116e"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "darkmode"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "075a9464059e42ad7f7c487897c1ceb65327daf056c2acf58b27ca62a51db2ab"
+dependencies = [
+ "dbus",
+]
+
+[[package]]
+name = "dbus"
+version = "0.9.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bb21987b9fb1613058ba3843121dd18b163b254d8a6e797e144cbac14d96d1b"
+dependencies = [
+ "libc",
+ "libdbus-sys",
+ "winapi",
 ]
 
 [[package]]
@@ -2352,6 +2400,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 
 [[package]]
+name = "libdbus-sys"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06085512b750d640299b79be4bad3d2fa90a9c00b1fd9e1b46364f66f0485c72"
+dependencies = [
+ "pkg-config",
+]
+
+[[package]]
 name = "libfuzzer-sys"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3006,6 +3063,17 @@ name = "once_cell_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
+
+[[package]]
+name = "optfield"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "969ccca8ffc4fb105bd131a228107d5c9dd89d9d627edf3295cbe979156f9712"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
 
 [[package]]
 name = "orbclient"

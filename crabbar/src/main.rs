@@ -1,15 +1,13 @@
 use clap::Parser as _;
-use cli::{handle_cli_commands, CliArgs};
+use cli::{CliArgs, handle_cli_commands};
 
 mod cli;
 mod config;
 mod daemon;
-mod directories;
 mod logger;
 mod message;
 mod state;
 mod subscription;
-mod window;
 
 fn main() -> anyhow::Result<()> {
     logger::init()?;

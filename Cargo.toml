@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crabbar", "derive", "ipc"]
+members = ["core", "crabbar", "derive", "ipc"]
 
 [workspace.package]
 version = "0.1.0"
@@ -8,6 +8,7 @@ edition = "2024"
 
 [workspace.dependencies]
 crabbar.path = "crabbar"
+core = { path = "core", package = "crabbar-core" }
 derive = { path = "derive", package = "crabbar-derive" }
 ipc = { path = "ipc", package = "crabbar-ipc" }
 
@@ -44,6 +45,9 @@ ctrlc = "3.4.7"
 ron = "0.10.1"
 chrono = "0.4.41"
 nix = "0.30.1"
+optfield = "0.4.0"
+csscolorparser = { version = "0.7.2", features = ["serde"] }
+darkmode = "0.1.0"
 
 proc-macro2 = "1.0.92"
 quote = "1.0.38"

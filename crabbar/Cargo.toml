@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+core.workspace = true
 derive.workspace = true
 ipc.workspace = true
 

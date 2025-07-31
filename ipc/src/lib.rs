@@ -1,4 +1,6 @@
+use core::window::{Window, WindowCommand};
 use std::{
+    collections::HashMap,
     fs,
     io::{Read, Write as _},
     os::unix::net::UnixStream,
@@ -16,7 +18,7 @@ pub enum IpcRequest {
     /// Perform a window action
     Window {
         #[command(subcommand)]
-        cmd: WindowCommand,
+        cmd: WindowRequest,
         #[arg(long, global = true)]
         /// Optional ID of the window. Will fallback to the most recently opened if not specified.
         id: Option<usize>,
@@ -27,18 +29,20 @@ pub enum IpcRequest {
 }
 
 #[derive(Subcommand, Debug, Deserialize, Serialize)]
-pub enum WindowCommand {
+pub enum WindowRequest {
     /// Open a new window
     Open,
     /// Close a window
     Close,
     /// Reopen a window to apply settings like bar height/width
     Reopen,
+    #[command(flatten)]
+    Command(WindowCommand),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum IpcResponse {
-    WindowList(Vec<usize>),
+    WindowList(HashMap<usize, Window>),
     Window { id: usize, event: WindowResponse },
     Closing,
     Error(String),

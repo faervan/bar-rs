@@ -7,8 +7,6 @@ use serde::Deserialize;
 use toml_example::TomlExample;
 use types::KbFocus;
 
-use crate::directories;
-
 mod types;
 
 #[derive(Debug, Deserialize, TomlExample)]

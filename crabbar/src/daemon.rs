@@ -5,7 +5,7 @@ use std::{
 };
 
 use daemonize::Daemonize;
-use iced::futures::{channel::mpsc::Sender, SinkExt as _};
+use iced::futures::{SinkExt as _, channel::mpsc::Sender};
 use ipc::IpcRequest;
 use log::{error, info};
 use tokio::{

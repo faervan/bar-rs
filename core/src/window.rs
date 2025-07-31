@@ -1,23 +1,30 @@
 use std::collections::HashMap;
 
+use clap::Subcommand;
 use iced::{
+    Element, Task,
     platform_specific::shell::commands::layer_surface::get_layer_surface,
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     window::Id,
-    Element, Task,
 };
-use ipc::WindowCommand;
+use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::{
     output::OutputInfo, reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Layer,
 };
 
-use crate::message::Message;
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Window {
     naive_id: usize,
+    #[serde(skip, default = "id_default")]
     window_id: Id,
 }
+
+fn id_default() -> Id {
+    Id::NONE
+}
+
+#[derive(Subcommand, Debug, Deserialize, Serialize)]
+pub enum WindowCommand {}
 
 impl Window {
     pub fn new(id: usize) -> Self {
@@ -27,18 +34,16 @@ impl Window {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view<Message>(&self) -> Element<Message> {
         iced::widget::text!("This is window {}", self.naive_id).into()
     }
 
-    pub fn handle_ipc(&mut self, cmd: WindowCommand) -> Task<Message> {
+    pub fn handle_ipc<Message>(&mut self, cmd: WindowCommand) -> Task<Message> {
         use WindowCommand::*;
-        match cmd {
-            Open | Close | Reopen => unreachable!("handled in beforehand"),
-        }
+        match cmd {}
     }
 
-    pub fn open(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
+    pub fn open<Message>(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
         log::info!("opening window with id {}", self.naive_id);
         let (output, info) = outputs
             .iter()
@@ -80,5 +85,9 @@ impl Window {
 
     pub fn window_id(&self) -> Id {
         self.window_id
+    }
+
+    pub fn naive_id(&self) -> usize {
+        self.naive_id
     }
 }
