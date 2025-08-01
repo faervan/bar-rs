@@ -2,7 +2,7 @@ use core::window::{Window, WindowCommand, WindowOpenOptions};
 use std::{
     collections::HashMap,
     fs,
-    io::{Read, Write as _},
+    io::{Read as _, Write as _},
     os::unix::net::UnixStream,
     path::Path,
 };

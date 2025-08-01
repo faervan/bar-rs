@@ -1,5 +1,6 @@
 use clap::Args;
 use module::{ModuleLayout, ModuleLayoutOverride};
+use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use window::{WindowConfig, WindowConfigOverride};
 
@@ -8,6 +9,29 @@ pub mod source;
 pub mod style;
 pub mod theme;
 pub mod window;
+
+#[optfield(
+    pub GlobalConfigOverride,
+    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize)),
+    field_doc,
+    field_attrs,
+    merge_fn
+)]
+#[derive(Args, Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GlobalConfig {
+    #[arg(long)]
+    /// How often the windows should be updated with new content (in seconds)
+    pub reload_interval: f32,
+}
+
+impl Default for GlobalConfig {
+    fn default() -> Self {
+        Self {
+            reload_interval: 3.,
+        }
+    }
+}
 
 // Note: all fields from ConfigOptions need to be present for ConfigOptionOverride as well!
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]

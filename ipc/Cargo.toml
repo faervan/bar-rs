@@ -10,3 +10,6 @@ clap.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 ron.workspace = true
+
+[lints]
+workspace = true

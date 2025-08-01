@@ -1,14 +1,15 @@
+use core::config::GlobalConfig;
 use std::{fmt::Debug, sync::Arc};
 
 use iced::{
     event::wayland::OutputEvent,
-    futures::{SinkExt, channel::mpsc},
+    futures::{channel::mpsc, SinkExt as _},
 };
 use ipc::{IpcRequest, IpcResponse};
 use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
 use tokio::sync::oneshot;
 
-use crate::{config::Config, state::State, subscription::Subscription};
+use crate::{state::State, subscription::Subscription};
 
 pub struct UpdateFn(pub Arc<Box<dyn Fn() + Send + Sync>>);
 
@@ -33,8 +34,6 @@ impl<T> ReadFn<T> {
 #[derive(Debug)]
 pub enum Message {
     ReadState(ReadFn<State>),
-    FetchSubscriptions(oneshot::Sender<Vec<Subscription>>),
-    FetchConfig(oneshot::Sender<Arc<Config>>),
     Update(Vec<UpdateFn>),
     ReloadConfig,
     OutputEvent {
@@ -56,8 +55,23 @@ impl Message {
     }
 }
 
-pub async fn get_config(sender: &mut mpsc::Sender<Message>) -> Arc<Config> {
-    let (sx, rx) = oneshot::channel();
-    sender.send(Message::FetchConfig(sx)).await.unwrap();
-    rx.await.unwrap()
+pub trait MessageSenderExt {
+    async fn read_config(&mut self) -> Arc<GlobalConfig>;
+    async fn read_subscriptions(&mut self) -> Vec<Subscription>;
+}
+
+impl MessageSenderExt for mpsc::Sender<Message> {
+    async fn read_config(&mut self) -> Arc<GlobalConfig> {
+        let (sx, rx) = oneshot::channel();
+        self.send(Message::read_state(move |state| {
+            sx.send(state.config.clone()).unwrap()
+        }))
+        .await
+        .unwrap();
+        rx.await.unwrap()
+    }
+    async fn read_subscriptions(&mut self) -> Vec<Subscription> {
+        // TODO!
+        vec![]
+    }
 }

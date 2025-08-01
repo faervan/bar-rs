@@ -1,8 +1,7 @@
 use clap::Parser as _;
-use cli::{CliArgs, handle_cli_commands};
+use cli::{handle_cli_commands, CliArgs};
 
 mod cli;
-mod config;
 mod daemon;
 mod logger;
 mod message;

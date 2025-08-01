@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use clap::{Args, Subcommand};
 use iced::{
+    Element, Task,
     platform_specific::shell::commands::layer_surface::get_layer_surface,
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     window::Id,
-    Element, Task,
 };
 use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::{

@@ -10,7 +10,7 @@ use iced::futures::{channel::mpsc::Sender, SinkExt as _};
 use ipc::IpcRequest;
 use log::{error, info};
 use tokio::{
-    io::{AsyncReadExt as _, AsyncWriteExt},
+    io::{AsyncReadExt as _, AsyncWriteExt as _},
     net::{UnixListener, UnixStream},
     sync::oneshot,
 };

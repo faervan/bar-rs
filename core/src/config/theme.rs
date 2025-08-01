@@ -44,7 +44,7 @@ fn parse_color(value: &str) -> Result<Color, csscolorparser::ParseColorError> {
 
 mod serde_with {
     use iced::Color;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize as _, Deserializer, Serialize as _, Serializer};
 
     pub fn serialize<S>(value: &Color, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -1,19 +1,16 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use iced::{
-    event::{PlatformSpecific, listen_with, wayland},
-    futures::{SinkExt, future::BoxFuture},
+    event::{listen_with, wayland, PlatformSpecific},
+    futures::{future::BoxFuture, SinkExt as _},
     stream,
 };
 use log::{error, warn};
-use tokio::{
-    sync::{mpsc, oneshot},
-    time::sleep,
-};
+use tokio::{sync::mpsc, time::sleep};
 
 use crate::{
     daemon,
-    message::{Message, UpdateFn, get_config},
+    message::{Message, MessageSenderExt as _, UpdateFn},
     state::State,
 };
 
@@ -21,32 +18,38 @@ impl State {
     pub fn subscribe(&self) -> iced::Subscription<Message> {
         let module_subs = iced::Subscription::run(|| {
             stream::channel(1, |mut sender| async move {
-                let (sx, rx) = oneshot::channel();
-                sender.send(Message::FetchSubscriptions(sx)).await.unwrap();
-                let subs = rx.await.unwrap();
+                let subs = sender.read_subscriptions().await;
                 let (sx, mut rx) = mpsc::channel(1);
 
-                let config = get_config(&mut sender).await;
+                let config = sender.read_config().await;
 
                 for sub in subs {
-                    sub.run(&sx).await;
+                    sub.run(&sx);
                 }
+
+                drop(sx);
 
                 let mut updates = vec![];
                 loop {
                     tokio::select! {
-                        r = rx.recv() => match r {
-                            Some(SubscriptionUpdate::Buffered(update)) => {
-                                updates.push(update);
-                                continue;
+                        all_subs_dropped = async {
+                            loop {
+                                match rx.recv().await {
+                                    Some(SubscriptionUpdate::Buffered(update)) => {
+                                        updates.push(update);
+                                    }
+                                    Some(SubscriptionUpdate::Immediate(update)) => {
+                                        updates.push(update);
+                                        return false;
+                                    }
+                                    None => {
+                                        warn!("All Subscription senders dropped, canceling Subscription");
+                                        return true;
+                                    }
+                                }
                             }
-                            Some(SubscriptionUpdate::Immediate(update)) => updates.push(update),
-                            None => {
-                                warn!("All Subscription senders dropped, canceling Subscription");
-                                return;
-                            }
-                        },
-                        _ = sleep(Duration::from_secs_f64(config.reload_interval)) => {}
+                        } => if all_subs_dropped {return;},
+                        _ = sleep(Duration::from_secs_f32(config.reload_interval)) => {}
                     }
                     sender
                         .send(Message::Update(std::mem::take(&mut updates)))
@@ -148,7 +151,7 @@ impl Subscription {
         Self(None)
     }
 
-    async fn run(self, sx: &mpsc::Sender<SubscriptionUpdate>) {
+    fn run(self, sx: &mpsc::Sender<SubscriptionUpdate>) {
         if let Some(f) = self.0 {
             let sx = sx.clone();
             tokio::spawn(f(sx));

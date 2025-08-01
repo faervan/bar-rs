@@ -5,12 +5,13 @@ use smithay_client_toolkit::shell::wlr_layer::Anchor;
 
 #[optfield(
     pub WindowConfigOverride,
-    attrs,
+    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize)),
     field_doc,
     field_attrs,
     merge_fn = pub
 )]
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct WindowConfig {
     #[arg(long, value_parser = clap_parser::parse_anchor)]
     #[serde(with = "serde_with::anchor")]
@@ -36,7 +37,7 @@ mod clap_parser {
 }
 
 mod serde_with {
-    use serde::{Deserialize, Deserializer};
+    use serde::{Deserialize as _, Deserializer};
 
     trait AcceptOption<T> {
         /// If bool is true, the T was wrapped in Option before as_opt was called

@@ -1,5 +1,5 @@
 use core::{
-    config::ConfigOptions,
+    config::{ConfigOptions, GlobalConfig},
     window::{Window, WindowOpenOptions},
 };
 use std::{
@@ -10,8 +10,8 @@ use std::{
 };
 
 use iced::{
-    event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
-    stream, window::Id, Element, Task,
+    Element, Task, event::wayland,
+    platform_specific::shell::commands::layer_surface::destroy_layer_surface, stream, window::Id,
 };
 use ipc::{IpcRequest, IpcResponse};
 use log::{error, info};
@@ -20,7 +20,7 @@ use smithay_client_toolkit::{
 };
 use tokio::time::sleep;
 
-use crate::{config::Config, daemon, message::Message};
+use crate::{daemon, message::Message};
 
 #[derive(Debug, Default)]
 pub struct State {
@@ -29,8 +29,7 @@ pub struct State {
     outputs: HashMap<WlOutput, Option<OutputInfo>>,
     /// If false, we have to wait for new Outputs before opening a window
     outputs_ready: bool,
-    // TODO! Remove config from State
-    config: Arc<Config>,
+    pub config: Arc<GlobalConfig>,
     windows: HashMap<Id, Window>,
     window_ids: HashMap<usize, Id>,
     opening_queue: VecDeque<Id>,
@@ -66,10 +65,6 @@ impl State {
         use Message::*;
         match msg {
             ReadState(f) => f.execute(self),
-            FetchSubscriptions(sx) => {
-                sx.send(vec![]).unwrap();
-            }
-            FetchConfig(sx) => sx.send(self.config.clone()).unwrap(),
             Update(updates) => {
                 for updatefn in updates {
                     Arc::into_inner(updatefn.0).unwrap()()
@@ -145,7 +140,10 @@ impl State {
                                                 let (naive_ids, window_ids): (Vec<usize>, Vec<Id>) =
                                                     self.window_ids.drain().collect();
                                                 self.windows.clear();
-                                                info!("Closing all open windows ({} windows are open)", naive_ids.len());
+                                                info!(
+                                                    "Closing all open windows ({} windows are open)",
+                                                    naive_ids.len()
+                                                );
                                                 for window_id in window_ids {
                                                     task = task
                                                         .chain(destroy_layer_surface(window_id));
@@ -169,7 +167,10 @@ impl State {
                                             if all {
                                                 let (naive_ids, window_ids): (Vec<usize>, Vec<Id>) =
                                                     self.window_ids.iter().collect();
-                                                info!("Reopening all open windows ({} windows are open)", naive_ids.len());
+                                                info!(
+                                                    "Reopening all open windows ({} windows are open)",
+                                                    naive_ids.len()
+                                                );
                                                 for window_id in window_ids {
                                                     task = task
                                                         .chain(destroy_layer_surface(window_id))
