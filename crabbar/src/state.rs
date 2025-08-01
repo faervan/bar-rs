@@ -1,4 +1,7 @@
-use core::window::Window;
+use core::{
+    config::ConfigOptions,
+    window::{Window, WindowOpenOptions},
+};
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
@@ -7,8 +10,8 @@ use std::{
 };
 
 use iced::{
-    Element, Task, event::wayland,
-    platform_specific::shell::commands::layer_surface::destroy_layer_surface, stream, window::Id,
+    event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
+    stream, window::Id, Element, Task,
 };
 use ipc::{IpcRequest, IpcResponse};
 use log::{error, info};
@@ -33,6 +36,7 @@ pub struct State {
     opening_queue: VecDeque<Id>,
     /// Every opened window gets a unique ID equal to the count of windows opened beforehand
     id_count: usize,
+    configurations: HashMap<String, ConfigOptions>,
 }
 
 impl State {
@@ -40,6 +44,7 @@ impl State {
         socket_path: PathBuf,
         pid_path: PathBuf,
         open_window: bool,
+        opts: WindowOpenOptions,
     ) -> (Self, Task<Message>) {
         let mut state = State {
             socket_path,
@@ -47,7 +52,7 @@ impl State {
             ..Default::default()
         };
         let task = match open_window {
-            true => state.open_window().0,
+            true => state.open_window(opts).0,
             false => Task::none(),
         };
         (state, task)
@@ -112,12 +117,12 @@ impl State {
                     IpcRequest::Window { cmd, id } => {
                         use ipc::WindowResponse;
                         match cmd {
-                            Open => {
+                            Open(opts) => {
                                 info!("Opening new window");
                                 let naive_id;
-                                (task, naive_id) = self.open_window();
+                                (task, naive_id) = self.open_window(opts);
                                 IpcResponse::Window {
-                                    id: naive_id,
+                                    id: vec![naive_id],
                                     event: WindowResponse::Opened,
                                 }
                             }
@@ -135,27 +140,60 @@ impl State {
                                         .map(|(k, v)| (*k, *v))
                                         .expect("Previously checked");
                                     match cmd {
-                                        Close => {
-                                            self.window_ids.remove(&naive_id);
-                                            self.windows.remove(&window_id);
-                                            info!("Closing window with id {naive_id}");
-                                            task = destroy_layer_surface(window_id);
-                                            IpcResponse::Window {
-                                                id: naive_id,
-                                                event: WindowResponse::Closed,
+                                        Close { all } => {
+                                            if all {
+                                                let (naive_ids, window_ids): (Vec<usize>, Vec<Id>) =
+                                                    self.window_ids.drain().collect();
+                                                self.windows.clear();
+                                                info!("Closing all open windows ({} windows are open)", naive_ids.len());
+                                                for window_id in window_ids {
+                                                    task = task
+                                                        .chain(destroy_layer_surface(window_id));
+                                                }
+                                                IpcResponse::Window {
+                                                    id: naive_ids,
+                                                    event: WindowResponse::Closed,
+                                                }
+                                            } else {
+                                                self.window_ids.remove(&naive_id);
+                                                self.windows.remove(&window_id);
+                                                info!("Closing window with id {naive_id}");
+                                                task = destroy_layer_surface(window_id);
+                                                IpcResponse::Window {
+                                                    id: vec![naive_id],
+                                                    event: WindowResponse::Closed,
+                                                }
                                             }
                                         }
-                                        Reopen => {
-                                            info!("Reopening window with id {naive_id}");
-                                            task = destroy_layer_surface(window_id).chain(
-                                                self.windows[&window_id].open(&self.outputs),
-                                            );
-                                            IpcResponse::Window {
-                                                id: naive_id,
-                                                event: WindowResponse::Reopened,
+                                        Reopen { all } => {
+                                            if all {
+                                                let (naive_ids, window_ids): (Vec<usize>, Vec<Id>) =
+                                                    self.window_ids.iter().collect();
+                                                info!("Reopening all open windows ({} windows are open)", naive_ids.len());
+                                                for window_id in window_ids {
+                                                    task = task
+                                                        .chain(destroy_layer_surface(window_id))
+                                                        .chain(
+                                                            self.windows[&window_id]
+                                                                .open(&self.outputs),
+                                                        );
+                                                }
+                                                IpcResponse::Window {
+                                                    id: naive_ids,
+                                                    event: WindowResponse::Reopened,
+                                                }
+                                            } else {
+                                                info!("Reopening window with id {naive_id}");
+                                                task = destroy_layer_surface(window_id).chain(
+                                                    self.windows[&window_id].open(&self.outputs),
+                                                );
+                                                IpcResponse::Window {
+                                                    id: vec![naive_id],
+                                                    event: WindowResponse::Reopened,
+                                                }
                                             }
                                         }
-                                        Open => unreachable!(),
+                                        Open(_) => unreachable!(),
                                     }
                                 }
                             }
@@ -178,9 +216,16 @@ impl State {
         }
     }
 
-    fn open_window(&mut self) -> (Task<Message>, usize) {
+    fn open_window(&mut self, opts: WindowOpenOptions) -> (Task<Message>, usize) {
         let naive_id = self.id_count;
-        let window = Window::new(naive_id);
+        let config = match self.configurations.get(&opts.name) {
+            Some(config) => config.clone(),
+            None => {
+                error!("No such configuration: {}", opts.name);
+                ConfigOptions::default()
+            }
+        };
+        let window = Window::new(naive_id, opts, config);
         let mut task = Task::none();
         if self.outputs_ready {
             task = window.open(&self.outputs);

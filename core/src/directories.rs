@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub fn runtime_dir() -> std::ffi::OsString {
     let mut fallback_dir = from_env_or("/tmp", "XDG_RUNTIME_DIR");
@@ -20,36 +20,34 @@ pub fn config_dir() -> std::ffi::OsString {
     from_env_or(fallback_dir, "CRABBAR_CONFIG_DIR")
 }
 
-/// `TODO`! This cannot be predefined, it has to depend on the packaging.
-/// https://refspecs.linuxfoundation.org/FHS_3.0/fhs/ch04s11.html
-/// https://wiki.archlinux.org/title/Arch_package_guidelines#Directories
-pub fn default_config_dir() -> &'static str {
-    "/usr/share/crabbar"
-}
+pub struct ConfigRoot(PathBuf);
 
-pub trait ConfigRoot {
-    fn config(&self) -> PathBuf;
-    fn theme_dir(&self) -> PathBuf;
-    fn style_dir(&self) -> PathBuf;
-    fn module_dir(&self) -> PathBuf;
-    fn source_dir(&self) -> PathBuf;
-}
+impl ConfigRoot {
+    pub fn new<P: Into<PathBuf>>(path: P) -> Self {
+        Self(path.into())
+    }
 
-impl ConfigRoot for Path {
-    fn config(&self) -> PathBuf {
-        self.join("config.toml")
+    /// `TODO`! This cannot be predefined, it has to depend on the packaging.
+    /// https://refspecs.linuxfoundation.org/FHS_3.0/fhs/ch04s11.html
+    /// https://wiki.archlinux.org/title/Arch_package_guidelines#Directories
+    pub fn default_config_dir() -> Self {
+        ConfigRoot(PathBuf::from("/usr/share/crabbar"))
     }
-    fn theme_dir(&self) -> PathBuf {
-        self.join("themes")
+
+    pub fn config(&self) -> PathBuf {
+        self.0.join("config.toml")
     }
-    fn style_dir(&self) -> PathBuf {
-        self.join("styles")
+    pub fn theme_dir(&self) -> PathBuf {
+        self.0.join("themes")
     }
-    fn module_dir(&self) -> PathBuf {
-        self.join("modules")
+    pub fn style_dir(&self) -> PathBuf {
+        self.0.join("styles")
     }
-    fn source_dir(&self) -> PathBuf {
-        self.join("sources")
+    pub fn module_dir(&self) -> PathBuf {
+        self.0.join("modules")
+    }
+    pub fn source_dir(&self) -> PathBuf {
+        self.0.join("sources")
     }
 }
 

@@ -5,12 +5,12 @@ use toml_example::TomlExample;
 
 #[optfield(
     pub ModuleLayoutOverride,
-    attrs = (derive(Args, Debug)),
+    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize)),
     field_doc,
     field_attrs,
     merge_fn = pub,
 )]
-#[derive(Args, Debug, Serialize, Deserialize, TomlExample)]
+#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)]
 pub struct ModuleLayout {
     #[arg(long = "modules_left")]
     /// Modules that should be displayed on the left of the bar

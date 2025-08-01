@@ -1,4 +1,4 @@
-use core::directories;
+use core::{directories, window::WindowOpenOptions};
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
@@ -35,6 +35,8 @@ enum Command {
         #[arg(long, default_value = directories::log_dir())]
         /// Log file directory. Only applies when the process is daemonized.
         log_dir: PathBuf,
+        #[command(flatten)]
+        opts: WindowOpenOptions,
     },
     #[command(flatten)]
     Ipc(IpcRequest),
@@ -48,6 +50,7 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
             dry,
             dont_daemonize,
             log_dir,
+            opts,
         } => {
             std::fs::create_dir_all(&args.run_dir)?;
             let pid_path = args.run_dir.join("crabbar.pid");
@@ -75,7 +78,7 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                 std::process::exit(0);
             })?;
 
-            daemon::run(!dry, !dont_daemonize, &log_dir, socket_path, pid_path)?;
+            daemon::run(!dry, opts, !dont_daemonize, &log_dir, socket_path, pid_path)?;
         }
         Command::Ipc(cmd) => {
             let response = ipc::request(cmd, &socket_path)?;
@@ -88,7 +91,7 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                         let mut windows: Vec<_> = windows.into_iter().collect();
                         windows.sort_by_key(|&(id, _)| id);
                         for (id, window) in windows {
-                            println!("\t{id}:\t{window:?}")
+                            println!("{id}:\t{window:#?}")
                         }
                     }
                 },
@@ -97,9 +100,9 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                 Window { id, event } => {
                     use ipc::WindowResponse::*;
                     match event {
-                        Opened => info!("Opened new window with id {id}"),
-                        Closed => info!("Closed window with id {id}"),
-                        Reopened => info!("Reopened window with id {id}"),
+                        Opened => info!("Opened new window with id {id:?}"),
+                        Closed => info!("Closed window with id {id:?}"),
+                        Reopened => info!("Reopened window with id {id:?}"),
                     }
                 }
             }

@@ -1,43 +1,63 @@
 use clap::Args;
 use module::{ModuleLayout, ModuleLayoutOverride};
 use serde::{Deserialize, Serialize};
+use window::{WindowConfig, WindowConfigOverride};
 
 pub mod module;
 pub mod source;
 pub mod style;
 pub mod theme;
+pub mod window;
 
-fn default_theme() -> String {
-    format!(
-        "iced/{}",
-        match darkmode::detect().unwrap_or(darkmode::Mode::Dark) {
-            darkmode::Mode::Light => iced::Theme::Light,
-            darkmode::Mode::Dark | darkmode::Mode::Default => iced::Theme::Dark,
-        }
-    )
-}
-fn default() -> String {
-    String::from("crabbar")
-}
-
-#[derive(Args, Debug, Serialize, Deserialize)]
+// Note: all fields from ConfigOptions need to be present for ConfigOptionOverride as well!
+#[derive(Args, Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ConfigOptions {
-    #[arg(long, default_value = default_theme())]
-    #[serde(default = "default_theme")]
+    #[arg(long)]
     /// Name of the theme to use
     pub theme: String,
 
-    #[arg(long, default_value = default())]
-    #[serde(default = "default")]
+    #[arg(long)]
     /// Name of the style to use
     pub style: String,
 
     #[command(flatten)]
     /// The modules that should be enabled
     pub modules: ModuleLayout,
+
+    #[command(flatten)]
+    #[serde(flatten)]
+    pub window: WindowConfig,
 }
 
-#[derive(Args, Debug)]
+impl Default for ConfigOptions {
+    fn default() -> Self {
+        Self {
+            theme: format!(
+                "iced/{}",
+                match darkmode::detect().unwrap_or(darkmode::Mode::Dark) {
+                    darkmode::Mode::Light => iced::Theme::Light,
+                    darkmode::Mode::Dark | darkmode::Mode::Default => iced::Theme::Dark,
+                }
+            ),
+            style: String::from("crabbar"),
+            modules: ModuleLayout {
+                left: vec!["workspaces".to_string(), "window".to_string()],
+                center: vec!["date".to_string(), "time".to_string()],
+                right: vec![
+                    "mpris".to_string(),
+                    "volume".to_string(),
+                    "cpu".to_string(),
+                    "memory".to_string(),
+                    "disk_space".to_string(),
+                ],
+            },
+            window: WindowConfig::default(),
+        }
+    }
+}
+
+#[derive(Args, Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigOptionOverride {
     #[arg(long)]
     /// Name of the theme to use
@@ -50,6 +70,9 @@ pub struct ConfigOptionOverride {
     #[command(flatten)]
     /// The modules that should be enabled
     pub modules: ModuleLayoutOverride,
+
+    #[command(flatten)]
+    pub window: WindowConfigOverride,
 }
 
 impl ConfigOptions {
@@ -59,6 +82,7 @@ impl ConfigOptions {
             theme,
             style,
             modules,
+            window,
         }: ConfigOptionOverride,
     ) {
         if let Some(theme) = theme {
@@ -68,5 +92,6 @@ impl ConfigOptions {
             self.style = style;
         }
         self.modules.merge_opt(modules);
+        self.window.merge_opt(window);
     }
 }

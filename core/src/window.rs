@@ -1,22 +1,36 @@
 use std::collections::HashMap;
 
-use clap::Subcommand;
+use clap::{Args, Subcommand};
 use iced::{
-    Element, Task,
     platform_specific::shell::commands::layer_surface::get_layer_surface,
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     window::Id,
+    Element, Task,
 };
 use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::{
     output::OutputInfo, reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Layer,
 };
 
+use crate::config::{ConfigOptionOverride, ConfigOptions};
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Window {
     naive_id: usize,
     #[serde(skip, default = "id_default")]
     window_id: Id,
+    open_options: WindowOpenOptions,
+    config: ConfigOptions,
+}
+
+#[derive(Args, Debug, Clone, Deserialize, Serialize)]
+pub struct WindowOpenOptions {
+    #[arg(default_value = "crabbar")]
+    /// Name of the configuration to use
+    pub name: String,
+
+    #[command(flatten)]
+    config: ConfigOptionOverride,
 }
 
 fn id_default() -> Id {
@@ -27,10 +41,13 @@ fn id_default() -> Id {
 pub enum WindowCommand {}
 
 impl Window {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: usize, open_options: WindowOpenOptions, mut config: ConfigOptions) -> Self {
+        config.merge_opt(open_options.config.clone());
         Self {
             naive_id: id,
             window_id: Id::unique(),
+            open_options,
+            config,
         }
     }
 
@@ -73,7 +90,7 @@ impl Window {
             // size: self.config.dimension(x, y),
             size: Some((Some(1920), Some(30))),
             // size: Some((None, Some(50))),
-            anchor: smithay_client_toolkit::shell::wlr_layer::Anchor::TOP,
+            anchor: self.config.window.anchor,
             namespace: format!("crabbar{}", self.naive_id),
             exclusive_zone: 30,
             output,

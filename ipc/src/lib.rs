@@ -1,4 +1,4 @@
-use core::window::{Window, WindowCommand};
+use core::window::{Window, WindowCommand, WindowOpenOptions};
 use std::{
     collections::HashMap,
     fs,
@@ -31,11 +31,19 @@ pub enum IpcRequest {
 #[derive(Subcommand, Debug, Deserialize, Serialize)]
 pub enum WindowRequest {
     /// Open a new window
-    Open,
+    Open(WindowOpenOptions),
     /// Close a window
-    Close,
+    Close {
+        #[arg(short = 'A', long)]
+        /// Close all open windows
+        all: bool,
+    },
     /// Reopen a window to apply settings like bar height/width
-    Reopen,
+    Reopen {
+        #[arg(short = 'A', long)]
+        /// Reopen all open windows
+        all: bool,
+    },
     #[command(flatten)]
     Command(WindowCommand),
 }
@@ -43,7 +51,10 @@ pub enum WindowRequest {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum IpcResponse {
     WindowList(HashMap<usize, Window>),
-    Window { id: usize, event: WindowResponse },
+    Window {
+        id: Vec<usize>,
+        event: WindowResponse,
+    },
     Closing,
     Error(String),
 }
