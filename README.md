@@ -6,8 +6,9 @@
 A simple status bar, written using [iced-rs](https://github.com/iced-rs/iced/) (specifically the [pop-os fork](https://github.com/pop-os/iced/) of iced, which supports the [wlr layer shell protocol](https://wayland.app/protocols/wlr-layer-shell-unstable-v1))
 
 > [!Note]
-> `bar-rs` is currently undergoing a full rewrite, see [#24](https://github.com/Faervan/bar-rs/issues/24) for the reasons.
-> Progress is a bit slow since I am working on some other, smaller projects which I will complete first.
+> `bar-rs` is currently undergoing a full rewrite, see [#24](https://github.com/Faervan/bar-rs/issues/24) for the reasons.<br>
+> ~~Progress is a bit slow since I am working on some other, smaller projects which I will complete first.~~ <br>
+> Development is active in the [`crabbar_rework`](https://github.com/faervan/bar-rs/tree/crabbar_rework) branch again.
 
 ![image](https://github.com/user-attachments/assets/c62d8399-0f80-4c3b-8cb8-a325db13fc32)
 
