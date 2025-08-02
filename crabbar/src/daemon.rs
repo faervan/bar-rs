@@ -35,6 +35,7 @@ pub fn run(
 
     iced::daemon(State::title, State::update, State::view)
         .subscription(State::subscribe)
+        .theme(State::theme)
         .run_with(move || State::new(socket_path, pid_path, open_window, window_opts))?;
 
     Ok(())

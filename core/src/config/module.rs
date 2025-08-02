@@ -12,15 +12,15 @@ use toml_example::TomlExample;
 )]
 #[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)]
 pub struct ModuleLayout {
-    #[arg(long = "modules_left")]
+    #[arg(short = 'L', long = "module_left")]
     /// Modules that should be displayed on the left of the bar
     pub left: Vec<String>,
 
-    #[arg(long = "modules_center")]
+    #[arg(short = 'C', long = "module_center")]
     /// Modules that should be displayed on the center of the bar
     pub center: Vec<String>,
 
-    #[arg(long = "modules_right")]
+    #[arg(short = 'R', long = "module_right")]
     /// Modules that should be displayed on the right of the bar
     pub right: Vec<String>,
 }

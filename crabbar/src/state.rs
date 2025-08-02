@@ -1,5 +1,5 @@
 use core::{
-    config::{ConfigOptions, GlobalConfig},
+    config::{theme::Theme, ConfigOptions, GlobalConfig},
     window::{Window, WindowOpenOptions},
 };
 use std::{
@@ -10,8 +10,8 @@ use std::{
 };
 
 use iced::{
-    Element, Task, event::wayland,
-    platform_specific::shell::commands::layer_surface::destroy_layer_surface, stream, window::Id,
+    event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
+    stream, window::Id, Element, Task,
 };
 use ipc::{IpcRequest, IpcResponse};
 use log::{error, info};
@@ -36,6 +36,7 @@ pub struct State {
     /// Every opened window gets a unique ID equal to the count of windows opened beforehand
     id_count: usize,
     configurations: HashMap<String, ConfigOptions>,
+    themes: HashMap<String, Theme>,
 }
 
 impl State {
@@ -217,16 +218,36 @@ impl State {
         }
     }
 
+    pub fn theme(&self, id: Id) -> iced::Theme {
+        match self.windows.get(&id) {
+            Some(window) => window.theme(),
+            None => {
+                error!("Internal error: requested theme for invalid window ID");
+                iced::Theme::default()
+            }
+        }
+    }
+
     fn open_window(&mut self, opts: WindowOpenOptions) -> (Task<Message>, usize) {
         let naive_id = self.id_count;
-        let config = match self.configurations.get(&opts.name) {
+        let mut config = match self.configurations.get(&opts.name) {
             Some(config) => config.clone(),
             None => {
                 error!("No such configuration: {}", opts.name);
                 ConfigOptions::default()
             }
         };
-        let window = Window::new(naive_id, opts, config);
+        config.merge_opt(opts.config.clone());
+        // TODO! Handle iced builtin themes
+        let mut theme = match self.themes.get(&config.theme) {
+            Some(theme) => theme.clone(),
+            None => {
+                error!("No such theme: {}", config.theme);
+                Theme::default()
+            }
+        };
+        theme.merge_opt(opts.theme.clone());
+        let window = Window::new(naive_id, opts, config, theme);
         let mut task = Task::none();
         if self.outputs_ready {
             task = window.open(&self.outputs);
