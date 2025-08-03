@@ -14,6 +14,7 @@ use smithay_client_toolkit::{
 
 use crate::config::{
     theme::{Theme, ThemeOverride},
+    window::MonitorSelection,
     ConfigOptionOverride, ConfigOptions,
 };
 
@@ -81,20 +82,22 @@ impl Window {
 
     pub fn open<Message>(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
         log::info!("opening window with id {}", self.naive_id);
-        let (output, info) = outputs
-            .iter()
-            .find(|(_, info)| {
-                true
-                // info.as_ref()
-                //     .is_some_and(|info| info.name == self.config.monitor)
-            })
-            .map(|(o, info)| (IcedOutput::Output(o.clone()), info))
-            .unwrap_or_else(|| {
-                // if let Some(m) = self.config.monitor.as_ref() {
-                //     error!("No output with name {m} could be found!");
-                // }
-                (IcedOutput::Active, &None)
-            });
+        log::info!("outputs: {outputs:#?}");
+        let (output, info) = match &self.config.window.monitor {
+            MonitorSelection::All => (IcedOutput::All, None),
+            MonitorSelection::Active => (IcedOutput::Active, None),
+            MonitorSelection::Name(name) => outputs
+                .iter()
+                .find(|(_, info)| {
+                    info.as_ref()
+                        .is_some_and(|info| info.name.as_ref() == Some(name))
+                })
+                .map(|(o, info)| (IcedOutput::Output(o.clone()), info.as_ref()))
+                .unwrap_or_else(|| {
+                    log::error!("No output with name {name} could be found!");
+                    (IcedOutput::Active, None)
+                }),
+        };
 
         let (x, y) = info
             .as_ref()
@@ -104,14 +107,12 @@ impl Window {
         get_layer_surface(SctkLayerSurfaceSettings {
             layer: Layer::Top,
             keyboard_interactivity: self.config.window.keyboard_focus,
-            // anchor: (&self.config.style.anchor).into(),
             // exclusive_zone: self.config.exclusive_zone(),
             // size: self.config.dimension(x, y),
             size: Some((
                 Some(self.config.window.width),
                 Some(self.config.window.height),
             )),
-            // size: Some((None, Some(50))),
             anchor: self.config.window.anchor,
             namespace: format!("crabbar{}", self.naive_id),
             exclusive_zone: 30,

@@ -18,6 +18,11 @@ pub struct WindowConfig {
     /// The anchor to use when positioning the window. May be `top`, `bottom`, `left` or `right`
     pub anchor: Anchor,
 
+    #[arg(long, value_parser = clap_parser::parse_monitor)]
+    #[serde(with = "serde_with::monitor")]
+    /// The monitor to open on
+    pub monitor: MonitorSelection,
+
     #[arg(long)]
     /// The height of the window
     pub height: u32,
@@ -37,6 +42,7 @@ impl Default for WindowConfig {
     fn default() -> Self {
         Self {
             anchor: Anchor::BOTTOM,
+            monitor: MonitorSelection::Active,
             height: 30,
             width: 1000,
             keyboard_focus: KeyboardInteractivity::None,
@@ -44,8 +50,17 @@ impl Default for WindowConfig {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum MonitorSelection {
+    All,
+    Active,
+    Name(String),
+}
+
 mod clap_parser {
     use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity};
+
+    use super::MonitorSelection;
 
     pub fn parse_anchor(value: &str) -> Result<Anchor, &'static str> {
         Anchor::from_name(&value.to_uppercase())
@@ -62,6 +77,14 @@ mod clap_parser {
             ),
         })
     }
+
+    pub fn parse_monitor(value: &str) -> Result<MonitorSelection, &'static str> {
+        Ok(match value {
+            "all" => MonitorSelection::All,
+            "active" => MonitorSelection::Active,
+            name => MonitorSelection::Name(String::from(name)),
+        })
+    }
 }
 
 mod serde_with {
@@ -72,9 +95,9 @@ mod serde_with {
                 use smithay_client_toolkit::shell::wlr_layer::Anchor;
                 #[allow(unused_imports)]
                 use smithay_client_toolkit::shell::wlr_layer::KeyboardInteractivity;
+
                 use serde::{de::Error as _, ser::Error as _};
 
-                #[allow(private_bounds)]
                 pub fn serialize<S, A>(value: &A, serializer: S) -> Result<S::Ok, S::Error>
                 where
                     S: serde::ser::Serializer,
@@ -100,7 +123,6 @@ mod serde_with {
                         serializer.serialize_str(string)
                     }
                 }
-                #[allow(private_bounds)]
                 pub fn deserialize<'de, D, A>(deserializer: D) -> Result<A, D::Error>
                 where
                     D: serde::de::Deserializer<'de>,
@@ -143,4 +165,41 @@ mod serde_with {
             ("exclusive", KeyboardInteractivity::Exclusive)
         ]
     );
+
+    pub mod monitor {
+        use crate::config::window::MonitorSelection;
+
+        pub fn serialize<S, A>(value: &A, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::ser::Serializer,
+            A: crate::accept_option::AcceptOption<MonitorSelection>,
+        {
+            let (value, is_opt) = value.as_opt();
+            let Some(value) = value else {
+                return serializer.serialize_none();
+            };
+            let string = match value {
+                MonitorSelection::All => "all",
+                MonitorSelection::Active => "active",
+                MonitorSelection::Name(name) => name.as_str(),
+            };
+            if is_opt {
+                serializer.serialize_some(string)
+            } else {
+                serializer.serialize_str(string)
+            }
+        }
+        pub fn deserialize<'de, D, A>(deserializer: D) -> Result<A, D::Error>
+        where
+            D: serde::de::Deserializer<'de>,
+            A: crate::accept_option::AcceptOption<MonitorSelection>,
+        {
+            let value: Option<String> = A::deserialize_v(deserializer)?;
+            Ok(A::from_opt(value.map(|value| match value.as_str() {
+                "all" => MonitorSelection::All,
+                "active" => MonitorSelection::Active,
+                name => MonitorSelection::Name(String::from(name)),
+            })))
+        }
+    }
 }

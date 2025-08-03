@@ -1,14 +1,19 @@
 use std::{collections::HashMap, fmt::Debug};
 
+use custom::CustomModules;
+use downcast_rs::{impl_downcast, Downcast};
 use iced::Element;
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use toml::Table;
 
-use crate::{config::style::ContainerStyle, registry::Registry, template_engine::TemplateEngine};
+use crate::{
+    config::style::ContainerStyle, message::Message, registry::Registry,
+    template_engine::TemplateEngine,
+};
 
 pub type Context = HashMap<String, Box<dyn ToString + Send + Sync>>;
 
-pub trait Module<Message: 'static>: Debug {
+pub trait Module: Downcast + Debug + Send + Sync {
     fn variant_names(&self) -> Vec<&str>;
 
     fn active(&self) -> bool {
@@ -28,41 +33,45 @@ pub trait Module<Message: 'static>: Debug {
         variant: &str,
         config: Table,
         style: ContainerStyle,
-        engine: TemplateEngine<Message>,
+        engine: TemplateEngine,
     ) {
     }
 }
+impl_downcast!(Module);
 
-pub fn register_modules<Message: 'static>(registry: &mut Registry<Message>) {}
+pub fn register_modules(registry: &mut Registry) {
+    registry.register_module::<CustomModules>();
+}
 
 mod custom {
     use std::{collections::HashMap, fmt::Debug};
 
+    use derive::Builder;
     use toml::Table;
 
-    use crate::{config::style::ContainerStyle, template_engine::Token};
+    use crate::{config::style::ContainerStyle, message::Message, template_engine::Token};
 
     use super::Module;
 
-    #[derive(Debug)]
-    pub struct CustomModules<Message: 'static + Debug> {
-        modules: HashMap<String, CustomModule<Message>>,
+    #[derive(Builder, Default, Debug)]
+    pub struct CustomModules {
+        modules: HashMap<String, CustomModule>,
     }
 
-    struct CustomModule<Message: 'static> {
+    struct CustomModule {
         sources: Vec<String>,
         style: ContainerStyle,
         config: Table,
-        token: Box<dyn Token<Message>>,
+        token: Box<dyn Token<Message> + Send + Sync>,
     }
 
-    impl<Message: 'static + Debug> Debug for CustomModule<Message> {
+    impl Debug for CustomModule {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "CustomModule")
         }
     }
 
-    impl<Message: 'static + Debug> Module<Message> for CustomModules<Message> {
+    impl Module for CustomModules {
         fn variant_names(&self) -> Vec<&str> {
             self.modules.keys().map(String::as_str).collect()
         }
@@ -83,7 +92,7 @@ mod custom {
             variant: &str,
             config: Table,
             style: ContainerStyle,
-            engine: crate::template_engine::TemplateEngine<Message>,
+            engine: crate::template_engine::TemplateEngine,
         ) {
             let format = match config.get("format") {
                 Some(toml::Value::String(fmt)) => fmt,

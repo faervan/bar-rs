@@ -11,16 +11,16 @@ pub trait Builder: Any {
 }
 
 #[derive(Default, Debug)]
-pub struct Registry<Message: 'static> {
-    modules: HashMap<TypeId, Box<dyn Module<Message>>>,
+pub struct Registry {
+    modules: HashMap<TypeId, Box<dyn Module>>,
     module_names: HashMap<String, TypeId>,
     resolvers: HashMap<String, fn() -> Option<TypeId>>,
 }
 
-impl<Message> Registry<Message> {
+impl Registry {
     pub fn register_module<T: Builder>(&mut self)
     where
-        T::Output: Module<Message>,
+        T::Output: Module,
     {
         let output = T::build();
         let type_id = TypeId::of::<T>();
@@ -30,32 +30,29 @@ impl<Message> Registry<Message> {
         self.modules.insert(type_id, Box::new(output));
     }
 
-    pub fn try_get_module<T: Module<Message>>(&self) -> Option<&T> {
+    pub fn try_get_module<T: Module>(&self) -> Option<&T> {
         let id = &TypeId::of::<T>();
         self.modules.get(id).and_then(|t| t.downcast_ref::<T>())
     }
 
-    pub fn try_get_module_mut<T: Module<Message>>(&mut self) -> Option<&mut T> {
+    pub fn try_get_module_mut<T: Module>(&mut self) -> Option<&mut T> {
         let id = &TypeId::of::<T>();
         self.modules.get_mut(id).and_then(|t| t.downcast_mut::<T>())
     }
 
-    pub fn get_module_by_id(&self, id: TypeId) -> &dyn Module<Message> {
+    pub fn get_module_by_id(&self, id: TypeId) -> &dyn Module {
         self.modules.get(&id).unwrap().as_ref()
     }
 
-    pub fn get_module<T: Module<Message>>(&self) -> &T {
+    pub fn get_module<T: Module>(&self) -> &T {
         self.try_get_module().unwrap()
     }
 
-    pub fn get_module_mut<T: Module<Message>>(&mut self) -> &mut T {
+    pub fn get_module_mut<T: Module>(&mut self) -> &mut T {
         self.try_get_module_mut().unwrap()
     }
 
-    pub fn get_modules<'a, I>(
-        &'a self,
-        enabled: I,
-    ) -> impl Iterator<Item = &'a Box<dyn Module<Message>>>
+    pub fn get_modules<'a, I>(&'a self, enabled: I) -> impl Iterator<Item = &'a Box<dyn Module>>
     where
         I: Iterator<Item = &'a String>,
     {
@@ -71,7 +68,7 @@ impl<Message> Registry<Message> {
     pub fn get_modules_mut<'a, I>(
         &'a mut self,
         enabled: I,
-    ) -> impl Iterator<Item = &'a mut Box<dyn Module<Message>>>
+    ) -> impl Iterator<Item = &'a mut Box<dyn Module>>
     where
         I: Iterator<Item = &'a str>,
     {
@@ -99,5 +96,9 @@ impl<Message> Registry<Message> {
 
     pub fn add_resolver<S: ToString>(&mut self, name: S, f: fn() -> Option<TypeId>) {
         self.resolvers.insert(name.to_string(), f);
+    }
+
+    pub fn module_names(&self) -> impl Iterator<Item = &String> {
+        self.module_names.iter().map(|(name, _)| name)
     }
 }

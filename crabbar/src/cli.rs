@@ -1,12 +1,13 @@
-use core::{directories, window::WindowOpenOptions};
+use core::{
+    daemon, directories,
+    ipc::{self, IpcRequest},
+    window::WindowOpenOptions,
+};
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use ipc::IpcRequest;
 use log::{error, info};
 use nix::unistd::Pid;
-
-use crate::daemon;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -93,6 +94,14 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                         for (id, window) in windows {
                             println!("{id}:\t{window:#?}")
                         }
+                    }
+                },
+                ModuleList(mut modules) => match modules.is_empty() {
+                    true => info!("No modules are available!"),
+                    false => {
+                        info!("{} modules available:", modules.len(),);
+                        modules.sort();
+                        println!("\t{}", modules.join(", "));
                     }
                 },
                 Closing => info!("Closing the crabbar daemon."),

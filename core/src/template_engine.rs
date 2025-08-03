@@ -3,9 +3,9 @@ use std::{collections::HashMap, fmt::Debug};
 use iced::Element;
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 
-use crate::{config::style::ContainerStyle, module::Context};
+use crate::{config::style::ContainerStyle, message::Message, module::Context};
 
-pub trait Token<Message: Sized> {
+pub trait Token<Message: Sized>: Send + Sync {
     fn render<'a>(
         &'a self,
         context: &Context,
@@ -14,19 +14,19 @@ pub trait Token<Message: Sized> {
     ) -> Element<'a, Message>;
 }
 
-type ToTokenRenderer<Message> = fn(&TemplateEngine<Message>, &str) -> Box<dyn Token<Message>>;
+type ToTokenRenderer<Message> = fn(&TemplateEngine, &str) -> Box<dyn Token<Message>>;
 
-pub struct TemplateEngine<Message> {
+pub struct TemplateEngine {
     token_registry: HashMap<&'static str, ToTokenRenderer<Message>>,
 }
 
-impl<Message> Debug for TemplateEngine<Message> {
+impl Debug for TemplateEngine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "TemplateEngine")
     }
 }
 
-impl<Message: 'static> TemplateEngine<Message> {
+impl TemplateEngine {
     pub fn new() -> Self {
         Self {
             token_registry: HashMap::from([("text", Self::text as ToTokenRenderer<Message>)]),

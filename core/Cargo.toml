@@ -4,10 +4,14 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+derive.workspace = true
+
 clap.workspace = true
 serde.workspace = true
 anyhow.workspace = true
+ron.workspace = true
 log.workspace = true
+tokio.workspace = true
 iced.workspace = true
 smithay-client-toolkit.workspace = true
 toml.workspace = true
@@ -15,6 +19,8 @@ toml-example.workspace = true
 optfield.workspace = true
 csscolorparser.workspace = true
 darkmode.workspace = true
+downcast-rs.workspace = true
+daemonize.workspace = true
 
 [lints]
 workspace = true

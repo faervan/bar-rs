@@ -1,4 +1,4 @@
-use core::window::{Window, WindowCommand, WindowOpenOptions};
+use crate::window::{Window, WindowCommand, WindowOpenOptions};
 use std::{
     collections::HashMap,
     fs,
@@ -15,6 +15,8 @@ pub enum IpcRequest {
     #[command(name = "list")]
     /// List all open windows
     ListWindows,
+    /// List all available modules
+    Modules,
     /// Perform a window action
     Window {
         #[command(subcommand)]
@@ -51,6 +53,7 @@ pub enum WindowRequest {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum IpcResponse {
     WindowList(HashMap<usize, Window>),
+    ModuleList(Vec<String>),
     Window {
         id: Vec<usize>,
         event: WindowResponse,

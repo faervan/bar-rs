@@ -1,4 +1,3 @@
-use core::window::WindowOpenOptions;
 use std::{
     fs,
     io::Write as _,
@@ -7,7 +6,6 @@ use std::{
 
 use daemonize::Daemonize;
 use iced::futures::{channel::mpsc::Sender, SinkExt as _};
-use ipc::IpcRequest;
 use log::{error, info};
 use tokio::{
     io::{AsyncReadExt as _, AsyncWriteExt as _},
@@ -15,7 +13,7 @@ use tokio::{
     sync::oneshot,
 };
 
-use crate::{message::Message, state::State};
+use crate::{ipc::IpcRequest, message::Message, state::State, window::WindowOpenOptions};
 
 pub fn run(
     open_window: bool,

@@ -1,11 +1,13 @@
-use core::config::GlobalConfig;
 use std::{fmt::Debug, sync::Arc};
 
+use crate::{
+    config::GlobalConfig,
+    ipc::{IpcRequest, IpcResponse},
+};
 use iced::{
     event::wayland::OutputEvent,
     futures::{channel::mpsc, SinkExt as _},
 };
-use ipc::{IpcRequest, IpcResponse};
 use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
 use tokio::sync::oneshot;
 
@@ -40,6 +42,7 @@ pub enum Message {
         event: Box<OutputEvent>,
         wl_output: WlOutput,
     },
+    OutputsReady,
     IpcCommand {
         request: IpcRequest,
         responder: oneshot::Sender<IpcResponse>,

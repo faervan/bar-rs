@@ -1,5 +1,10 @@
-use core::{
+use crate::{
     config::{theme::Theme, ConfigOptions, GlobalConfig},
+    daemon,
+    ipc::{IpcRequest, IpcResponse, WindowRequest, WindowResponse},
+    message::Message,
+    module::register_modules,
+    registry::Registry,
     window::{Window, WindowOpenOptions},
 };
 use std::{
@@ -13,14 +18,11 @@ use iced::{
     event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
     stream, window::Id, Element, Task,
 };
-use ipc::{IpcRequest, IpcResponse};
 use log::{error, info};
 use smithay_client_toolkit::{
     output::OutputInfo, reexports::client::protocol::wl_output::WlOutput,
 };
 use tokio::time::sleep;
-
-use crate::{daemon, message::Message};
 
 #[derive(Debug, Default)]
 pub struct State {
@@ -33,10 +35,12 @@ pub struct State {
     windows: HashMap<Id, Window>,
     window_ids: HashMap<usize, Id>,
     opening_queue: VecDeque<Id>,
+    pub subscriptions: Vec<iced::Subscription<Message>>,
     /// Every opened window gets a unique ID equal to the count of windows opened beforehand
     id_count: usize,
     configurations: HashMap<String, ConfigOptions>,
     themes: HashMap<String, Theme>,
+    registry: Registry,
 }
 
 impl State {
@@ -46,9 +50,13 @@ impl State {
         open_window: bool,
         opts: WindowOpenOptions,
     ) -> (Self, Task<Message>) {
+        let mut registry = Registry::default();
+        register_modules(&mut registry);
+
         let mut state = State {
             socket_path,
             pid_path,
+            registry,
             ..Default::default()
         };
         let task = match open_window {
@@ -75,13 +83,13 @@ impl State {
             OutputEvent { event, wl_output } => match *event {
                 wayland::OutputEvent::Created(info_maybe) => {
                     let first_output = self.outputs.is_empty();
+                    log::debug!("got new output: {info_maybe:#?}");
                     self.outputs.insert(wl_output, info_maybe);
                     if !self.outputs_ready && first_output {
-                        self.outputs_ready = true;
-                        return Task::stream(stream::channel(1, |_| async {
+                        return Task::future(async {
                             sleep(Duration::from_millis(500)).await;
-                        }))
-                        .chain(self.flush_opening_queue());
+                            Message::OutputsReady
+                        });
                     }
                 }
                 wayland::OutputEvent::InfoUpdate(info) => {
@@ -91,8 +99,13 @@ impl State {
                     self.outputs.remove(&wl_output);
                 }
             },
+            OutputsReady => {
+                log::debug!("Outputs are ready");
+                self.outputs_ready = true;
+                return self.flush_opening_queue();
+            }
             IpcCommand { request, responder } => {
-                use ipc::WindowRequest::*;
+                use WindowRequest::*;
 
                 info!("Received ipc request: {request:?}");
 
@@ -104,6 +117,9 @@ impl State {
                             .map(|w| (w.naive_id(), w.clone()))
                             .collect(),
                     ),
+                    IpcRequest::Modules => {
+                        IpcResponse::ModuleList(self.registry.module_names().cloned().collect())
+                    }
                     IpcRequest::Close => {
                         info!("closing the daemon");
                         daemon::exit_cleanup(&self.socket_path, &self.pid_path);
@@ -111,7 +127,7 @@ impl State {
                         IpcResponse::Closing
                     }
                     IpcRequest::Window { cmd, id } => {
-                        use ipc::WindowResponse;
+                        use WindowResponse;
                         match cmd {
                             Open(opts) => {
                                 info!("Opening new window");
@@ -249,6 +265,7 @@ impl State {
         theme.merge_opt(opts.theme.clone());
         let window = Window::new(naive_id, opts, config, theme);
         let mut task = Task::none();
+        log::debug!("Should the window be opened? {}", self.outputs_ready);
         if self.outputs_ready {
             task = window.open(&self.outputs);
         } else {
