@@ -93,6 +93,10 @@ impl ContainerStyle {
             }
         }
     }
+
+    pub fn class(&self, class: &str) -> &Style {
+        self.class.get(class).unwrap_or(&self.style)
+    }
 }
 
 mod serde_with_padding {
