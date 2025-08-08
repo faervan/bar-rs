@@ -2,6 +2,7 @@ use clap::Args;
 use module::{ModuleLayout, ModuleLayoutOverride};
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
+use toml_example::TomlExample;
 use window::{WindowConfig, WindowConfigOverride};
 
 pub mod module;
@@ -34,10 +35,11 @@ impl Default for GlobalConfig {
 }
 
 // Note: all fields from ConfigOptions need to be present for ConfigOptionOverride as well!
-#[derive(Args, Debug, Clone, Serialize, Deserialize)]
+#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)]
 #[serde(default)]
 pub struct ConfigOptions {
     #[arg(long)]
+    #[toml_example(default)]
     /// Name of the theme to use
     pub theme: String,
 

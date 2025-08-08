@@ -104,6 +104,9 @@ impl Window {
             .and_then(|i| i.logical_size.map(|(x, y)| (x as u32, y as u32)))
             .unwrap_or((1920, 1080));
 
+        use toml_example::TomlExample;
+        log::debug!("default config:\n{}", ConfigOptions::toml_example());
+
         get_layer_surface(SctkLayerSurfaceSettings {
             layer: Layer::Top,
             keyboard_interactivity: self.config.window.keyboard_focus,
