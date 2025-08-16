@@ -12,7 +12,7 @@ impl Default for EnabledModules {
         let vec = |list: &[&str]| list.iter().map(|i| i.to_string()).collect();
 
         Self {
-            left: vec(&["hyprland.workspaces", "hyprland.window"]),
+            left: vec(&["workspaces", "window"]),
             center: vec(&["date", "time"]),
             right: vec(&["media", "volume", "cpu", "memory"]),
         }
@@ -22,8 +22,13 @@ impl Default for EnabledModules {
 impl From<&Ini> for EnabledModules {
     fn from(ini: &Ini) -> Self {
         let get = |field: &str| {
-            ini.get("modules", field)
-                .map(|value| value.split(',').map(|v| v.trim().to_string()).collect())
+            ini.get("modules", field).map(|value| {
+                value
+                    .split(',')
+                    .filter(|v| !v.is_empty())
+                    .map(|v| v.trim().to_string())
+                    .collect()
+            })
         };
 
         let default = Self::default();

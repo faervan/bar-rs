@@ -109,7 +109,7 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry, templates: &mut Hand
         return Config::default(registry);
     };
     let config: Config = (&ini, &*registry).into();
-    let empty_map = HashMap::new();
+    let empty_config = HashMap::new();
     registry
         .get_modules_mut(config.enabled_modules.get_all(), &config)
         .map(|m| {
@@ -117,11 +117,11 @@ pub fn read_config(path: &PathBuf, registry: &mut Registry, templates: &mut Hand
             let cfg_map = ini
                 .get_map_ref()
                 .get(&format!("module:{}", name))
-                .unwrap_or(&empty_map);
+                .unwrap_or(&empty_config);
             let popup_cfg_map = ini
                 .get_map_ref()
                 .get(&format!("module_popup:{}", name))
-                .unwrap_or(&empty_map);
+                .unwrap_or(&empty_config);
             (m, cfg_map, popup_cfg_map)
         })
         .for_each(|(m, cfg_map, popup_cfg_map)| m.read_config(cfg_map, popup_cfg_map, templates));

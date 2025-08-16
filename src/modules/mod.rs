@@ -9,6 +9,7 @@ use cpu::CpuMod;
 use date::DateMod;
 use disk_usage::DiskUsageMod;
 use downcast_rs::{impl_downcast, Downcast};
+use empty::EmptyModule;
 use handlebars::Handlebars;
 use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
 use iced::{
@@ -36,6 +37,7 @@ pub mod battery;
 pub mod cpu;
 pub mod date;
 pub mod disk_usage;
+pub mod empty;
 pub mod hyprland;
 pub mod media;
 pub mod memory;
@@ -208,6 +210,7 @@ where
 }
 
 pub fn register_modules(registry: &mut Registry) {
+    registry.register_module::<EmptyModule>();
     registry.register_module::<CpuMod>();
     registry.register_module::<MemoryMod>();
     registry.register_module::<BatteryMod>();

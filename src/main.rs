@@ -29,7 +29,7 @@ use iced::{
 };
 use list::{list, DynamicAlign};
 use listeners::register_listeners;
-use modules::{register_modules, Module};
+use modules::{empty::EmptyModule, register_modules, Module};
 use registry::Registry;
 use resolvers::register_resolvers;
 use tokio::{
@@ -308,13 +308,13 @@ impl Bar<'_> {
                     read_config(&self.config_file, &mut self.registry, &mut self.templates).into();
                 if self.config.hard_reload {
                     self.open = false;
-                    self.registry = Registry::default();
                     return destroy_layer_surface(self.layer_id)
                         .chain(self.open())
                         .chain(Task::done(Message::LoadRegistry));
                 }
             }
             Message::LoadRegistry => {
+                self.registry = Registry::default();
                 register_modules(&mut self.registry);
                 register_listeners(&mut self.registry);
                 register_resolvers(&mut self.registry);
@@ -371,26 +371,34 @@ impl Bar<'_> {
         let anchor = &self.config.anchor;
         let make_list = |spacing: fn(&Thrice<f32>) -> f32,
                          field: fn(&EnabledModules) -> &Vec<String>| {
-            container(
-                list(
+            let modules = self
+                .registry
+                .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
+                .filter(|&m| m.active())
+                .map(|m| {
+                    m.wrapper(
+                        &self.config.module_config.local,
+                        m.view(
+                            &self.config.module_config.local,
+                            &self.config.popup_config,
+                            anchor,
+                            &self.templates,
+                        ),
+                        anchor,
+                    )
+                })
+                .collect::<Vec<_>>();
+            let content = if modules.is_empty() {
+                vec![self.registry.get_module::<EmptyModule>().wrapper(
+                    &self.config.module_config.local,
+                    "".into(),
                     anchor,
-                    self.registry
-                        .get_modules(field(&self.config.enabled_modules).iter(), &self.config)
-                        .filter(|&m| m.active())
-                        .map(|m| {
-                            m.wrapper(
-                                &self.config.module_config.local,
-                                m.view(
-                                    &self.config.module_config.local,
-                                    &self.config.popup_config,
-                                    anchor,
-                                    &self.templates,
-                                ),
-                                anchor,
-                            )
-                        }),
-                )
-                .spacing(spacing(&self.config.module_config.global.spacing)),
+                )]
+            } else {
+                modules
+            };
+            container(
+                list(anchor, content).spacing(spacing(&self.config.module_config.global.spacing)),
             )
             .fillx(!anchor.vertical())
         };
