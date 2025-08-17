@@ -1,4 +1,5 @@
 use core::{
+    config::{style::ContainerStyle, theme::Theme, ConfigOptions},
     daemon, directories,
     ipc::{self, IpcRequest},
     window::WindowOpenOptions,
@@ -8,6 +9,7 @@ use std::{fs, path::PathBuf};
 use clap::{Parser, Subcommand};
 use log::{error, info};
 use nix::unistd::Pid;
+use toml_example::TomlExample as _;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -39,6 +41,12 @@ enum Command {
         #[command(flatten)]
         opts: WindowOpenOptions,
     },
+    /// Print the default configuration
+    DefaultConfig,
+    /// Print the default style
+    DefaultStyle,
+    /// Print the default theme
+    DefaultTheme,
     #[command(flatten)]
     Ipc(IpcRequest),
 }
@@ -81,6 +89,9 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
 
             daemon::run(!dry, opts, !dont_daemonize, &log_dir, socket_path, pid_path)?;
         }
+        Command::DefaultConfig => println!("{}", ConfigOptions::toml_example()),
+        Command::DefaultStyle => println!("{}", ContainerStyle::toml_example()),
+        Command::DefaultTheme => println!("{}", Theme::toml_example()),
         Command::Ipc(cmd) => {
             let response = ipc::request(cmd, &socket_path)?;
             use ipc::IpcResponse::*;

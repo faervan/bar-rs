@@ -2,24 +2,27 @@ use clap::Args;
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity};
+use toml_example::TomlExample;
 
 #[optfield(
     pub WindowConfigOverride,
-    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize)),
+    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)),
     field_doc,
     field_attrs,
     merge_fn = pub
 )]
-#[derive(Args, Debug, Clone, Serialize, Deserialize)]
+#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)]
 #[serde(default)]
 pub struct WindowConfig {
     #[arg(long, value_parser = clap_parser::parse_anchor)]
     #[serde(with = "serde_with::anchor")]
+    #[toml_example(default = "Top")]
     /// The anchor to use when positioning the window. May be `top`, `bottom`, `left` or `right`
     pub anchor: Anchor,
 
     #[arg(long, value_parser = clap_parser::parse_monitor)]
     #[serde(with = "serde_with::monitor")]
+    #[toml_example(enum)]
     /// The monitor to open on
     pub monitor: MonitorSelection,
 
@@ -33,9 +36,27 @@ pub struct WindowConfig {
 
     #[arg(long, value_parser = clap_parser::parse_keyboard)]
     #[serde(with = "serde_with::keyboard")]
+    #[toml_example(enum)]
     /// Determines if the window should be focusable and receive keyboard inputs. May be `none`,
     /// `on_demand` or `exclusive`.
     pub keyboard_focus: KeyboardInteractivity,
+}
+
+impl PartialEq for WindowConfig {
+    fn eq(&self, other: &Self) -> bool {
+        let monitor_equal = match self.monitor {
+            MonitorSelection::All => matches!(other.monitor, MonitorSelection::All),
+            MonitorSelection::Active => matches!(other.monitor, MonitorSelection::Active),
+            MonitorSelection::Name(ref name) => {
+                matches!(&other.monitor, MonitorSelection::Name(n) if n == name)
+            }
+        };
+        self.anchor == other.anchor
+            && self.height == other.height
+            && self.width == other.width
+            && self.keyboard_focus == other.keyboard_focus
+            && monitor_equal
+    }
 }
 
 impl Default for WindowConfig {
@@ -88,6 +109,10 @@ mod clap_parser {
 }
 
 mod serde_with {
+    use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity};
+
+    use crate::serde_with::ImplAcceptOption;
+
     macro_rules! gen_serde_with {
         ($mod_name:ident, $type:ty, [ $( ($variant_name:expr, $variant_value:path) ),* $(,)? ]) => {
             pub mod $mod_name {
@@ -101,7 +126,7 @@ mod serde_with {
                 pub fn serialize<S, A>(value: &A, serializer: S) -> Result<S::Ok, S::Error>
                 where
                     S: serde::ser::Serializer,
-                    A: crate::accept_option::AcceptOption<$type>,
+                    A: crate::serde_with::AcceptOption<$type>,
                 {
                     let (value, is_opt) = value.as_opt();
                     let Some(value) = value else {
@@ -126,7 +151,7 @@ mod serde_with {
                 pub fn deserialize<'de, D, A>(deserializer: D) -> Result<A, D::Error>
                 where
                     D: serde::de::Deserializer<'de>,
-                    A: crate::accept_option::AcceptOption<$type>,
+                    A: crate::serde_with::AcceptOption<$type>,
                 {
                     let value: Option<String> = A::deserialize_v(deserializer)?;
                     Ok(A::from_opt(match value {
@@ -145,6 +170,8 @@ mod serde_with {
         };
     }
 
+    impl ImplAcceptOption for Anchor {}
+
     gen_serde_with!(
         anchor,
         Anchor,
@@ -155,6 +182,8 @@ mod serde_with {
             ("right", Anchor::RIGHT)
         ]
     );
+
+    impl ImplAcceptOption for KeyboardInteractivity {}
 
     gen_serde_with!(
         keyboard,
@@ -167,12 +196,14 @@ mod serde_with {
     );
 
     pub mod monitor {
-        use crate::config::window::MonitorSelection;
+        use crate::{config::window::MonitorSelection, serde_with::ImplAcceptOption};
+
+        impl ImplAcceptOption for MonitorSelection {}
 
         pub fn serialize<S, A>(value: &A, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::ser::Serializer,
-            A: crate::accept_option::AcceptOption<MonitorSelection>,
+            A: crate::serde_with::AcceptOption<MonitorSelection>,
         {
             let (value, is_opt) = value.as_opt();
             let Some(value) = value else {
@@ -192,7 +223,7 @@ mod serde_with {
         pub fn deserialize<'de, D, A>(deserializer: D) -> Result<A, D::Error>
         where
             D: serde::de::Deserializer<'de>,
-            A: crate::accept_option::AcceptOption<MonitorSelection>,
+            A: crate::serde_with::AcceptOption<MonitorSelection>,
         {
             let value: Option<String> = A::deserialize_v(deserializer)?;
             Ok(A::from_opt(value.map(|value| match value.as_str() {

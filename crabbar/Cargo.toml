@@ -14,6 +14,7 @@ ctrlc.workspace = true
 ron.workspace = true
 chrono.workspace = true
 nix.workspace = true
+toml-example.workspace = true
 
 [lints]
 workspace = true

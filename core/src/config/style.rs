@@ -3,28 +3,33 @@ use std::collections::HashMap;
 use iced::{Color, Padding};
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
+use toml_example::TomlExample;
 
 #[optfield(
     pub StyleOverride,
-    attrs,
+    attrs = (derive(Debug, Clone, Serialize, Deserialize, TomlExample)),
     field_doc,
     field_attrs,
     merge_fn = pub
 )]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TomlExample)]
+#[serde(default)]
 pub struct Style {
     /// The size of text (and text icons)
     pub font_size: f32,
 
     #[serde(with = "serde_with_color")]
+    #[toml_example(default = "#fff")]
     /// The font color
     pub color: ColorDescriptor,
 
     #[serde(with = "serde_with_color")]
+    #[toml_example(default = "$background")]
     /// The background color
     pub background_color: Option<ColorDescriptor>,
 
     #[serde(with = "serde_with_padding")]
+    #[toml_example(default = [0])]
     /// The space around this item separating it from neighboring items
     pub margin: Padding,
 }
@@ -40,21 +45,26 @@ impl Default for Style {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ColorDescriptor {
     Color(Color),
     ThemeColor(String),
 }
 
 // Note: all fields from ContainerStyle need to be present for ContainerStyleOverride as well!
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TomlExample, Default, PartialEq)]
 pub struct ContainerStyle {
+    #[toml_example(nesting)]
+    /// The style of this item and default style for all contained items
     pub style: Style,
 
     #[serde(with = "serde_with_padding")]
+    #[toml_example(default = [4, 10])]
     /// The space around the contained items
     pub padding: Padding,
 
+    #[toml_example(nesting)]
+    /// Style classes available for all contained items
     pub class: HashMap<String, Style>,
 }
 
@@ -103,7 +113,9 @@ mod serde_with_padding {
     use iced::Padding;
     use serde::{de::Error as _, ser::SerializeSeq as _, Deserializer, Serializer};
 
-    use crate::accept_option::AcceptOption;
+    use crate::serde_with::{AcceptOption, ImplAcceptOption};
+
+    impl ImplAcceptOption for Padding {}
 
     pub fn serialize<S, A>(value: &A, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -163,9 +175,11 @@ mod serde_with_color {
     use iced::Color;
     use serde::{de::Error as _, Deserializer, Serialize as _, Serializer};
 
-    use crate::accept_option::AcceptOption;
+    use crate::serde_with::{AcceptOption, ImplAcceptOption};
 
     use super::ColorDescriptor;
+
+    impl ImplAcceptOption for ColorDescriptor {}
 
     pub fn serialize<S, A>(value: &A, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -35,11 +35,10 @@ impl Default for GlobalConfig {
 }
 
 // Note: all fields from ConfigOptions need to be present for ConfigOptionOverride as well!
-#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)]
+#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample, PartialEq)]
 #[serde(default)]
 pub struct ConfigOptions {
     #[arg(long)]
-    #[toml_example(default)]
     /// Name of the theme to use
     pub theme: String,
 
@@ -48,11 +47,13 @@ pub struct ConfigOptions {
     pub style: String,
 
     #[command(flatten)]
+    #[toml_example(nesting)]
     /// The modules that should be enabled
     pub modules: ModuleLayout,
 
     #[command(flatten)]
     #[serde(flatten)]
+    #[toml_example(nesting)]
     pub window: WindowConfig,
 }
 
@@ -67,17 +68,7 @@ impl Default for ConfigOptions {
                 }
             ),
             style: String::from("crabbar"),
-            modules: ModuleLayout {
-                left: vec!["workspaces".to_string(), "window".to_string()],
-                center: vec!["date".to_string(), "time".to_string()],
-                right: vec![
-                    "mpris".to_string(),
-                    "volume".to_string(),
-                    "cpu".to_string(),
-                    "memory".to_string(),
-                    "disk_space".to_string(),
-                ],
-            },
+            modules: ModuleLayout::default(),
             window: WindowConfig::default(),
         }
     }

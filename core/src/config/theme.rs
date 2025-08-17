@@ -1,40 +1,56 @@
+use std::collections::HashMap;
+
 use clap::Args;
 use iced::Color;
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
+use toml_example::TomlExample;
+
+use crate::serde_with::SerdeIntermediate;
 
 #[optfield(
     pub ThemeOverride,
-    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize)),
+    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)),
     field_doc,
     field_attrs = add(arg(long, value_parser = parse_color)),
     merge_fn = pub
 )]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TomlExample, PartialEq)]
 pub struct Theme {
     #[serde(with = "serde_with")]
+    #[toml_example(default = "rgba(0, 0, 0, 0.5)")]
     /// The background of the bar
     pub background: Color,
 
     #[serde(with = "serde_with")]
+    #[toml_example(default = "#0000")]
     /// The background of the modules
     pub mod_background: Color,
 
     #[serde(with = "serde_with")]
+    #[toml_example(default = "white")]
     /// Normal text color
     pub text: Color,
 
     #[serde(with = "serde_with")]
+    #[toml_example(default = "rgb(0, 0, 255)")]
     /// Special/foreground text color
     pub primary: Color,
 
     #[serde(with = "serde_with")]
+    #[toml_example(default = "#0f0")]
     /// Color of success
     pub success: Color,
 
     #[serde(with = "serde_with")]
+    #[toml_example(default = "red")]
     /// Color of failure
     pub danger: Color,
+
+    #[serde(default, with = "SerdeIntermediate")]
+    #[toml_example(skip)]
+    /// Additional custom color variables
+    pub custom: HashMap<String, Color>,
 }
 
 impl Default for Theme {
@@ -46,6 +62,7 @@ impl Default for Theme {
             primary: iced::color!(0x0000ff),
             success: iced::color!(0x00ff00),
             danger: iced::color!(0xff0000),
+            custom: HashMap::default(),
         }
     }
 }
@@ -71,7 +88,9 @@ mod serde_with {
     use iced::Color;
     use serde::{Deserializer, Serialize as _, Serializer};
 
-    use crate::accept_option::AcceptOption;
+    use crate::serde_with::{AcceptOption, ImplAcceptOption};
+
+    impl ImplAcceptOption for Color {}
 
     pub fn serialize<S, A>(value: &A, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -97,4 +116,57 @@ mod serde_with {
         let color: Option<csscolorparser::Color> = A::deserialize_v(deserializer)?;
         Ok(A::from_opt(color.map(|c| Color::from(c.to_array()))))
     }
+}
+
+mod intermediate {
+    use std::collections::HashMap;
+
+    use iced::Color;
+    use serde::{Deserialize, Serialize};
+
+    use crate::serde_with::ImplSerdeIntermediate;
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    struct ColorIntermediate(#[serde(with = "super::serde_with")] Color);
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct MapIntermediate(HashMap<String, ColorIntermediate>);
+
+    impl From<&HashMap<String, Color>> for MapIntermediate {
+        fn from(value: &HashMap<String, Color>) -> Self {
+            Self(
+                value
+                    .iter()
+                    .map(|(k, v)| (k.clone(), ColorIntermediate(*v)))
+                    .collect(),
+            )
+        }
+    }
+
+    impl From<MapIntermediate> for HashMap<String, Color> {
+        fn from(value: MapIntermediate) -> Self {
+            value.0.into_iter().map(|(k, v)| (k, v.0)).collect()
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct OptionIntermediate(Option<MapIntermediate>);
+
+    impl From<&Option<HashMap<String, Color>>> for OptionIntermediate {
+        fn from(value: &Option<HashMap<String, Color>>) -> Self {
+            OptionIntermediate(value.as_ref().map(Into::into))
+        }
+    }
+
+    impl From<OptionIntermediate> for Option<HashMap<String, Color>> {
+        fn from(value: OptionIntermediate) -> Self {
+            value.0.map(Into::into)
+        }
+    }
+
+    impl ImplSerdeIntermediate<MapIntermediate> for HashMap<String, Color> {}
+    impl ImplSerdeIntermediate<OptionIntermediate> for Option<HashMap<String, Color>> {}
 }
