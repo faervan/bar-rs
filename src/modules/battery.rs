@@ -162,15 +162,12 @@ impl Module for BatteryMod {
         handlebars: &Handlebars,
     ) -> Element<Message> {
         let time_remaining = if self.avg.valid {
-            {
-                let time_ctx =
-                    BTreeMap::from([("hours", self.avg.hours), ("minutes", self.avg.minutes)]);
-                handlebars
-                    .render("battery_time_remaining", &time_ctx)
-                    .inspect_err(|e| eprintln!("Failed to render remaining battery time: {e}"))
-                    .ok()
-                    .unwrap_or_default()
-            }
+            let time_ctx =
+                BTreeMap::from([("hours", self.avg.hours), ("minutes", self.avg.minutes)]);
+            handlebars
+                .render("battery_time_remaining", &time_ctx)
+                .inspect_err(|e| eprintln!("Failed to render remaining battery time: {e}"))
+                .unwrap_or_default()
         } else {
             String::new()
         };
@@ -315,7 +312,7 @@ impl Module for BatteryMod {
                 config
                     .get("format")
                     .unescape()
-                    .unwrap_or("{{capacity}}% ({{hours}}{{time_remaining}})".to_string()),
+                    .unwrap_or("{{capacity}}%{{time_remaining}}".to_string()),
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery format: {e}"));
         templates
@@ -472,7 +469,7 @@ impl From<&Vec<BatteryStats>> for AverageStats {
             charging,
             hours: time_remaining.floor() as u16,
             minutes: ((time_remaining - time_remaining.floor()) * 60.) as u16,
-            valid: power_now == 0.,
+            valid: power_now.is_normal(),
         }
     }
 }
