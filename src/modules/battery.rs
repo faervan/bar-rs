@@ -73,7 +73,7 @@ impl BatteryMod {
         icons
             .iter()
             .filter(|(k, _)| capacity >= **k)
-            .last()
+            .next_back()
             .unwrap()
             .1
     }
@@ -85,9 +85,8 @@ struct AverageStats {
     charging: bool,
     hours: u16,
     minutes: u16,
-    // If you have a laptop with AC not plugged in, yet all batteries report power_now as 0,
-    // something's gotta be wrong.
-    _cursed: bool,
+    // If all batteries report a `power_now` value of 0 the remaining time can't be calculated
+    valid: bool,
 }
 
 #[derive(Debug, Default)]
@@ -162,10 +161,24 @@ impl Module for BatteryMod {
         anchor: &BarAnchor,
         handlebars: &Handlebars,
     ) -> Element<Message> {
-        let mut ctx = BTreeMap::new();
-        ctx.insert("capacity", self.avg.capacity as u16);
-        ctx.insert("hours", self.avg.hours);
-        ctx.insert("minutes", self.avg.minutes);
+        let time_remaining = if self.avg.valid {
+            let time_ctx =
+                BTreeMap::from([("hours", self.avg.hours), ("minutes", self.avg.minutes)]);
+            handlebars
+                .render("battery_time_remaining", &time_ctx)
+                .inspect_err(|e| eprintln!("Failed to render remaining battery time: {e}"))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        let ctx = BTreeMap::from([
+            ("capacity", self.avg.capacity.to_string()),
+            ("hours", self.avg.hours.to_string()),
+            ("minutes", self.avg.minutes.to_string()),
+            ("time_remaining", time_remaining),
+        ]);
+
         button(
             list![
                 anchor,
@@ -178,10 +191,15 @@ impl Module for BatteryMod {
                 )
                 .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
                 container(
-                    text(handlebars.render("battery", &ctx).unwrap_or_default())
-                        .fill(anchor)
-                        .color(self.cfg_override.text_color.unwrap_or(config.text_color))
-                        .size(self.cfg_override.font_size.unwrap_or(config.font_size))
+                    text(
+                        handlebars
+                            .render("battery", &ctx)
+                            .inspect_err(|e| eprintln!("Failed to render battery: {e}"))
+                            .unwrap_or_default()
+                    )
+                    .fill(anchor)
+                    .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                    .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 )
                 .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin)),
             ]
@@ -216,7 +234,9 @@ impl Module for BatteryMod {
                         let time_ctx = BTreeMap::from([("hours", hours), ("minutes", minutes)]);
                         template
                             .render("battery_popup_time_remaining", &time_ctx)
-                            .map_err(|e| eprintln!("Failed to render remaining battery time: {e}"))
+                            .inspect_err(|e| {
+                                eprintln!("Failed to render remaining battery time: {e}")
+                            })
                             .ok()
                     })
                     .unwrap_or_default();
@@ -292,9 +312,18 @@ impl Module for BatteryMod {
                 config
                     .get("format")
                     .unescape()
-                    .unwrap_or("{{capacity}}% ({{hours}}h {{minutes}}min left)".to_string()),
+                    .unwrap_or("{{capacity}}%{{time_remaining}}".to_string()),
             )
             .unwrap_or_else(|e| eprintln!("Failed to parse battery format: {e}"));
+        templates
+            .register_template_string(
+                "battery_time_remaining",
+                config
+                    .get("format_time")
+                    .unescape()
+                    .unwrap_or(" ({{hours}}h {{minutes}}min left)".to_string()),
+            )
+            .unwrap_or_else(|e| eprintln!("Failed to parse battery time format: {e}"));
         templates
             .register_template_string(
                 "battery_popup",
@@ -440,7 +469,7 @@ impl From<&Vec<BatteryStats>> for AverageStats {
             charging,
             hours: time_remaining.floor() as u16,
             minutes: ((time_remaining - time_remaining.floor()) * 60.) as u16,
-            _cursed: power_now == 0.,
+            valid: power_now.is_normal(),
         }
     }
 }
