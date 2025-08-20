@@ -10,45 +10,57 @@ use crate::serde_with::SerdeIntermediate;
 
 #[optfield(
     pub ThemeOverride,
-    attrs = (derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample)),
+    attrs,
     field_doc,
-    field_attrs = add(arg(long, value_parser = parse_color)),
+    field_attrs,
     merge_fn = pub
 )]
-#[derive(Debug, Clone, Serialize, Deserialize, TomlExample, PartialEq)]
+#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample, PartialEq)]
 pub struct Theme {
     #[serde(with = "serde_with")]
     #[toml_example(default = "rgba(0, 0, 0, 0.5)")]
+    #[arg(long, value_parser = clap_parse::color)]
     /// The background of the bar
     pub background: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "#0000")]
+    #[arg(long, value_parser = clap_parse::color)]
     /// The background of the modules
     pub mod_background: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "white")]
+    #[arg(long, value_parser = clap_parse::color)]
     /// Normal text color
     pub text: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "rgb(0, 0, 255)")]
+    #[arg(long, value_parser = clap_parse::color)]
     /// Special/foreground text color
     pub primary: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "#0f0")]
+    #[arg(long, value_parser = clap_parse::color)]
     /// Color of success
     pub success: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "red")]
+    #[arg(long, value_parser = clap_parse::color)]
     /// Color of failure
     pub danger: Color,
 
     #[serde(default, with = "SerdeIntermediate")]
     #[toml_example(skip)]
+    #[arg(
+        long,
+        value_parser = clap_parse::custom_colors,
+        help = "Additional custom color variables\n    \
+                Example: `--custom \"my_color1=blue my_color2=#fed\"`"
+    )]
     /// Additional custom color variables
     pub custom: HashMap<String, Color>,
 }
@@ -79,9 +91,40 @@ impl From<&Theme> for iced::theme::Palette {
     }
 }
 
-fn parse_color(value: &str) -> Result<Color, csscolorparser::ParseColorError> {
-    let color = csscolorparser::parse(value)?;
-    Ok(Color::from(color.to_array()))
+mod clap_parse {
+    use std::collections::HashMap;
+
+    use clap::Parser;
+    use iced::Color;
+
+    pub fn color(value: &str) -> Result<Color, csscolorparser::ParseColorError> {
+        let color = csscolorparser::parse(value)?;
+        Ok(Color::from(color.to_array()))
+    }
+
+    pub fn custom_colors(value: &str) -> anyhow::Result<HashMap<String, Color>> {
+        #[derive(Parser)]
+        #[command(no_binary_name = true)]
+        struct Custom {
+            colors: Vec<String>,
+        }
+        let custom = Custom::try_parse_from(value.split_whitespace())?;
+        custom
+            .colors
+            .into_iter()
+            .map(|pair| {
+                pair.split_once('=')
+                    .ok_or(anyhow::anyhow!(
+                        "Invalid key value pair, expected `VARIABLE=COLOR`"
+                    ))
+                    .and_then(|(k, v)| {
+                        csscolorparser::parse(v)
+                            .map(|v| (k.to_string(), Color::from(v.to_array())))
+                            .map_err(|e| anyhow::anyhow!("{v}: invalid color value: {e}"))
+                    })
+            })
+            .collect::<Result<_, _>>()
+    }
 }
 
 mod serde_with {
