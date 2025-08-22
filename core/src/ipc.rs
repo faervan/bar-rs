@@ -1,4 +1,7 @@
-use crate::window::{Window, WindowCommand, WindowOpenOptions};
+use crate::{
+    config::{theme::Theme, ConfigOptions},
+    window::{Window, WindowCommand, WindowRuntimeOptions},
+};
 use std::{
     collections::HashMap,
     fs,
@@ -19,11 +22,11 @@ pub enum IpcRequest {
     Modules,
     /// Perform a window action
     Window {
-        #[command(subcommand)]
-        cmd: WindowRequest,
         #[arg(long, global = true)]
         /// Optional ID of the window. Will fallback to the most recently opened if not specified.
         id: Option<usize>,
+        #[command(subcommand)]
+        cmd: Box<WindowRequest>,
     },
     #[command(display_order = 1)]
     /// Close `crabbar` (with all windows)
@@ -33,7 +36,7 @@ pub enum IpcRequest {
 #[derive(Subcommand, Debug, Deserialize, Serialize)]
 pub enum WindowRequest {
     /// Open a new window
-    Open(WindowOpenOptions),
+    Open(WindowRuntimeOptions),
     /// Close a window
     Close {
         #[arg(short = 'A', long)]
@@ -73,6 +76,10 @@ pub enum WindowResponse {
     Opened,
     Closed,
     Reopened,
+    Config(ConfigOptions),
+    Theme(Theme),
+    ConfigApplied,
+    ThemeApplied,
 }
 
 pub fn request(request: IpcRequest, socket_path: &Path) -> anyhow::Result<IpcResponse> {

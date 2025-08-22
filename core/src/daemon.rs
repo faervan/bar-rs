@@ -13,11 +13,11 @@ use tokio::{
     sync::oneshot,
 };
 
-use crate::{ipc::IpcRequest, message::Message, state::State, window::WindowOpenOptions};
+use crate::{ipc::IpcRequest, message::Message, state::State, window::WindowRuntimeOptions};
 
 pub fn run(
     open_window: bool,
-    window_opts: WindowOpenOptions,
+    window_opts: WindowRuntimeOptions,
     daemonize: bool,
     log_dir: &Path,
     socket_path: PathBuf,

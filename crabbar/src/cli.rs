@@ -1,8 +1,8 @@
 use core::{
     config::{style::ContainerStyle, theme::Theme, ConfigOptions},
     daemon, directories,
-    ipc::{self, IpcRequest},
-    window::WindowOpenOptions,
+    ipc::{self, IpcRequest, IpcResponse, WindowResponse},
+    window::WindowRuntimeOptions,
 };
 use std::{fs, path::PathBuf};
 
@@ -39,7 +39,7 @@ enum Command {
         /// Log file directory. Only applies when the process is daemonized.
         log_dir: PathBuf,
         #[command(flatten)]
-        opts: WindowOpenOptions,
+        opts: WindowRuntimeOptions,
     },
     /// Print the default configuration
     DefaultConfig,
@@ -94,9 +94,8 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
         Command::DefaultTheme => println!("{}", Theme::toml_example()),
         Command::Ipc(cmd) => {
             let response = ipc::request(cmd, &socket_path)?;
-            use ipc::IpcResponse::*;
             match response {
-                WindowList(windows) => match windows.is_empty() {
+                IpcResponse::WindowList(windows) => match windows.is_empty() {
                     true => info!("No windows are open!"),
                     false => {
                         info!("{} windows are open:", windows.len(),);
@@ -107,7 +106,7 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                         }
                     }
                 },
-                ModuleList(mut modules) => match modules.is_empty() {
+                IpcResponse::ModuleList(mut modules) => match modules.is_empty() {
                     true => info!("No modules are available!"),
                     false => {
                         info!("{} modules available:", modules.len(),);
@@ -115,16 +114,21 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                         println!("\t{}", modules.join(", "));
                     }
                 },
-                Closing => info!("Closing the crabbar daemon."),
-                Error(msg) => error!("{msg}"),
-                Window { id, event } => {
-                    use ipc::WindowResponse::*;
-                    match event {
-                        Opened => info!("Opened new window with id {id:?}"),
-                        Closed => info!("Closed window with id {id:?}"),
-                        Reopened => info!("Reopened window with id {id:?}"),
+                IpcResponse::Closing => info!("Closing the crabbar daemon."),
+                IpcResponse::Error(msg) => error!("{msg}"),
+                IpcResponse::Window { id, event } => match event {
+                    WindowResponse::Opened => info!("Opened new window with id {id:?}"),
+                    WindowResponse::Closed => info!("Closed window with id {id:?}"),
+                    WindowResponse::Reopened => info!("Reopened window with id {id:?}"),
+                    WindowResponse::Config(cfg) => {
+                        info!("Configuration of window with id {id:?}:\n{cfg:#?}")
                     }
-                }
+                    WindowResponse::Theme(theme) => {
+                        info!("Theme of window with id {id:?}:\n{theme:#?}")
+                    }
+                    WindowResponse::ConfigApplied => info!("The configuration has been updated"),
+                    WindowResponse::ThemeApplied => info!("The theme has been updated"),
+                },
             }
         }
     }

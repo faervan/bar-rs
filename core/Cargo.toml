@@ -17,6 +17,7 @@ smithay-client-toolkit.workspace = true
 toml.workspace = true
 toml-example.workspace = true
 optfield.workspace = true
+merge.workspace = true
 csscolorparser.workspace = true
 darkmode.workspace = true
 downcast-rs.workspace = true

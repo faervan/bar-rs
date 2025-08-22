@@ -6,7 +6,7 @@ use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
 
-use crate::serde_with::SerdeIntermediate;
+use crate::helpers::serde_with::SerdeIntermediate;
 
 #[optfield(
     pub ThemeOverride,
@@ -131,7 +131,7 @@ mod serde_with {
     use iced::Color;
     use serde::{Deserializer, Serialize as _, Serializer};
 
-    use crate::serde_with::{AcceptOption, ImplAcceptOption};
+    use crate::helpers::accept_option::{AcceptOption, ImplAcceptOption};
 
     impl ImplAcceptOption for Color {}
 
@@ -140,12 +140,12 @@ mod serde_with {
         S: Serializer,
         A: AcceptOption<Color>,
     {
-        let (value, is_opt) = value.as_opt();
+        let value = value.as_opt();
         let Some(value) = value else {
             return serializer.serialize_none();
         };
         let color = csscolorparser::Color::from(value.into_rgba8());
-        if is_opt {
+        if A::IS_OPTION {
             Some(color).serialize(serializer)
         } else {
             color.serialize(serializer)
@@ -167,7 +167,7 @@ mod intermediate {
     use iced::Color;
     use serde::{Deserialize, Serialize};
 
-    use crate::serde_with::ImplSerdeIntermediate;
+    use crate::helpers::serde_with::ImplSerdeIntermediate;
 
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]

@@ -1,9 +1,12 @@
 use clap::Args;
+use merge::Merge;
 use module::{ModuleLayout, ModuleLayoutOverride};
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
 use window::{WindowConfig, WindowConfigOverride};
+
+use crate::helpers::merge::overwrite_none;
 
 pub mod module;
 pub mod source;
@@ -74,13 +77,15 @@ impl Default for ConfigOptions {
     }
 }
 
-#[derive(Args, Debug, Clone, Serialize, Deserialize)]
+#[derive(Args, Merge, Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigOptionOverride {
     #[arg(long)]
+    #[merge(strategy = overwrite_none)]
     /// Name of the theme to use
     pub theme: Option<String>,
 
     #[arg(long)]
+    #[merge(strategy = overwrite_none)]
     /// Name of the style to use
     pub style: Option<String>,
 

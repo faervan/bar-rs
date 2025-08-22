@@ -113,7 +113,7 @@ mod serde_with_padding {
     use iced::Padding;
     use serde::{de::Error as _, ser::SerializeSeq as _, Deserializer, Serializer};
 
-    use crate::serde_with::{AcceptOption, ImplAcceptOption};
+    use crate::helpers::accept_option::{AcceptOption, ImplAcceptOption};
 
     impl ImplAcceptOption for Padding {}
 
@@ -122,7 +122,7 @@ mod serde_with_padding {
         S: Serializer,
         A: AcceptOption<Padding>,
     {
-        let (value, is_opt) = value.as_opt();
+        let value = value.as_opt();
         let Some(value) = value else {
             return serializer.serialize_none();
         };
@@ -138,7 +138,7 @@ mod serde_with_padding {
             }
             _ => vec![value.top, value.right, value.bottom, value.left],
         };
-        if is_opt {
+        if A::IS_OPTION {
             serializer.serialize_some(&vec)
         } else {
             let mut seq = serializer.serialize_seq(Some(vec.len()))?;
@@ -175,7 +175,7 @@ mod serde_with_color {
     use iced::Color;
     use serde::{de::Error as _, Deserializer, Serialize as _, Serializer};
 
-    use crate::serde_with::{AcceptOption, ImplAcceptOption};
+    use crate::helpers::accept_option::{AcceptOption, ImplAcceptOption};
 
     use super::ColorDescriptor;
 
@@ -186,7 +186,7 @@ mod serde_with_color {
         S: Serializer,
         A: AcceptOption<ColorDescriptor>,
     {
-        let (value, is_opt) = value.as_opt();
+        let value = value.as_opt();
         let Some(value) = value else {
             return serializer.serialize_none();
         };
@@ -200,7 +200,7 @@ mod serde_with_color {
             }
             ColorDescriptor::ThemeColor(name) => format!("${name}"),
         };
-        if is_opt {
+        if A::IS_OPTION {
             Some(string).serialize(serializer)
         } else {
             string.serialize(serializer)

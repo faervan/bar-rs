@@ -2,20 +2,27 @@ use std::collections::HashMap;
 
 use clap::{Args, Subcommand};
 use iced::{
-    platform_specific::shell::commands::layer_surface::get_layer_surface,
+    platform_specific::shell::commands::layer_surface::{destroy_layer_surface, get_layer_surface},
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     window::Id,
     Element, Task,
 };
+use log::info;
 use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::{
     output::OutputInfo, reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Layer,
 };
 
-use crate::config::{
-    theme::{Theme, ThemeOverride},
-    window::MonitorSelection,
-    ConfigOptionOverride, ConfigOptions,
+use crate::{
+    config::{
+        theme::{Theme, ThemeOverride},
+        window::MonitorSelection,
+        ConfigOptionOverride, ConfigOptions,
+    },
+    helpers::task_constructor::TaskConstructor,
+    ipc::WindowResponse,
+    message::Message,
+    state::State,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -23,13 +30,15 @@ pub struct Window {
     naive_id: usize,
     #[serde(skip, default = "id_default")]
     window_id: Id,
-    open_options: WindowOpenOptions,
+    runtime_options: WindowRuntimeOptions,
     config: ConfigOptions,
     theme: Theme,
 }
 
 #[derive(Args, Debug, Clone, Deserialize, Serialize)]
-pub struct WindowOpenOptions {
+/// Configurations options that apply only to this specific window instance. They are applied by
+/// CLI arguments at window creation and can be changed at runtime through the IPC.
+pub struct WindowRuntimeOptions {
     #[arg(default_value = "crabbar")]
     /// Name of the configuration to use
     pub name: String,
@@ -46,19 +55,34 @@ fn id_default() -> Id {
 }
 
 #[derive(Subcommand, Debug, Deserialize, Serialize)]
-pub enum WindowCommand {}
+pub enum WindowCommand {
+    /// Print the current configuration
+    GetConfig,
+    /// Print the current theme variables
+    GetTheme,
+    /// Override configuration settings
+    SetConfig {
+        #[arg(short, long)]
+        /// Reopen the window to ensure all settings are applied
+        reopen: bool,
+        #[command(flatten)]
+        cfg: ConfigOptionOverride,
+    },
+    /// Override theme variables
+    SetTheme(ThemeOverride),
+}
 
 impl Window {
     pub fn new(
         id: usize,
-        open_options: WindowOpenOptions,
+        runtime_options: WindowRuntimeOptions,
         config: ConfigOptions,
         theme: Theme,
     ) -> Self {
         Self {
             naive_id: id,
             window_id: Id::unique(),
-            open_options,
+            runtime_options,
             config,
             theme,
         }
@@ -75,14 +99,31 @@ impl Window {
         //     .into()
     }
 
-    pub fn handle_ipc<Message>(&mut self, cmd: WindowCommand) -> Task<Message> {
+    pub fn handle_ipc(&mut self, cmd: WindowCommand) -> (WindowResponse, TaskConstructor<State>) {
         use WindowCommand::*;
-        match cmd {}
+        let mut task = TaskConstructor::new();
+        let response = match cmd {
+            GetConfig => WindowResponse::Config(self.config.clone()),
+            GetTheme => WindowResponse::Theme(self.theme.clone()),
+            SetConfig { reopen, cfg } => {
+                if reopen {
+                    let window_id = self.window_id;
+                    task.chain(move |state: &State| state.reopen_window(&window_id));
+                }
+                self.config.merge_opt(cfg);
+                WindowResponse::ConfigApplied
+            }
+            SetTheme(theme) => {
+                self.theme.merge_opt(theme);
+                WindowResponse::ThemeApplied
+            }
+        };
+        (response, task)
     }
 
-    pub fn open<Message>(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
-        log::info!("opening window with id {}", self.naive_id);
-        log::info!("outputs: {outputs:#?}");
+    pub fn open(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
+        info!("opening window with id {}", self.naive_id);
+        info!("outputs: {outputs:#?}");
         let (output, info) = match &self.config.window.monitor {
             MonitorSelection::All => (IcedOutput::All, None),
             MonitorSelection::Active => (IcedOutput::Active, None),
@@ -121,6 +162,11 @@ impl Window {
             id: self.window_id,
             ..Default::default()
         })
+    }
+
+    pub fn reopen(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
+        info!("Reopening window with id {}", self.naive_id);
+        destroy_layer_surface(self.window_id).chain(self.open(outputs))
     }
 
     pub fn window_id(&self) -> Id {

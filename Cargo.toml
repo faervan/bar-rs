@@ -45,6 +45,7 @@ ron = "0.10.1"
 chrono = "0.4.41"
 nix = "0.30.1"
 optfield = "0.4.0"
+merge = "0.2.0"
 csscolorparser = { version = "0.7.2", features = ["serde"] }
 darkmode = "0.1.0"
 downcast-rs = "2.0.1"
