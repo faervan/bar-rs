@@ -1,5 +1,5 @@
 use crate::{
-    config::{theme::Theme, ConfigOptions},
+    config::{style::ContainerStyle, theme::Theme, ConfigOptions},
     window::{Window, WindowCommand, WindowRuntimeOptions},
 };
 use std::{
@@ -78,8 +78,10 @@ pub enum WindowResponse {
     Reopened,
     Config(ConfigOptions),
     Theme(Theme),
+    Style(ContainerStyle),
     ConfigApplied,
     ThemeApplied,
+    StyleApplied,
 }
 
 pub fn request(request: IpcRequest, socket_path: &Path) -> anyhow::Result<IpcResponse> {

@@ -15,6 +15,7 @@ use smithay_client_toolkit::{
 
 use crate::{
     config::{
+        style::{ContainerStyle, ContainerStyleOverride},
         theme::{Theme, ThemeOverride},
         window::MonitorSelection,
         ConfigOptionOverride, ConfigOptions,
@@ -33,6 +34,7 @@ pub struct Window {
     runtime_options: WindowRuntimeOptions,
     config: ConfigOptions,
     theme: Theme,
+    style: ContainerStyle,
 }
 
 #[derive(Args, Debug, Clone, Deserialize, Serialize)]
@@ -48,6 +50,9 @@ pub struct WindowRuntimeOptions {
 
     #[command(flatten)]
     pub theme: ThemeOverride,
+
+    #[command(flatten)]
+    pub style: ContainerStyleOverride,
 }
 
 fn id_default() -> Id {
@@ -60,6 +65,8 @@ pub enum WindowCommand {
     GetConfig,
     /// Print the current theme variables
     GetTheme,
+    /// Print the current styles
+    GetStyle,
     /// Override configuration settings
     SetConfig {
         #[arg(short, long)]
@@ -70,6 +77,8 @@ pub enum WindowCommand {
     },
     /// Override theme variables
     SetTheme(ThemeOverride),
+    /// Override style settings
+    SetStyle(ContainerStyleOverride),
 }
 
 impl Window {
@@ -78,6 +87,7 @@ impl Window {
         runtime_options: WindowRuntimeOptions,
         config: ConfigOptions,
         theme: Theme,
+        style: ContainerStyle,
     ) -> Self {
         Self {
             naive_id: id,
@@ -85,6 +95,7 @@ impl Window {
             runtime_options,
             config,
             theme,
+            style,
         }
     }
 
@@ -105,6 +116,7 @@ impl Window {
         let response = match cmd {
             GetConfig => WindowResponse::Config(self.config.clone()),
             GetTheme => WindowResponse::Theme(self.theme.clone()),
+            GetStyle => WindowResponse::Style(self.style.clone()),
             SetConfig { reopen, cfg } => {
                 if reopen {
                     let window_id = self.window_id;
@@ -116,6 +128,10 @@ impl Window {
             SetTheme(theme) => {
                 self.theme.merge_opt(theme);
                 WindowResponse::ThemeApplied
+            }
+            SetStyle(style) => {
+                self.style.merge_opt(style);
+                WindowResponse::StyleApplied
             }
         };
         (response, task)

@@ -126,8 +126,12 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                     WindowResponse::Theme(theme) => {
                         info!("Theme of window with id {id:?}:\n{theme:#?}")
                     }
+                    WindowResponse::Style(style) => {
+                        info!("Style of window with id {id:?}:\n{style:#?}")
+                    }
                     WindowResponse::ConfigApplied => info!("The configuration has been updated"),
                     WindowResponse::ThemeApplied => info!("The theme has been updated"),
+                    WindowResponse::StyleApplied => info!("The style has been updated"),
                 },
             }
         }

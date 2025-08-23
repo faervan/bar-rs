@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use clap::Args;
 use iced::{Color, Padding};
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
@@ -7,28 +8,32 @@ use toml_example::TomlExample;
 
 #[optfield(
     pub StyleOverride,
-    attrs = (derive(Debug, Clone, Serialize, Deserialize, TomlExample)),
+    attrs = add(derive(Default)),
     field_doc,
     field_attrs,
     merge_fn = pub
 )]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TomlExample)]
+#[derive(Debug, Args, Clone, Serialize, Deserialize, PartialEq, TomlExample)]
 #[serde(default)]
 pub struct Style {
+    #[arg(long)]
     /// The size of text (and text icons)
     pub font_size: f32,
 
     #[serde(with = "serde_with_color")]
+    #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = "#fff")]
     /// The font color
     pub color: ColorDescriptor,
 
     #[serde(with = "serde_with_color")]
+    #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = "$background")]
     /// The background color
     pub background_color: Option<ColorDescriptor>,
 
     #[serde(with = "serde_with_padding")]
+    #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = [0])]
     /// The space around this item separating it from neighboring items
     pub margin: Padding,
@@ -68,14 +73,17 @@ pub struct ContainerStyle {
     pub class: HashMap<String, Style>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Args, Clone, Serialize, Deserialize)]
 pub struct ContainerStyleOverride {
+    #[command(flatten)]
     pub style: StyleOverride,
 
     #[serde(with = "serde_with_padding")]
+    #[arg(long, value_parser = clap_parse::padding)]
     /// The space around the contained items
     pub padding: Option<Padding>,
 
+    #[arg(skip)]
     pub class: HashMap<String, StyleOverride>,
 }
 
@@ -106,6 +114,36 @@ impl ContainerStyle {
 
     pub fn class(&self, class: &str) -> &Style {
         self.class.get(class).unwrap_or(&self.style)
+    }
+}
+
+mod clap_parse {
+    use iced::{Color, Padding};
+
+    use crate::config::style::{ColorDescriptor, StyleOverride};
+
+    pub fn padding(value: &str) -> anyhow::Result<Padding> {
+        let vec: Vec<f32> = value
+            .split(',')
+            .map(|v| v.trim().parse())
+            .collect::<Result<_, _>>()?;
+        Ok(match vec.len() {
+            1 => Padding::from(vec[0]),
+            2 => Padding::from([vec[0], vec[1]]),
+            4 => Padding::from([vec[0], vec[1], vec[2], vec[3]]),
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Invalid number of values: expected 1, 2 or 4",
+                ))
+            }
+        })
+    }
+
+    pub fn color(value: &str) -> Result<ColorDescriptor, csscolorparser::ParseColorError> {
+        Ok(match value.strip_prefix('$') {
+            Some(name) => ColorDescriptor::ThemeColor(name.to_string()),
+            None => ColorDescriptor::Color(Color::from(csscolorparser::parse(&value)?.to_array())),
+        })
     }
 }
 

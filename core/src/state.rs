@@ -1,5 +1,5 @@
 use crate::{
-    config::{theme::Theme, ConfigOptions, GlobalConfig},
+    config::{style::ContainerStyle, theme::Theme, ConfigOptions, GlobalConfig},
     daemon,
     ipc::{IpcRequest, IpcResponse, WindowRequest, WindowResponse},
     message::Message,
@@ -40,6 +40,7 @@ pub struct State {
     id_count: usize,
     configurations: HashMap<String, ConfigOptions>,
     themes: HashMap<String, Theme>,
+    styles: HashMap<String, ContainerStyle>,
     registry: Registry,
 }
 
@@ -267,6 +268,7 @@ impl State {
 
     fn open_window(&mut self, opts: WindowRuntimeOptions) -> (Task<Message>, usize) {
         let naive_id = self.id_count;
+
         let mut config = match self.configurations.get(&opts.name) {
             Some(config) => config.clone(),
             None => {
@@ -275,6 +277,7 @@ impl State {
             }
         };
         config.merge_opt(opts.config.clone());
+
         // TODO! Handle iced builtin themes
         let mut theme = match self.themes.get(&config.theme) {
             Some(theme) => theme.clone(),
@@ -284,9 +287,21 @@ impl State {
             }
         };
         theme.merge_opt(opts.theme.clone());
-        let window = Window::new(naive_id, opts, config, theme);
+
+        let mut style = match self.styles.get(&config.style) {
+            Some(style) => style.clone(),
+            None => {
+                error!("No such style: {}", config.style);
+                ContainerStyle::default()
+            }
+        };
+        style.merge_opt(opts.style.clone());
+
+        let window = Window::new(naive_id, opts, config, theme, style);
+
         let mut task = Task::none();
         log::debug!("Should the window be opened? {}", self.outputs_ready);
+
         if self.outputs_ready {
             task = window.open(&self.outputs);
         } else {
