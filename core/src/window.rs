@@ -4,6 +4,7 @@ use clap::{Args, Subcommand};
 use iced::{
     platform_specific::shell::commands::layer_surface::{destroy_layer_surface, get_layer_surface},
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
+    widget::Row,
     window::Id,
     Element, Task,
 };
@@ -23,6 +24,7 @@ use crate::{
     helpers::task_constructor::TaskConstructor,
     ipc::WindowResponse,
     message::Message,
+    registry::Registry,
     state::State,
 };
 
@@ -53,6 +55,17 @@ pub struct WindowRuntimeOptions {
 
     #[command(flatten)]
     pub style: ContainerStyleOverride,
+}
+
+impl WindowRuntimeOptions {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            config: ConfigOptionOverride::default(),
+            theme: ThemeOverride::default(),
+            style: ContainerStyleOverride::default(),
+        }
+    }
 }
 
 fn id_default() -> Id {
@@ -99,8 +112,14 @@ impl Window {
         }
     }
 
-    pub fn view<'a, Message: 'a>(&'a self) -> Element<'a, Message> {
-        iced::widget::text!("This is window {}", self.naive_id).into()
+    pub fn view<'a>(&'a self, registry: &'a Registry) -> Element<'a, Message> {
+        registry
+            .get_modules(self.config.modules.all())
+            .fold(Row::new(), |row, (variant_name, module)| {
+                row.push(module.view(variant_name, &self.config.window.anchor, &HashMap::new()))
+            })
+            .into()
+        // iced::widget::text!("This is window {}", self.naive_id).into()
         // iced::widget::container(iced::widget::text("This is window 󰈹").color(iced::color!(0x0f0)))
         //     .style(|_| iced::widget::container::Style {
         //         icon_color: Some(iced::color!(0xf00)),
@@ -139,7 +158,6 @@ impl Window {
 
     pub fn open(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
         info!("opening window with id {}", self.naive_id);
-        info!("outputs: {outputs:#?}");
         let (output, info) = match &self.config.window.monitor {
             MonitorSelection::All => (IcedOutput::All, None),
             MonitorSelection::Active => (IcedOutput::Active, None),

@@ -16,15 +16,14 @@ use tokio::{
 use crate::{ipc::IpcRequest, message::Message, state::State, window::WindowRuntimeOptions};
 
 pub fn run(
-    open_window: bool,
-    window_opts: WindowRuntimeOptions,
+    windows: Vec<String>,
     daemonize: bool,
-    log_dir: &Path,
     socket_path: PathBuf,
     pid_path: PathBuf,
+    config_path: PathBuf,
 ) -> anyhow::Result<()> {
     if daemonize {
-        daemonize_process(log_dir)?;
+        daemonize_process()?;
     }
 
     let mut pid_file = fs::File::create(&pid_path)?;
@@ -34,7 +33,7 @@ pub fn run(
     iced::daemon(State::title, State::update, State::view)
         .subscription(State::subscribe)
         .theme(State::theme)
-        .run_with(move || State::new(socket_path, pid_path, open_window, window_opts))?;
+        .run_with(move || State::new(socket_path, pid_path, config_path, windows))?;
 
     Ok(())
 }
@@ -106,11 +105,8 @@ pub fn exit_cleanup(socket_path: &Path, pid_path: &Path) {
     }
 }
 
-fn daemonize_process(log_dir: &Path) -> anyhow::Result<()> {
-    let path = log_dir.join("crabbar.log");
-    let file = fs::File::create(&path)?;
-
-    let daemon = Daemonize::new().stdout(file.try_clone()?).stderr(file);
+fn daemonize_process() -> anyhow::Result<()> {
+    let daemon = Daemonize::new();
 
     info!(
         "Daemonizeing this process. \

@@ -8,7 +8,7 @@ use crate::helpers::merge::overwrite_none;
 
 #[optfield(
     pub ModuleLayoutOverride,
-    attrs = (derive(Args, Merge, Debug, Clone, Serialize, Deserialize)),
+    attrs = (derive(Args, Merge, Debug, Default, Clone, Serialize, Deserialize)),
     field_doc,
     field_attrs,
     merge_fn = pub,
@@ -45,5 +45,14 @@ impl Default for ModuleLayout {
                 "disk_space".to_string(),
             ],
         }
+    }
+}
+
+impl ModuleLayout {
+    pub fn all(&self) -> impl Iterator<Item = &String> {
+        self.left
+            .iter()
+            .chain(self.center.iter())
+            .chain(self.right.iter())
     }
 }

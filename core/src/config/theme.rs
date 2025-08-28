@@ -10,7 +10,7 @@ use crate::helpers::serde_with::SerdeIntermediate;
 
 #[optfield(
     pub ThemeOverride,
-    attrs,
+    attrs = add(derive(Default)),
     field_doc,
     field_attrs,
     merge_fn = pub

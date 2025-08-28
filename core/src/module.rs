@@ -33,7 +33,7 @@ pub trait Module: Downcast + Debug + Send + Sync {
         variant: &str,
         config: Table,
         style: ContainerStyle,
-        engine: TemplateEngine,
+        engine: &TemplateEngine,
     ) {
     }
 }
@@ -92,7 +92,7 @@ mod custom {
             variant: &str,
             config: Table,
             style: ContainerStyle,
-            engine: crate::template_engine::TemplateEngine,
+            engine: &crate::template_engine::TemplateEngine,
         ) {
             let format = match config.get("format") {
                 Some(toml::Value::String(fmt)) => fmt,

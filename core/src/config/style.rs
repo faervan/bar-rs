@@ -73,7 +73,7 @@ pub struct ContainerStyle {
     pub class: HashMap<String, Style>,
 }
 
-#[derive(Debug, Args, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Args, Clone, Serialize, Deserialize)]
 pub struct ContainerStyleOverride {
     #[command(flatten)]
     pub style: StyleOverride,

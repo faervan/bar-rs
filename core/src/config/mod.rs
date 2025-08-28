@@ -8,6 +8,7 @@ use window::{WindowConfig, WindowConfigOverride};
 
 use crate::helpers::merge::overwrite_none;
 
+pub mod load;
 pub mod module;
 pub mod source;
 pub mod style;
@@ -21,9 +22,14 @@ pub mod window;
     field_attrs,
     merge_fn
 )]
-#[derive(Args, Debug, Clone, Serialize, Deserialize)]
+#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample, PartialEq)]
 #[serde(default)]
 pub struct GlobalConfig {
+    #[arg(long)]
+    // TODO! This should maybe be module specific
+    /// Whether to watch the configuration directory for file changes and automatically update the
+    /// config.
+    pub hot_reloading: bool,
     #[arg(long)]
     /// How often the windows should be updated with new content (in seconds)
     pub reload_interval: f32,
@@ -32,6 +38,7 @@ pub struct GlobalConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
+            hot_reloading: true,
             reload_interval: 3.,
         }
     }
@@ -77,7 +84,7 @@ impl Default for ConfigOptions {
     }
 }
 
-#[derive(Args, Merge, Debug, Clone, Serialize, Deserialize)]
+#[derive(Args, Merge, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ConfigOptionOverride {
     #[arg(long)]
     #[merge(strategy = overwrite_none)]

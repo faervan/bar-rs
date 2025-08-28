@@ -52,7 +52,10 @@ impl Registry {
         self.try_get_module_mut().unwrap()
     }
 
-    pub fn get_modules<'a, I>(&'a self, enabled: I) -> impl Iterator<Item = &'a Box<dyn Module>>
+    pub fn get_modules<'a, I>(
+        &'a self,
+        enabled: I,
+    ) -> impl Iterator<Item = (&'a String, &'a Box<dyn Module>)>
     where
         I: Iterator<Item = &'a String>,
     {
@@ -62,6 +65,7 @@ impl Registry {
                 .copied()
                 .or_else(|| self.resolvers.get(id).and_then(|f| f()))
                 .and_then(|id| self.modules.get(&id))
+                .map(|module| (id, module))
         })
     }
 

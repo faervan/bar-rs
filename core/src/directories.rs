@@ -6,10 +6,16 @@ pub fn runtime_dir() -> std::ffi::OsString {
     from_env_or(fallback_dir, "CRABBAR_RUN_DIR")
 }
 
-pub fn log_dir() -> std::ffi::OsString {
+pub fn log_file() -> std::ffi::OsString {
     let home = std::env::var("HOME").unwrap();
     let fallback_dir = from_env_or(format!("{home}/.local/state"), "XDG_STATE_HOME");
-    from_env_or(fallback_dir, "CRABBAR_LOG_DIR")
+    from_env_or(
+        format!(
+            "{}/crabbar.log",
+            fallback_dir.into_string().expect("Invalid UTF8")
+        ),
+        "CRABBAR_LOG_FILE",
+    )
 }
 
 pub fn config_dir() -> std::ffi::OsString {
@@ -20,7 +26,14 @@ pub fn config_dir() -> std::ffi::OsString {
     from_env_or(fallback_dir, "CRABBAR_CONFIG_DIR")
 }
 
+#[derive(Debug)]
 pub struct ConfigRoot(PathBuf);
+
+impl Default for ConfigRoot {
+    fn default() -> Self {
+        Self(config_dir().into())
+    }
+}
 
 impl ConfigRoot {
     pub fn new<P: Into<PathBuf>>(path: P) -> Self {

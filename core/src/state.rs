@@ -1,6 +1,7 @@
 use crate::{
     config::{style::ContainerStyle, theme::Theme, ConfigOptions, GlobalConfig},
     daemon,
+    directories::ConfigRoot,
     ipc::{IpcRequest, IpcResponse, WindowRequest, WindowResponse},
     message::Message,
     module::register_modules,
@@ -31,16 +32,18 @@ pub struct State {
     outputs: HashMap<WlOutput, Option<OutputInfo>>,
     /// If false, we have to wait for new Outputs before opening a window
     outputs_ready: bool,
-    pub config: Arc<GlobalConfig>,
     windows: HashMap<Id, Window>,
     window_ids: HashMap<usize, Id>,
     opening_queue: VecDeque<Id>,
     pub subscriptions: Vec<iced::Subscription<Message>>,
     /// Every opened window gets a unique ID equal to the count of windows opened beforehand
     id_count: usize,
-    configurations: HashMap<String, ConfigOptions>,
-    themes: HashMap<String, Theme>,
-    styles: HashMap<String, ContainerStyle>,
+    pub config_root: ConfigRoot,
+    pub config: Arc<GlobalConfig>,
+    /// Window configuration presets
+    pub configurations: HashMap<String, ConfigOptions>,
+    pub themes: HashMap<String, Theme>,
+    pub styles: HashMap<String, ContainerStyle>,
     registry: Registry,
 }
 
@@ -48,8 +51,8 @@ impl State {
     pub fn new(
         socket_path: PathBuf,
         pid_path: PathBuf,
-        open_window: bool,
-        opts: WindowRuntimeOptions,
+        config_path: PathBuf,
+        windows: Vec<String>,
     ) -> (Self, Task<Message>) {
         let mut registry = Registry::default();
         register_modules(&mut registry);
@@ -57,13 +60,23 @@ impl State {
         let mut state = State {
             socket_path,
             pid_path,
+            config_root: ConfigRoot::new(config_path),
             registry,
             ..Default::default()
         };
-        let task = match open_window {
-            true => state.open_window(opts).0,
-            false => Task::none(),
-        };
+
+        state.load_config();
+
+        let task = windows
+            .into_iter()
+            .fold(Task::none(), |task, config_preset| {
+                task.chain(
+                    state
+                        .open_window(WindowRuntimeOptions::new(config_preset))
+                        .0,
+                )
+            });
+
         (state, task)
     }
 
@@ -119,6 +132,8 @@ impl State {
                     IpcRequest::Modules => {
                         IpcResponse::ModuleList(self.registry.module_names().cloned().collect())
                     }
+                    IpcRequest::Themes => IpcResponse::ThemeList(self.themes.clone()),
+                    IpcRequest::Styles => IpcResponse::StyleList(self.styles.clone()),
                     IpcRequest::Close => {
                         info!("closing the daemon");
                         daemon::exit_cleanup(&self.socket_path, &self.pid_path);
@@ -251,7 +266,7 @@ impl State {
 
     pub fn view(&self, id: Id) -> Element<Message> {
         match self.windows.get(&id) {
-            Some(window) => window.view(),
+            Some(window) => window.view(&self.registry),
             None => "Invalid window ID".into(),
         }
     }

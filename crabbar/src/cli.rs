@@ -1,8 +1,7 @@
 use core::{
-    config::{style::ContainerStyle, theme::Theme, ConfigOptions},
+    config::{style::ContainerStyle, theme::Theme, ConfigOptions, GlobalConfig},
     daemon, directories,
     ipc::{self, IpcRequest, IpcResponse, WindowResponse},
-    window::WindowRuntimeOptions,
 };
 use std::{fs, path::PathBuf};
 
@@ -20,6 +19,12 @@ pub struct CliArgs {
     #[arg(short, long, default_value = directories::config_dir())]
     /// Path of the main configuration directory
     config_dir: PathBuf,
+    #[arg(long, default_value = directories::log_file())]
+    /// Path of the logfile.
+    pub log_file: PathBuf,
+    #[arg(long, global = true)]
+    /// Set the logging level to debug
+    pub debug: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -29,19 +34,15 @@ enum Command {
     #[command(display_order = 0)]
     /// Open the `crabbar` daemon
     Open {
-        #[arg(short = 'd', long)]
-        /// Only start the daemon, don't open any windows
-        dry: bool,
         #[arg(short = 'D', long)]
         /// Keep `crabbar` attached to this terminal
         dont_daemonize: bool,
-        #[arg(long, default_value = directories::log_dir())]
-        /// Log file directory. Only applies when the process is daemonized.
-        log_dir: PathBuf,
-        #[command(flatten)]
-        opts: WindowRuntimeOptions,
+        /// Open windows using the given configuration presets
+        windows: Vec<String>,
     },
-    /// Print the default configuration
+    /// Print the default global configuration
+    DefaultGlobalConfig,
+    /// Print the default window configuration
     DefaultConfig,
     /// Print the default style
     DefaultStyle,
@@ -56,10 +57,8 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
 
     match args.command {
         Command::Open {
-            dry,
             dont_daemonize,
-            log_dir,
-            opts,
+            windows,
         } => {
             std::fs::create_dir_all(&args.run_dir)?;
             let pid_path = args.run_dir.join("crabbar.pid");
@@ -87,8 +86,15 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                 std::process::exit(0);
             })?;
 
-            daemon::run(!dry, opts, !dont_daemonize, &log_dir, socket_path, pid_path)?;
+            daemon::run(
+                windows,
+                !dont_daemonize,
+                socket_path,
+                pid_path,
+                args.config_dir,
+            )?;
         }
+        Command::DefaultGlobalConfig => println!("{}", GlobalConfig::toml_example()),
         Command::DefaultConfig => println!("{}", ConfigOptions::toml_example()),
         Command::DefaultStyle => println!("{}", ContainerStyle::toml_example()),
         Command::DefaultTheme => println!("{}", Theme::toml_example()),
@@ -112,6 +118,28 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                         info!("{} modules available:", modules.len(),);
                         modules.sort();
                         println!("\t{}", modules.join(", "));
+                    }
+                },
+                IpcResponse::ThemeList(themes) => match themes.is_empty() {
+                    true => info!("No themes are available!"),
+                    false => {
+                        info!("{} themes are available:", themes.len(),);
+                        let mut themes: Vec<_> = themes.into_iter().collect();
+                        themes.sort_by_key(|(id, _)| id.clone());
+                        for (name, theme) in themes {
+                            println!("{name}:\t{theme:#?}")
+                        }
+                    }
+                },
+                IpcResponse::StyleList(styles) => match styles.is_empty() {
+                    true => info!("No styles are available!"),
+                    false => {
+                        info!("{} styles are available:", styles.len(),);
+                        let mut styles: Vec<_> = styles.into_iter().collect();
+                        styles.sort_by_key(|(id, _)| id.clone());
+                        for (name, style) in styles {
+                            println!("{name}:\t{style:#?}")
+                        }
                     }
                 },
                 IpcResponse::Closing => info!("Closing the crabbar daemon."),
@@ -138,4 +166,10 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+impl CliArgs {
+    pub fn command_is_open(&self) -> bool {
+        matches!(self.command, Command::Open { .. })
+    }
 }

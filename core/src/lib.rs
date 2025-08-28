@@ -23,8 +23,17 @@ mod tests {
     use crate::config::{
         style::{ColorDescriptor, ContainerStyle, Style},
         theme::Theme,
-        ConfigOptions,
+        ConfigOptions, GlobalConfig,
     };
+
+    #[test]
+    fn verify_default_global_config() {
+        let example = GlobalConfig::toml_example();
+        assert_eq!(
+            toml::from_str::<GlobalConfig>(&example).unwrap(),
+            GlobalConfig::default()
+        );
+    }
 
     #[test]
     fn verify_default_config() {

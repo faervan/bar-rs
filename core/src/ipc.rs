@@ -20,6 +20,10 @@ pub enum IpcRequest {
     ListWindows,
     /// List all available modules
     Modules,
+    /// List all available themes
+    Themes,
+    /// List all available styles
+    Styles,
     /// Perform a window action
     Window {
         #[arg(long, global = true)]
@@ -57,6 +61,8 @@ pub enum WindowRequest {
 pub enum IpcResponse {
     WindowList(HashMap<usize, Window>),
     ModuleList(Vec<String>),
+    ThemeList(HashMap<String, Theme>),
+    StyleList(HashMap<String, ContainerStyle>),
     Window {
         id: Vec<usize>,
         event: WindowResponse,
