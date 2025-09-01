@@ -4,6 +4,8 @@ use iced::Task;
 
 use crate::message::Message;
 
+/// Used to create a [Task] using a type [T] that is not in the scope. When the type [T] comes into
+/// scope, the [TaskConstructor] can be build into a [Task].
 pub struct TaskConstructor<T, M = Message> {
     constructors: Vec<Box<dyn FnOnce(&T) -> Task<M>>>,
     _phantom: PhantomData<(T, M)>,

@@ -22,6 +22,7 @@ csscolorparser.workspace = true
 darkmode.workspace = true
 downcast-rs.workspace = true
 daemonize.workspace = true
+notify.workspace = true
 
 [lints]
 workspace = true

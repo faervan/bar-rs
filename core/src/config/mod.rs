@@ -10,6 +10,7 @@ use crate::helpers::merge::overwrite_none;
 
 pub mod load;
 pub mod module;
+pub mod prepare;
 pub mod source;
 pub mod style;
 pub mod theme;
@@ -26,9 +27,8 @@ pub mod window;
 #[serde(default)]
 pub struct GlobalConfig {
     #[arg(long)]
-    // TODO! This should maybe be module specific
     /// Whether to watch the configuration directory for file changes and automatically update the
-    /// config.
+    /// config. Even if this is true, windows can be individually configured not to be affected.
     pub hot_reloading: bool,
     #[arg(long)]
     /// How often the windows should be updated with new content (in seconds)
@@ -56,6 +56,13 @@ pub struct ConfigOptions {
     /// Name of the style to use
     pub style: String,
 
+    #[arg(long)]
+    /// Whether to update apply changes when the configuration files where changed. This will not
+    /// overwrite settings set through the IPC.
+    ///
+    /// This will not take affect if the global `hot_reloading` setting is disabled.
+    pub hot_reloading: bool,
+
     #[command(flatten)]
     #[toml_example(nesting)]
     /// The modules that should be enabled
@@ -78,6 +85,7 @@ impl Default for ConfigOptions {
                 }
             ),
             style: String::from("crabbar"),
+            hot_reloading: true,
             modules: ModuleLayout::default(),
             window: WindowConfig::default(),
         }
@@ -96,6 +104,12 @@ pub struct ConfigOptionOverride {
     /// Name of the style to use
     pub style: Option<String>,
 
+    #[arg(long)]
+    #[merge(strategy = overwrite_none)]
+    /// Whether to update apply changes when the configuration files where changed. This will not
+    /// overwrite settings set through the IPC.
+    pub hot_reloading: Option<bool>,
+
     #[command(flatten)]
     /// The modules that should be enabled
     pub modules: ModuleLayoutOverride,
@@ -110,6 +124,7 @@ impl ConfigOptions {
         ConfigOptionOverride {
             theme,
             style,
+            hot_reloading,
             modules,
             window,
         }: ConfigOptionOverride,
@@ -119,6 +134,9 @@ impl ConfigOptions {
         }
         if let Some(style) = style {
             self.style = style;
+        }
+        if let Some(hot_reloading) = hot_reloading {
+            self.hot_reloading = hot_reloading;
         }
         self.modules.merge_opt(modules);
         self.window.merge_opt(window);

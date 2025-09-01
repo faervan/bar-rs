@@ -9,6 +9,7 @@ use iced::{
     Element, Task,
 };
 use log::info;
+use merge::Merge;
 use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::{
     output::OutputInfo, reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Layer,
@@ -119,14 +120,6 @@ impl Window {
                 row.push(module.view(variant_name, &self.config.window.anchor, &HashMap::new()))
             })
             .into()
-        // iced::widget::text!("This is window {}", self.naive_id).into()
-        // iced::widget::container(iced::widget::text("This is window 󰈹").color(iced::color!(0x0f0)))
-        //     .style(|_| iced::widget::container::Style {
-        //         icon_color: Some(iced::color!(0xf00)),
-        //         text_color: Some(iced::color!(0x00f)),
-        //         ..Default::default()
-        //     })
-        //     .into()
     }
 
     pub fn handle_ipc(&mut self, cmd: WindowCommand) -> (WindowResponse, TaskConstructor<State>) {
@@ -141,15 +134,19 @@ impl Window {
                     let window_id = self.window_id;
                     task.chain(move |state: &State| state.reopen_window(&window_id));
                 }
-                self.config.merge_opt(cfg);
+                self.config.merge_opt(cfg.clone());
+                self.runtime_options.config.merge(cfg);
+                // TODO! theme and style need to be reloaded here!
                 WindowResponse::ConfigApplied
             }
             SetTheme(theme) => {
-                self.theme.merge_opt(theme);
+                self.theme.merge_opt(theme.clone());
+                self.runtime_options.theme.merge(theme);
                 WindowResponse::ThemeApplied
             }
             SetStyle(style) => {
-                self.style.merge_opt(style);
+                self.style.merge_opt(style.clone());
+                self.runtime_options.style.merge(style);
                 WindowResponse::StyleApplied
             }
         };
@@ -213,5 +210,19 @@ impl Window {
 
     pub fn theme(&self) -> iced::Theme {
         iced::Theme::custom(self.config.theme.clone(), (&self.theme).into())
+    }
+
+    pub fn wants_hot_reloading(&self) -> bool {
+        self.config.hot_reloading
+    }
+
+    pub fn reload_config(&mut self, config: ConfigOptions, theme: Theme, style: ContainerStyle) {
+        self.config = config;
+        self.theme = theme;
+        self.style = style;
+    }
+
+    pub fn runtime_options(&self) -> &WindowRuntimeOptions {
+        &self.runtime_options
     }
 }

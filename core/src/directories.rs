@@ -47,6 +47,10 @@ impl ConfigRoot {
         ConfigRoot(PathBuf::from("/usr/share/crabbar"))
     }
 
+    pub fn root(&self) -> PathBuf {
+        self.0.clone()
+    }
+
     pub fn config(&self) -> PathBuf {
         self.0.join("config.toml")
     }

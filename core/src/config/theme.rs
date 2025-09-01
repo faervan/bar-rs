@@ -2,11 +2,15 @@ use std::collections::HashMap;
 
 use clap::Args;
 use iced::Color;
+use merge::Merge;
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
 
-use crate::helpers::serde_with::SerdeIntermediate;
+use crate::helpers::{
+    merge::{overwrite_none, overwrite_or_append},
+    serde_with::SerdeIntermediate,
+};
 
 #[optfield(
     pub ThemeOverride,
@@ -15,41 +19,47 @@ use crate::helpers::serde_with::SerdeIntermediate;
     field_attrs,
     merge_fn = pub
 )]
-#[derive(Args, Debug, Clone, Serialize, Deserialize, TomlExample, PartialEq)]
+#[derive(Args, Merge, Debug, Clone, Serialize, Deserialize, TomlExample, PartialEq)]
 pub struct Theme {
     #[serde(with = "serde_with")]
     #[toml_example(default = "rgba(0, 0, 0, 0.5)")]
     #[arg(long, value_parser = clap_parse::color)]
+    #[merge(strategy = overwrite_none)]
     /// The background of the bar
     pub background: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "#0000")]
     #[arg(long, value_parser = clap_parse::color)]
+    #[merge(strategy = overwrite_none)]
     /// The background of the modules
     pub mod_background: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "white")]
     #[arg(long, value_parser = clap_parse::color)]
+    #[merge(strategy = overwrite_none)]
     /// Normal text color
     pub text: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "rgb(0, 0, 255)")]
     #[arg(long, value_parser = clap_parse::color)]
+    #[merge(strategy = overwrite_none)]
     /// Special/foreground text color
     pub primary: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "#0f0")]
     #[arg(long, value_parser = clap_parse::color)]
+    #[merge(strategy = overwrite_none)]
     /// Color of success
     pub success: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "red")]
     #[arg(long, value_parser = clap_parse::color)]
+    #[merge(strategy = overwrite_none)]
     /// Color of failure
     pub danger: Color,
 
@@ -61,6 +71,7 @@ pub struct Theme {
         help = "Additional custom color variables\n    \
                 Example: `--custom \"my_color1=blue my_color2=#fed\"`"
     )]
+    #[merge(strategy = overwrite_or_append)]
     /// Additional custom color variables
     pub custom: HashMap<String, Color>,
 }

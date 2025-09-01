@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use clap::Args;
 use iced::{Color, Padding};
+use merge::Merge;
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
+
+use crate::helpers::merge::overwrite_none;
 
 #[optfield(
     pub StyleOverride,
@@ -13,28 +16,32 @@ use toml_example::TomlExample;
     field_attrs,
     merge_fn = pub
 )]
-#[derive(Debug, Args, Clone, Serialize, Deserialize, PartialEq, TomlExample)]
+#[derive(Debug, Args, Merge, Clone, Serialize, Deserialize, PartialEq, TomlExample)]
 #[serde(default)]
 pub struct Style {
     #[arg(long)]
+    #[merge(strategy = overwrite_none)]
     /// The size of text (and text icons)
     pub font_size: f32,
 
     #[serde(with = "serde_with_color")]
     #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = "#fff")]
+    #[merge(strategy = overwrite_none)]
     /// The font color
     pub color: ColorDescriptor,
 
     #[serde(with = "serde_with_color")]
     #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = "$background")]
+    #[merge(strategy = overwrite_none)]
     /// The background color
     pub background_color: Option<ColorDescriptor>,
 
     #[serde(with = "serde_with_padding")]
     #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = [0])]
+    #[merge(strategy = overwrite_none)]
     /// The space around this item separating it from neighboring items
     pub margin: Padding,
 }
@@ -73,17 +80,19 @@ pub struct ContainerStyle {
     pub class: HashMap<String, Style>,
 }
 
-#[derive(Debug, Default, Args, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Args, Merge, Clone, Serialize, Deserialize)]
 pub struct ContainerStyleOverride {
     #[command(flatten)]
     pub style: StyleOverride,
 
     #[serde(with = "serde_with_padding")]
     #[arg(long, value_parser = clap_parse::padding)]
+    #[merge(strategy = overwrite_none)]
     /// The space around the contained items
     pub padding: Option<Padding>,
 
     #[arg(skip)]
+    #[merge(skip)]
     pub class: HashMap<String, StyleOverride>,
 }
 

@@ -2,7 +2,7 @@ use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use iced::{
     event::{listen_with, wayland, PlatformSpecific},
-    futures::{future::BoxFuture, SinkExt as _},
+    futures::future::BoxFuture,
     stream,
 };
 use log::{error, warn};
@@ -13,6 +13,8 @@ use crate::{
     message::{Message, MessageSenderExt as _, UpdateFn},
     state::State,
 };
+
+mod reload;
 
 impl State {
     pub fn subscribe(&self) -> iced::Subscription<Message> {
@@ -53,13 +55,18 @@ impl State {
                     }
                     sender
                         .send(Message::Update(std::mem::take(&mut updates)))
-                        .await
-                        .unwrap();
+                        .await;
                 }
             })
         });
 
+        let reload_watcher = match self.hot_reloading() {
+            true => reload::subscription(),
+            false => iced::Subscription::none(),
+        };
+
         iced::Subscription::batch([
+            reload_watcher,
             // Window events
             listen_with(|event, _, _| {
                 if let iced::Event::PlatformSpecific(PlatformSpecific::Wayland(

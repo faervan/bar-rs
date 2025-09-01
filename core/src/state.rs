@@ -1,5 +1,5 @@
 use crate::{
-    config::{style::ContainerStyle, theme::Theme, ConfigOptions, GlobalConfig},
+    config::{prepare, style::ContainerStyle, theme::Theme, ConfigOptions, GlobalConfig},
     daemon,
     directories::ConfigRoot,
     ipc::{IpcRequest, IpcResponse, WindowRequest, WindowResponse},
@@ -93,7 +93,23 @@ impl State {
                     Arc::into_inner(updatefn.0).unwrap()()
                 }
             }
-            ReloadConfig => todo!(),
+            ReloadConfig => {
+                log::info!("Reloading configuration");
+                self.load_config();
+                for window in self
+                    .windows
+                    .values_mut()
+                    .filter(|w| w.wants_hot_reloading())
+                {
+                    let (config, theme, style) = prepare::merge_config(
+                        window.runtime_options(),
+                        &self.configurations,
+                        &self.themes,
+                        &self.styles,
+                    );
+                    window.reload_config(config, theme, style);
+                }
+            }
             OutputEvent { event, wl_output } => match *event {
                 wayland::OutputEvent::Created(info_maybe) => {
                     let first_output = self.outputs.is_empty();
@@ -283,34 +299,8 @@ impl State {
 
     fn open_window(&mut self, opts: WindowRuntimeOptions) -> (Task<Message>, usize) {
         let naive_id = self.id_count;
-
-        let mut config = match self.configurations.get(&opts.name) {
-            Some(config) => config.clone(),
-            None => {
-                error!("No such configuration: {}", opts.name);
-                ConfigOptions::default()
-            }
-        };
-        config.merge_opt(opts.config.clone());
-
-        // TODO! Handle iced builtin themes
-        let mut theme = match self.themes.get(&config.theme) {
-            Some(theme) => theme.clone(),
-            None => {
-                error!("No such theme: {}", config.theme);
-                Theme::default()
-            }
-        };
-        theme.merge_opt(opts.theme.clone());
-
-        let mut style = match self.styles.get(&config.style) {
-            Some(style) => style.clone(),
-            None => {
-                error!("No such style: {}", config.style);
-                ContainerStyle::default()
-            }
-        };
-        style.merge_opt(opts.style.clone());
+        let (config, theme, style) =
+            prepare::merge_config(&opts, &self.configurations, &self.themes, &self.styles);
 
         let window = Window::new(naive_id, opts, config, theme, style);
 
@@ -338,5 +328,13 @@ impl State {
 
     pub fn reopen_window(&self, window_id: &Id) -> Task<Message> {
         self.windows[window_id].reopen(&self.outputs)
+    }
+
+    pub fn hot_reloading(&self) -> bool {
+        self.config.hot_reloading
+            && self
+                .windows
+                .values()
+                .any(|window| window.wants_hot_reloading())
     }
 }
