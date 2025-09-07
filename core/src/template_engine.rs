@@ -1,9 +1,8 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use iced::Element;
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 
-use crate::{config::style::ContainerStyle, message::Message, module::Context};
+use crate::{config::style::ContainerStyle, message::Message, module::Context, Element};
 
 pub trait Token<Message: Sized>: Send + Sync {
     fn render<'a>(
@@ -11,7 +10,7 @@ pub trait Token<Message: Sized>: Send + Sync {
         context: &Context,
         anchor: &Anchor,
         style: &ContainerStyle,
-    ) -> Element<'a, Message>;
+    ) -> Element<'a>;
 }
 
 type ToTokenRenderer<Message> = fn(&TemplateEngine, &str) -> Box<dyn Token<Message>>;
@@ -69,7 +68,7 @@ impl<Message: 'static> Token<Message> for TextToken {
         context: &Context,
         _anchor: &Anchor,
         style: &ContainerStyle,
-    ) -> Element<'a, Message> {
+    ) -> Element<'a> {
         let style = style.class("text");
         iced::widget::container(iced::widget::text(&self.0).size(style.font_size))
             .padding(style.margin)

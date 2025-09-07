@@ -2,13 +2,11 @@ use std::{collections::HashMap, fmt::Debug};
 
 use custom::CustomModules;
 use downcast_rs::{impl_downcast, Downcast};
-use iced::Element;
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use toml::Table;
 
 use crate::{
-    config::style::ContainerStyle, message::Message, registry::Registry,
-    template_engine::TemplateEngine,
+    config::style::ContainerStyle, registry::Registry, template_engine::TemplateEngine, Element,
 };
 
 pub type Context = HashMap<String, Box<dyn ToString + Send + Sync>>;
@@ -20,7 +18,7 @@ pub trait Module: Downcast + Debug + Send + Sync {
         true
     }
 
-    fn view(&self, variant: &str, anchor: &Anchor, context: &Context) -> Element<Message>;
+    fn view(&self, variant: &str, anchor: &Anchor, context: &Context) -> Element;
 
     #[allow(unused_variables)]
     fn sources(&self, variant: &str) -> Vec<&String> {
@@ -41,6 +39,31 @@ impl_downcast!(Module);
 
 pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<CustomModules>();
+    registry.register_module::<dummy::DummyModule>();
+}
+
+mod dummy {
+    use derive::Builder;
+    use iced::widget::text;
+
+    use crate::{module::Module, Element};
+
+    #[derive(Builder, Debug)]
+    pub struct DummyModule;
+
+    impl Module for DummyModule {
+        fn variant_names(&self) -> Vec<&str> {
+            vec!["dummy"]
+        }
+        fn view(
+            &self,
+            variant: &str,
+            anchor: &smithay_client_toolkit::shell::wlr_layer::Anchor,
+            context: &super::Context,
+        ) -> Element {
+            text!("This is a dummy module!").into()
+        }
+    }
 }
 
 mod custom {
@@ -49,7 +72,7 @@ mod custom {
     use derive::Builder;
     use toml::Table;
 
-    use crate::{config::style::ContainerStyle, message::Message, template_engine::Token};
+    use crate::{config::style::ContainerStyle, message::Message, template_engine::Token, Element};
 
     use super::Module;
 
@@ -80,7 +103,7 @@ mod custom {
             variant: &str,
             anchor: &smithay_client_toolkit::shell::wlr_layer::Anchor,
             context: &super::Context,
-        ) -> iced::Element<Message> {
+        ) -> Element {
             let Some(custom) = self.modules.get(variant) else {
                 log::error!("Invalid variant name of custom module: {variant}");
                 return "Invalid variant name".into();

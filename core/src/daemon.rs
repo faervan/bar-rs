@@ -13,7 +13,7 @@ use tokio::{
     sync::oneshot,
 };
 
-use crate::{ipc::IpcRequest, message::Message, state::State, window::WindowRuntimeOptions};
+use crate::{ipc::IpcRequest, message::Message, state::State};
 
 pub fn run(
     windows: Vec<String>,

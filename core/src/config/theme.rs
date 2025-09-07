@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
 use clap::Args;
-use iced::Color;
+use iced::{daemon::DefaultStyle, Color};
 use merge::Merge;
 use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
 
 use crate::helpers::{
-    merge::{overwrite_none, overwrite_or_append},
+    merge::{overwrite_if_some, overwrite_or_append},
     serde_with::SerdeIntermediate,
 };
 
@@ -24,42 +24,42 @@ pub struct Theme {
     #[serde(with = "serde_with")]
     #[toml_example(default = "rgba(0, 0, 0, 0.5)")]
     #[arg(long, value_parser = clap_parse::color)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The background of the bar
     pub background: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "#0000")]
     #[arg(long, value_parser = clap_parse::color)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The background of the modules
     pub mod_background: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "white")]
     #[arg(long, value_parser = clap_parse::color)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Normal text color
     pub text: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "rgb(0, 0, 255)")]
     #[arg(long, value_parser = clap_parse::color)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Special/foreground text color
     pub primary: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "#0f0")]
     #[arg(long, value_parser = clap_parse::color)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Color of success
     pub success: Color,
 
     #[serde(with = "serde_with")]
     #[toml_example(default = "red")]
     #[arg(long, value_parser = clap_parse::color)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Color of failure
     pub danger: Color,
 
@@ -90,14 +90,29 @@ impl Default for Theme {
     }
 }
 
-impl From<&Theme> for iced::theme::Palette {
-    fn from(theme: &Theme) -> Self {
-        Self {
-            background: theme.background,
-            text: theme.text,
-            primary: theme.primary,
-            success: theme.success,
-            danger: theme.danger,
+impl DefaultStyle for Theme {
+    fn default_style(&self) -> iced::daemon::Appearance {
+        iced::daemon::Appearance {
+            background_color: self.background,
+            text_color: self.text,
+            icon_color: self.primary,
+        }
+    }
+}
+
+impl Theme {
+    pub fn get_named_color(&self, name: &str) -> Color {
+        match name {
+            "background" => self.background,
+            "mod_background" => self.mod_background,
+            "text" => self.text,
+            "primary" => self.primary,
+            "success" => self.success,
+            "danger" => self.danger,
+            custom => self.custom.get(custom).copied().unwrap_or_else(|| {
+                log::error!("{custom}: The theme does not contain any such color.");
+                Color::default()
+            }),
         }
     }
 }
@@ -223,4 +238,32 @@ mod intermediate {
 
     impl ImplSerdeIntermediate<MapIntermediate> for HashMap<String, Color> {}
     impl ImplSerdeIntermediate<OptionIntermediate> for Option<HashMap<String, Color>> {}
+}
+
+mod catalog {
+    use iced::widget::{container, text};
+
+    use crate::config::theme::Theme;
+
+    type StyleFn<'a, Style> = Box<dyn Fn(&Theme) -> Style + 'a>;
+
+    impl container::Catalog for Theme {
+        type Class<'a> = StyleFn<'a, container::Style>;
+        fn default<'a>() -> Self::Class<'a> {
+            Box::new(|_| container::Style::default())
+        }
+        fn style(&self, class: &Self::Class<'_>) -> container::Style {
+            class(self)
+        }
+    }
+
+    impl text::Catalog for Theme {
+        type Class<'a> = StyleFn<'a, text::Style>;
+        fn default<'a>() -> Self::Class<'a> {
+            Box::new(|_| text::Style::default())
+        }
+        fn style(&self, class: &Self::Class<'_>) -> text::Style {
+            class(self)
+        }
+    }
 }

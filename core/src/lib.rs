@@ -1,5 +1,7 @@
 pub use derive;
 
+use crate::{config::theme::Theme, message::Message};
+
 pub mod config;
 pub mod daemon;
 pub mod directories;
@@ -12,6 +14,8 @@ mod state;
 mod subscription;
 pub mod template_engine;
 pub mod window;
+
+pub type Element<'a> = iced::Element<'a, Message, Theme, iced::Renderer>;
 
 #[cfg(test)]
 mod tests {

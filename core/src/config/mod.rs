@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
 use window::{WindowConfig, WindowConfigOverride};
 
-use crate::helpers::merge::overwrite_none;
+use crate::helpers::merge::overwrite_if_some;
 
 pub mod load;
 pub mod module;
@@ -95,17 +95,17 @@ impl Default for ConfigOptions {
 #[derive(Args, Merge, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ConfigOptionOverride {
     #[arg(long)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Name of the theme to use
     pub theme: Option<String>,
 
     #[arg(long)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Name of the style to use
     pub style: Option<String>,
 
     #[arg(long)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Whether to update apply changes when the configuration files where changed. This will not
     /// overwrite settings set through the IPC.
     pub hot_reloading: Option<bool>,

@@ -7,7 +7,7 @@ use crate::message::Message;
 /// Used to create a [Task] using a type [T] that is not in the scope. When the type [T] comes into
 /// scope, the [TaskConstructor] can be build into a [Task].
 pub struct TaskConstructor<T, M = Message> {
-    constructors: Vec<Box<dyn FnOnce(&T) -> Task<M>>>,
+    constructors: Vec<Box<dyn FnOnce(&mut T) -> Task<M>>>,
     _phantom: PhantomData<(T, M)>,
 }
 
@@ -24,13 +24,13 @@ where
 
     pub fn chain<F>(&mut self, f: F) -> &mut Self
     where
-        F: FnOnce(&T) -> Task<M> + 'static,
+        F: FnOnce(&mut T) -> Task<M> + 'static,
     {
         self.constructors.push(Box::new(f));
         self
     }
 
-    pub fn build(self, t: &T) -> Task<M> {
+    pub fn build(self, t: &mut T) -> Task<M> {
         self.constructors
             .into_iter()
             .fold(Task::none(), |task, constructor| task.chain(constructor(t)))

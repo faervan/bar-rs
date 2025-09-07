@@ -6,10 +6,11 @@ use iced::{
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     widget::Row,
     window::Id,
-    Element, Task,
+    Length::Fill,
+    Task,
 };
 use log::info;
-use merge::Merge;
+use merge::Merge as _;
 use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::{
     output::OutputInfo, reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Layer,
@@ -17,6 +18,7 @@ use smithay_client_toolkit::{
 
 use crate::{
     config::{
+        prepare,
         style::{ContainerStyle, ContainerStyleOverride},
         theme::{Theme, ThemeOverride},
         window::MonitorSelection,
@@ -27,6 +29,7 @@ use crate::{
     message::Message,
     registry::Registry,
     state::State,
+    Element,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -38,6 +41,8 @@ pub struct Window {
     config: ConfigOptions,
     theme: Theme,
     style: ContainerStyle,
+    /// TODO! remove this
+    dummy: String,
 }
 
 #[derive(Args, Debug, Clone, Deserialize, Serialize)]
@@ -110,15 +115,27 @@ impl Window {
             config,
             theme,
             style,
+            dummy: String::from("dummy"),
         }
     }
 
-    pub fn view<'a>(&'a self, registry: &'a Registry) -> Element<'a, Message> {
-        registry
-            .get_modules(self.config.modules.all())
+    pub fn view<'a>(&'a self, registry: &'a Registry) -> Element<'a> {
+        let content = registry
+            .get_modules(self.config.modules.all().chain([&self.dummy]))
             .fold(Row::new(), |row, (variant_name, module)| {
                 row.push(module.view(variant_name, &self.config.window.anchor, &HashMap::new()))
+            });
+
+        iced::widget::container(content)
+            .padding(self.style.padding)
+            .style(|theme| iced::widget::container::Style {
+                icon_color: Some(theme.primary),
+                text_color: Some(theme.text),
+                background: Some(iced::Background::Color(theme.background)),
+                ..Default::default()
             })
+            .width(Fill)
+            .height(Fill)
             .into()
     }
 
@@ -132,11 +149,25 @@ impl Window {
             SetConfig { reopen, cfg } => {
                 if reopen {
                     let window_id = self.window_id;
-                    task.chain(move |state: &State| state.reopen_window(&window_id));
+                    task.chain(move |state: &mut State| state.reopen_window(&window_id));
                 }
-                self.config.merge_opt(cfg.clone());
+                if cfg.theme.is_some() || cfg.style.is_some() {
+                    let window_id = self.window_id;
+                    task.chain(move |state: &mut State| {
+                        let window = state.windows.get_mut(&window_id).unwrap();
+                        let (config, theme, style) = prepare::merge_config(
+                            &window.runtime_options,
+                            &state.configurations,
+                            &state.themes,
+                            &state.styles,
+                        );
+                        window.reload_config(config, theme, style);
+                        Task::none()
+                    });
+                } else {
+                    self.config.merge_opt(cfg.clone());
+                }
                 self.runtime_options.config.merge(cfg);
-                // TODO! theme and style need to be reloaded here!
                 WindowResponse::ConfigApplied
             }
             SetTheme(theme) => {
@@ -208,8 +239,10 @@ impl Window {
         self.naive_id
     }
 
-    pub fn theme(&self) -> iced::Theme {
-        iced::Theme::custom(self.config.theme.clone(), (&self.theme).into())
+    pub fn theme(&self) -> Theme {
+        let theme = self.theme.clone();
+        log::info!("applied theme: {theme:#?}");
+        theme
     }
 
     pub fn wants_hot_reloading(&self) -> bool {

@@ -55,7 +55,7 @@ impl Registry {
     pub fn get_modules<'a, I>(
         &'a self,
         enabled: I,
-    ) -> impl Iterator<Item = (&'a String, &'a Box<dyn Module>)>
+    ) -> impl Iterator<Item = (&'a String, &Box<dyn Module>)>
     where
         I: Iterator<Item = &'a String>,
     {

@@ -7,7 +7,7 @@ use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
 
-use crate::helpers::merge::overwrite_none;
+use crate::{config::theme::Theme, helpers::merge::overwrite_if_some};
 
 #[optfield(
     pub StyleOverride,
@@ -20,28 +20,28 @@ use crate::helpers::merge::overwrite_none;
 #[serde(default)]
 pub struct Style {
     #[arg(long)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The size of text (and text icons)
     pub font_size: f32,
 
     #[serde(with = "serde_with_color")]
     #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = "#fff")]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The font color
     pub color: ColorDescriptor,
 
     #[serde(with = "serde_with_color")]
     #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = "$background")]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The background color
     pub background_color: Option<ColorDescriptor>,
 
     #[serde(with = "serde_with_padding")]
     #[arg(long, value_parser = clap_parse::color)]
     #[toml_example(default = [0])]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The space around this item separating it from neighboring items
     pub margin: Padding,
 }
@@ -61,6 +61,15 @@ impl Default for Style {
 pub enum ColorDescriptor {
     Color(Color),
     ThemeColor(String),
+}
+
+impl ColorDescriptor {
+    pub fn as_color(&self, theme: &Theme) -> Color {
+        match self {
+            ColorDescriptor::Color(color) => *color,
+            ColorDescriptor::ThemeColor(name) => theme.get_named_color(name),
+        }
+    }
 }
 
 // Note: all fields from ContainerStyle need to be present for ContainerStyleOverride as well!
@@ -87,7 +96,7 @@ pub struct ContainerStyleOverride {
 
     #[serde(with = "serde_with_padding")]
     #[arg(long, value_parser = clap_parse::padding)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The space around the contained items
     pub padding: Option<Padding>,
 

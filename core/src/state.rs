@@ -7,6 +7,7 @@ use crate::{
     module::register_modules,
     registry::Registry,
     window::{Window, WindowRuntimeOptions},
+    Element,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -17,7 +18,7 @@ use std::{
 
 use iced::{
     event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
-    window::Id, Element, Task,
+    window::Id, Task,
 };
 use log::{error, info};
 use smithay_client_toolkit::{
@@ -32,7 +33,7 @@ pub struct State {
     outputs: HashMap<WlOutput, Option<OutputInfo>>,
     /// If false, we have to wait for new Outputs before opening a window
     outputs_ready: bool,
-    windows: HashMap<Id, Window>,
+    pub windows: HashMap<Id, Window>,
     window_ids: HashMap<usize, Id>,
     opening_queue: VecDeque<Id>,
     pub subscriptions: Vec<iced::Subscription<Message>>,
@@ -280,19 +281,19 @@ impl State {
         )
     }
 
-    pub fn view(&self, id: Id) -> Element<Message> {
+    pub fn view(&self, id: Id) -> Element {
         match self.windows.get(&id) {
             Some(window) => window.view(&self.registry),
             None => "Invalid window ID".into(),
         }
     }
 
-    pub fn theme(&self, id: Id) -> iced::Theme {
+    pub fn theme(&self, id: Id) -> Theme {
         match self.windows.get(&id) {
             Some(window) => window.theme(),
             None => {
                 error!("Internal error: requested theme for invalid window ID");
-                iced::Theme::default()
+                Theme::default()
             }
         }
     }

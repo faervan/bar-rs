@@ -4,7 +4,7 @@ use optfield::optfield;
 use serde::{Deserialize, Serialize};
 use toml_example::TomlExample;
 
-use crate::helpers::merge::overwrite_none;
+use crate::helpers::merge::overwrite_if_some;
 
 #[optfield(
     pub ModuleLayoutOverride,
@@ -17,17 +17,17 @@ use crate::helpers::merge::overwrite_none;
 #[serde(default)]
 pub struct ModuleLayout {
     #[arg(short = 'L', long = "module_left")]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Modules that should be displayed on the left of the bar
     pub left: Vec<String>,
 
     #[arg(short = 'C', long = "module_center")]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Modules that should be displayed on the center of the bar
     pub center: Vec<String>,
 
     #[arg(short = 'R', long = "module_right")]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Modules that should be displayed on the right of the bar
     pub right: Vec<String>,
 }

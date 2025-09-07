@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity};
 use toml_example::TomlExample;
 
-use crate::helpers::merge::overwrite_none;
+use crate::helpers::merge::overwrite_if_some;
 
 #[optfield(
     pub WindowConfigOverride,
@@ -20,31 +20,31 @@ pub struct WindowConfig {
     #[arg(long, value_parser = clap_parser::parse_anchor)]
     #[serde(with = "serde_with::anchor")]
     #[toml_example(default = "Top")]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The anchor to use when positioning the window. May be `top`, `bottom`, `left` or `right`
     pub anchor: Anchor,
 
     #[arg(long, value_parser = clap_parser::parse_monitor)]
     #[serde(with = "serde_with::monitor")]
     #[toml_example(enum)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The monitor to open on
     pub monitor: MonitorSelection,
 
     #[arg(long)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The height of the window
     pub height: u32,
 
     #[arg(long)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// The width of the window
     pub width: u32,
 
     #[arg(long, value_parser = clap_parser::parse_keyboard)]
     #[serde(with = "serde_with::keyboard")]
     #[toml_example(enum)]
-    #[merge(strategy = overwrite_none)]
+    #[merge(strategy = overwrite_if_some)]
     /// Determines if the window should be focusable and receive keyboard inputs. May be `none`,
     /// `on_demand` or `exclusive`.
     pub keyboard_focus: KeyboardInteractivity,
