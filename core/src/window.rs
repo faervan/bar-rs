@@ -12,9 +12,7 @@ use iced::{
 use log::info;
 use merge::Merge as _;
 use serde::{Deserialize, Serialize};
-use smithay_client_toolkit::{
-    output::OutputInfo, reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Layer,
-};
+use smithay_client_toolkit::shell::wlr_layer::Layer;
 
 use crate::{
     config::{
@@ -28,7 +26,7 @@ use crate::{
     ipc::WindowResponse,
     message::Message,
     registry::Registry,
-    state::State,
+    state::{Outputs, State},
     Element,
 };
 
@@ -41,7 +39,7 @@ pub struct Window {
     config: ConfigOptions,
     theme: Theme,
     style: ContainerStyle,
-    /// TODO! remove this
+    /// TODO! Remove this
     dummy: String,
 }
 
@@ -184,7 +182,7 @@ impl Window {
         (response, task)
     }
 
-    pub fn open(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
+    pub fn open(&self, outputs: &Outputs) -> Task<Message> {
         info!("opening window with id {}", self.naive_id);
         let (output, info) = match &self.config.window.monitor {
             MonitorSelection::All => (IcedOutput::All, None),
@@ -202,7 +200,7 @@ impl Window {
                 }),
         };
 
-        let (x, y) = info
+        let (_x, _y) = info
             .as_ref()
             .and_then(|i| i.logical_size.map(|(x, y)| (x as u32, y as u32)))
             .unwrap_or((1920, 1080));
@@ -226,7 +224,7 @@ impl Window {
         })
     }
 
-    pub fn reopen(&self, outputs: &HashMap<WlOutput, Option<OutputInfo>>) -> Task<Message> {
+    pub fn reopen(&self, outputs: &Outputs) -> Task<Message> {
         info!("Reopening window with id {}", self.naive_id);
         destroy_layer_surface(self.window_id).chain(self.open(outputs))
     }

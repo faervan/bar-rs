@@ -19,7 +19,7 @@ where
     let opt_right = right.into_opt();
     if let Some(right) = opt_right {
         match opt_left {
-            Some(left) => left.extend(right.into_iter()),
+            Some(left) => left.extend(right),
             None => *left = AcceptOption::from_opt(Some(right)),
         }
     }

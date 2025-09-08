@@ -138,7 +138,7 @@ impl ContainerStyle {
 mod clap_parse {
     use iced::{Color, Padding};
 
-    use crate::config::style::{ColorDescriptor, StyleOverride};
+    use crate::config::style::ColorDescriptor;
 
     pub fn padding(value: &str) -> anyhow::Result<Padding> {
         let vec: Vec<f32> = value
@@ -160,7 +160,7 @@ mod clap_parse {
     pub fn color(value: &str) -> Result<ColorDescriptor, csscolorparser::ParseColorError> {
         Ok(match value.strip_prefix('$') {
             Some(name) => ColorDescriptor::ThemeColor(name.to_string()),
-            None => ColorDescriptor::Color(Color::from(csscolorparser::parse(&value)?.to_array())),
+            None => ColorDescriptor::Color(Color::from(csscolorparser::parse(value)?.to_array())),
         })
     }
 }

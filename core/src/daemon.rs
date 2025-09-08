@@ -97,10 +97,10 @@ async fn handle_client(mut stream: UnixStream, mut sender: Sender<Message>) -> a
 }
 
 pub fn exit_cleanup(socket_path: &Path, pid_path: &Path) {
-    if let Err(e) = fs::remove_file(&socket_path) {
+    if let Err(e) = fs::remove_file(socket_path) {
         error!("Could not remove socket file at {socket_path:?}: {e}");
     }
-    if let Err(e) = fs::remove_file(&pid_path) {
+    if let Err(e) = fs::remove_file(pid_path) {
         error!("Could not remove PID file at {pid_path:?}: {e}");
     }
 }

@@ -4,11 +4,18 @@ use iced::Task;
 
 use crate::message::Message;
 
+#[allow(clippy::type_complexity)]
 /// Used to create a [Task] using a type [T] that is not in the scope. When the type [T] comes into
 /// scope, the [TaskConstructor] can be build into a [Task].
 pub struct TaskConstructor<T, M = Message> {
     constructors: Vec<Box<dyn FnOnce(&mut T) -> Task<M>>>,
     _phantom: PhantomData<(T, M)>,
+}
+
+impl<T> Default for TaskConstructor<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T, M> TaskConstructor<T, M>

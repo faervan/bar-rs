@@ -21,6 +21,7 @@ impl Debug for UpdateFn {
     }
 }
 
+#[allow(clippy::type_complexity)]
 /// Capturing closure that is executed with read access to [T]
 pub struct ReadFn<T>(Arc<Box<dyn FnOnce(&T) + Send + Sync>>);
 impl<T> Debug for ReadFn<T> {

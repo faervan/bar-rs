@@ -40,7 +40,7 @@ pub enum IpcRequest {
 #[derive(Subcommand, Debug, Deserialize, Serialize)]
 pub enum WindowRequest {
     /// Open a new window
-    Open(WindowRuntimeOptions),
+    Open(Box<WindowRuntimeOptions>),
     /// Close a window
     Close {
         #[arg(short = 'A', long)]

@@ -26,11 +26,13 @@ use smithay_client_toolkit::{
 };
 use tokio::time::sleep;
 
+pub type Outputs = Vec<(WlOutput, Option<OutputInfo>)>;
+
 #[derive(Debug, Default)]
 pub struct State {
     pub socket_path: PathBuf,
     pid_path: PathBuf,
-    outputs: HashMap<WlOutput, Option<OutputInfo>>,
+    outputs: Outputs,
     /// If false, we have to wait for new Outputs before opening a window
     outputs_ready: bool,
     pub windows: HashMap<Id, Window>,
@@ -115,7 +117,7 @@ impl State {
                 wayland::OutputEvent::Created(info_maybe) => {
                     let first_output = self.outputs.is_empty();
                     log::debug!("got new output: {info_maybe:#?}");
-                    self.outputs.insert(wl_output, info_maybe);
+                    self.outputs.push((wl_output, info_maybe));
                     if !self.outputs_ready && first_output {
                         return Task::future(async {
                             sleep(Duration::from_millis(500)).await;
@@ -124,10 +126,17 @@ impl State {
                     }
                 }
                 wayland::OutputEvent::InfoUpdate(info) => {
-                    self.outputs.insert(wl_output, Some(info));
+                    if let Some((_, info_maybe)) =
+                        self.outputs.iter_mut().find(|(wlo, _)| wlo == &wl_output)
+                    {
+                        *info_maybe = Some(info);
+                    }
                 }
                 wayland::OutputEvent::Removed => {
-                    self.outputs.remove(&wl_output);
+                    let pos = self.outputs.iter().position(|(wlo, _)| wlo == &wl_output);
+                    if let Some(pos) = pos {
+                        self.outputs.remove(pos);
+                    }
                 }
             },
             OutputsReady => {
@@ -163,7 +172,7 @@ impl State {
                             WindowRequest::Open(opts) => {
                                 info!("Opening new window");
                                 let naive_id;
-                                (task, naive_id) = self.open_window(opts);
+                                (task, naive_id) = self.open_window(*opts);
                                 IpcResponse::Window {
                                     id: vec![naive_id],
                                     event: WindowResponse::Opened,
@@ -281,7 +290,7 @@ impl State {
         )
     }
 
-    pub fn view(&self, id: Id) -> Element {
+    pub fn view(&self, id: Id) -> Element<'_> {
         match self.windows.get(&id) {
             Some(window) => window.view(&self.registry),
             None => "Invalid window ID".into(),

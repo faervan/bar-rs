@@ -11,7 +11,7 @@ mod message;
 pub mod module;
 pub mod registry;
 mod state;
-mod subscription;
+pub mod subscription;
 pub mod template_engine;
 pub mod window;
 

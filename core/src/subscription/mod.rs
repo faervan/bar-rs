@@ -122,6 +122,7 @@ impl SubscriptionUpdate {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub struct Subscription(
     Option<
         Box<

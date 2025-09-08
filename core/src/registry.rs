@@ -52,12 +52,12 @@ impl Registry {
         self.try_get_module_mut().unwrap()
     }
 
-    pub fn get_modules<'a, I>(
+    pub fn get_modules<'a, 'b, I>(
         &'a self,
         enabled: I,
-    ) -> impl Iterator<Item = (&'a String, &Box<dyn Module>)>
+    ) -> impl Iterator<Item = (&'b String, &'a Box<dyn Module>)>
     where
-        I: Iterator<Item = &'a String>,
+        I: Iterator<Item = &'b String>,
     {
         enabled.filter_map(|id| {
             self.module_names
@@ -103,6 +103,6 @@ impl Registry {
     }
 
     pub fn module_names(&self) -> impl Iterator<Item = &String> {
-        self.module_names.iter().map(|(name, _)| name)
+        self.module_names.keys()
     }
 }

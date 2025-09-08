@@ -18,7 +18,7 @@ pub trait Module: Downcast + Debug + Send + Sync {
         true
     }
 
-    fn view(&self, variant: &str, anchor: &Anchor, context: &Context) -> Element;
+    fn view(&self, variant: &str, anchor: &Anchor, context: &Context) -> Element<'_>;
 
     #[allow(unused_variables)]
     fn sources(&self, variant: &str) -> Vec<&String> {
@@ -57,10 +57,10 @@ mod dummy {
         }
         fn view(
             &self,
-            variant: &str,
-            anchor: &smithay_client_toolkit::shell::wlr_layer::Anchor,
-            context: &super::Context,
-        ) -> Element {
+            _variant: &str,
+            _anchor: &smithay_client_toolkit::shell::wlr_layer::Anchor,
+            _context: &super::Context,
+        ) -> Element<'_> {
             text!("This is a dummy module!").into()
         }
     }
@@ -82,9 +82,9 @@ mod custom {
     }
 
     struct CustomModule {
-        sources: Vec<String>,
+        _sources: Vec<String>,
         style: ContainerStyle,
-        config: Table,
+        _config: Table,
         token: Box<dyn Token<Message> + Send + Sync>,
     }
 
@@ -103,7 +103,7 @@ mod custom {
             variant: &str,
             anchor: &smithay_client_toolkit::shell::wlr_layer::Anchor,
             context: &super::Context,
-        ) -> Element {
+        ) -> Element<'_> {
             let Some(custom) = self.modules.get(variant) else {
                 log::error!("Invalid variant name of custom module: {variant}");
                 return "Invalid variant name".into();
@@ -127,10 +127,10 @@ mod custom {
             self.modules.insert(
                 String::from(variant),
                 CustomModule {
-                    sources: vec![],
+                    _sources: vec![],
                     style,
                     token: engine.render_token(format),
-                    config,
+                    _config: config,
                 },
             );
         }

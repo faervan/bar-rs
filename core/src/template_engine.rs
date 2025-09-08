@@ -25,6 +25,12 @@ impl Debug for TemplateEngine {
     }
 }
 
+impl Default for TemplateEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TemplateEngine {
     pub fn new() -> Self {
         Self {
@@ -65,7 +71,7 @@ struct TextToken(String);
 impl<Message: 'static> Token<Message> for TextToken {
     fn render<'a>(
         &'a self,
-        context: &Context,
+        _context: &Context,
         _anchor: &Anchor,
         style: &ContainerStyle,
     ) -> Element<'a> {
