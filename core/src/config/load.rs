@@ -3,14 +3,14 @@ use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 use log::{debug, error, info};
 use serde::Deserialize;
 
-use crate::state::State;
+use crate::{config::MainConfig, state::State};
 
 impl State {
     pub fn load_config(&mut self) {
         info!("Loading configuration.");
         debug!("ConfigRoot: {:#?}", self.config_root);
 
-        if let Err(e) = self.load_global_config() {
+        if let Err(e) = self.load_main_config() {
             error!(
                 "Failed to load global configuration from {:?}: {e}",
                 self.config_root.config()
@@ -34,8 +34,12 @@ impl State {
         }
     }
 
-    fn load_global_config(&mut self) -> anyhow::Result<()> {
-        self.config = Arc::new(parse_from_file(self.config_root.config())?);
+    /// Load both the [GlobalConfig](crate::config::GlobalConfig)
+    /// and the [configuration presets](crate::config::ConfigOptions)
+    fn load_main_config(&mut self) -> anyhow::Result<()> {
+        let main_cfg: MainConfig = parse_from_file(self.config_root.config())?;
+        self.config = Arc::new(main_cfg.global);
+        self.config_presets = main_cfg.bar;
         debug!("Loaded global configuration");
 
         Ok(())

@@ -44,7 +44,7 @@ pub struct State {
     pub config_root: ConfigRoot,
     pub config: Arc<GlobalConfig>,
     /// Window configuration presets
-    pub configurations: HashMap<String, ConfigOptions>,
+    pub config_presets: HashMap<String, ConfigOptions>,
     pub themes: HashMap<String, Theme>,
     pub styles: HashMap<String, ContainerStyle>,
     registry: Registry,
@@ -106,7 +106,7 @@ impl State {
                 {
                     let (config, theme, style) = prepare::merge_config(
                         window.runtime_options(),
-                        &self.configurations,
+                        &self.config_presets,
                         &self.themes,
                         &self.styles,
                     );
@@ -155,6 +155,7 @@ impl State {
                             .map(|w| (w.naive_id(), w.clone()))
                             .collect(),
                     ),
+                    IpcRequest::Configs => IpcResponse::ConfigList(self.config_presets.clone()),
                     IpcRequest::Modules => {
                         IpcResponse::ModuleList(self.registry.module_names().cloned().collect())
                     }
@@ -310,7 +311,7 @@ impl State {
     fn open_window(&mut self, opts: WindowRuntimeOptions) -> (Task<Message>, usize) {
         let naive_id = self.id_count;
         let (config, theme, style) =
-            prepare::merge_config(&opts, &self.configurations, &self.themes, &self.styles);
+            prepare::merge_config(&opts, &self.config_presets, &self.themes, &self.styles);
 
         let window = Window::new(naive_id, opts, config, theme, style);
 

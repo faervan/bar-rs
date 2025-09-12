@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use clap::Args;
 use merge::Merge;
 use module::{ModuleLayout, ModuleLayoutOverride};
@@ -15,6 +17,18 @@ pub mod source;
 pub mod style;
 pub mod theme;
 pub mod window;
+
+#[derive(Deserialize, Default, Debug, TomlExample, PartialEq)]
+#[serde(default)]
+pub struct MainConfig {
+    #[serde(flatten)]
+    #[toml_example(nesting)]
+    global: GlobalConfig,
+
+    #[serde(flatten)]
+    #[toml_example(nesting)]
+    bar: HashMap<String, ConfigOptions>,
+}
 
 #[optfield(
     pub GlobalConfigOverride,

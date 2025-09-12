@@ -18,6 +18,8 @@ pub enum IpcRequest {
     #[command(name = "list")]
     /// List all open windows
     ListWindows,
+    /// List all available configuration presets
+    Configs,
     /// List all available modules
     Modules,
     /// List all available themes
@@ -60,6 +62,7 @@ pub enum WindowRequest {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum IpcResponse {
     WindowList(HashMap<usize, Window>),
+    ConfigList(HashMap<String, ConfigOptions>),
     ModuleList(Vec<String>),
     ThemeList(HashMap<String, Theme>),
     StyleList(HashMap<String, ContainerStyle>),

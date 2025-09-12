@@ -163,7 +163,7 @@ mod serde_with {
                 {
                     let value: Option<String> = A::deserialize_v(deserializer)?;
                     Ok(A::from_opt(match value {
-                        Some(value) => Some(match value.as_str() {
+                        Some(value) => Some(match value.to_lowercase().as_str() {
                             $(
                                 $variant_name => $variant_value,
                             )*
@@ -234,11 +234,13 @@ mod serde_with {
             A: crate::helpers::accept_option::AcceptOption<MonitorSelection>,
         {
             let value: Option<String> = A::deserialize_v(deserializer)?;
-            Ok(A::from_opt(value.map(|value| match value.as_str() {
-                "all" => MonitorSelection::All,
-                "active" => MonitorSelection::Active,
-                name => MonitorSelection::Name(String::from(name)),
-            })))
+            Ok(A::from_opt(value.map(
+                |value| match value.to_lowercase().as_str() {
+                    "all" => MonitorSelection::All,
+                    "active" => MonitorSelection::Active,
+                    name => MonitorSelection::Name(String::from(name)),
+                },
+            )))
         }
     }
 }

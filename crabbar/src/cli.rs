@@ -100,6 +100,7 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
         Command::DefaultTheme => println!("{}", Theme::toml_example()),
         Command::Ipc(cmd) => {
             let response = ipc::request(cmd, &socket_path)?;
+            info!("MainConfig:\n{}", core::config::MainConfig::toml_example());
             match response {
                 IpcResponse::WindowList(windows) => match windows.is_empty() {
                     true => info!("No windows are open!"),
@@ -109,6 +110,17 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                         windows.sort_by_key(|&(id, _)| id);
                         for (id, window) in windows {
                             println!("{id}:\t{window:#?}")
+                        }
+                    }
+                },
+                IpcResponse::ConfigList(presets) => match presets.is_empty() {
+                    true => info!("No configuration presets are available!"),
+                    false => {
+                        info!("{} configuration presets are available:", presets.len(),);
+                        let mut presets: Vec<_> = presets.into_iter().collect();
+                        presets.sort_by_key(|(id, _)| id.clone());
+                        for (name, preset) in presets {
+                            println!("{name}:\t{preset:#?}")
                         }
                     }
                 },

@@ -155,7 +155,7 @@ impl Window {
                         let window = state.windows.get_mut(&window_id).unwrap();
                         let (config, theme, style) = prepare::merge_config(
                             &window.runtime_options,
-                            &state.configurations,
+                            &state.config_presets,
                             &state.themes,
                             &state.styles,
                         );
