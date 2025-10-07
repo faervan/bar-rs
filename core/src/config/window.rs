@@ -19,7 +19,7 @@ use crate::helpers::merge::overwrite_if_some;
 pub struct WindowConfig {
     #[arg(long, value_parser = clap_parser::parse_anchor)]
     #[serde(with = "serde_with::anchor")]
-    #[toml_example(default = "Top")]
+    #[toml_example(default = "Bottom")]
     #[merge(strategy = overwrite_if_some)]
     /// The anchor to use when positioning the window. May be `top`, `bottom`, `left` or `right`
     pub anchor: Anchor,

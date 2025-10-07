@@ -4513,14 +4513,14 @@ dependencies = [
 
 [[package]]
 name = "toml-example"
-version = "0.14.0"
+version = "0.16.0"
 dependencies = [
  "toml-example-derive",
 ]
 
 [[package]]
 name = "toml-example-derive"
-version = "0.14.0"
+version = "0.16.0"
 dependencies = [
  "proc-macro-error2",
  "proc-macro2",

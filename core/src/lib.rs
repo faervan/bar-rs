@@ -33,13 +33,12 @@ mod tests {
     #[test]
     fn verify_default_main_config() {
         let example = MainConfig::toml_example();
-        println!(
-            "{example}\n\n--------\n\n{:#?}",
-            toml::from_str::<MainConfig>(&example).unwrap()
-        );
         assert_eq!(
             toml::from_str::<MainConfig>(&example).unwrap(),
-            MainConfig::default()
+            MainConfig {
+                bar: [(String::from("example"), ConfigOptions::default())].into(),
+                ..Default::default()
+            }
         );
     }
 

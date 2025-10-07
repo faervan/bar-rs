@@ -1,5 +1,5 @@
 use core::{
-    config::{style::ContainerStyle, theme::Theme, ConfigOptions, GlobalConfig},
+    config::{style::ContainerStyle, theme::Theme, MainConfig},
     daemon, directories,
     ipc::{self, IpcRequest, IpcResponse, WindowResponse},
 };
@@ -40,9 +40,7 @@ enum Command {
         /// Open windows using the given configuration presets
         windows: Vec<String>,
     },
-    /// Print the default global configuration
-    DefaultGlobalConfig,
-    /// Print the default window configuration
+    /// Print the default global and window configuration
     DefaultConfig,
     /// Print the default style
     DefaultStyle,
@@ -94,13 +92,11 @@ pub fn handle_cli_commands(args: CliArgs) -> anyhow::Result<()> {
                 args.config_dir,
             )?;
         }
-        Command::DefaultGlobalConfig => println!("{}", GlobalConfig::toml_example()),
-        Command::DefaultConfig => println!("{}", ConfigOptions::toml_example()),
+        Command::DefaultConfig => println!("{}", MainConfig::toml_example()),
         Command::DefaultStyle => println!("{}", ContainerStyle::toml_example()),
         Command::DefaultTheme => println!("{}", Theme::toml_example()),
         Command::Ipc(cmd) => {
             let response = ipc::request(cmd, &socket_path)?;
-            info!("MainConfig:\n{}", core::config::MainConfig::toml_example());
             match response {
                 IpcResponse::WindowList(windows) => match windows.is_empty() {
                     true => info!("No windows are open!"),

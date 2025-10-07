@@ -23,11 +23,11 @@ pub mod window;
 pub struct MainConfig {
     #[serde(flatten)]
     #[toml_example(nesting)]
-    global: GlobalConfig,
+    pub global: GlobalConfig,
 
     #[serde(flatten)]
     #[toml_example(nesting)]
-    bar: HashMap<String, ConfigOptions>,
+    pub bar: HashMap<String, ConfigOptions>,
 }
 
 #[optfield(
@@ -71,7 +71,7 @@ pub struct ConfigOptions {
     pub style: String,
 
     #[arg(long)]
-    /// Whether to update apply changes when the configuration files where changed. This will not
+    /// Whether to apply changes when the configuration files where changed. This will not
     /// overwrite settings set through the IPC.
     ///
     /// This will not take affect if the global `hot_reloading` setting is disabled.
@@ -91,13 +91,11 @@ pub struct ConfigOptions {
 impl Default for ConfigOptions {
     fn default() -> Self {
         Self {
-            theme: format!(
-                "iced/{}",
-                match darkmode::detect().unwrap_or(darkmode::Mode::Dark) {
-                    darkmode::Mode::Light => iced::Theme::Light,
-                    darkmode::Mode::Dark | darkmode::Mode::Default => iced::Theme::Dark,
-                }
-            ),
+            theme: match darkmode::detect().unwrap_or(darkmode::Mode::Dark) {
+                darkmode::Mode::Light => "light",
+                darkmode::Mode::Dark | darkmode::Mode::Default => "dark",
+            }
+            .to_string(),
             style: String::from("crabbar"),
             hot_reloading: true,
             modules: ModuleLayout::default(),
