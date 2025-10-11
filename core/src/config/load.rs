@@ -1,9 +1,20 @@
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use std::{
+    any::TypeId,
+    collections::{HashMap, HashSet},
+    fs,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use log::{debug, error, info};
 use serde::Deserialize;
+use toml::Table;
 
-use crate::{config::MainConfig, state::State};
+use crate::{
+    config::{MainConfig, style::ContainerStyleOverride},
+    module::{CustomModules, Module},
+    state::State,
+};
 
 impl State {
     pub fn load_config(&mut self) {
@@ -30,6 +41,13 @@ impl State {
             error!(
                 "Failed to load styles from {:?}: {e}",
                 self.config_root.style_dir()
+            );
+        }
+
+        if let Err(e) = self.load_module_config() {
+            error!(
+                "Failed to load the module config from {:?}: {e}",
+                self.config_root.module_dir()
             );
         }
     }
@@ -59,6 +77,65 @@ impl State {
             state.styles.insert(style_name, style);
         })?;
         debug!("Loaded styles");
+
+        Ok(())
+    }
+
+    fn load_module_config(&mut self) -> anyhow::Result<()> {
+        self.parse_from_dir(
+            self.config_root.module_dir(),
+            |state, variant, config: Table| {
+                let is_custom = config
+                    .get("type")
+                    .and_then(|value| value.as_str())
+                    .is_some_and(|s| s.to_lowercase() == "custom");
+                let module = match is_custom {
+                    true => Some((
+                        TypeId::of::<CustomModules>(),
+                        state.registry.get_module_mut::<CustomModules>() as &mut dyn Module,
+                    )),
+                    false => state
+                        .registry
+                        .module_by_name_mut(&variant)
+                        .map(|(id, m)| (*id, m.as_mut())),
+                };
+                if let Some((type_id, module)) = module {
+                    let style = config.get("appearance").and_then(|value| {
+                        value
+                            .clone()
+                            .try_into::<ContainerStyleOverride>()
+                            .inspect_err(|e| error!("Syntax error in `{variant}.toml`: {e}"))
+                            .ok()
+                    });
+
+                    let (mut added, mut removed) = (vec![], vec![]);
+                    let mut variants: HashSet<String> =
+                        HashSet::from_iter(module.variant_names().into_iter().map(str::to_string));
+                    module.read_config(&variant, config, &state.engine);
+
+                    // Determine added/removed module variants due to the new config (e.g. a custom
+                    // module might have been created or deleted)
+                    let mut new = vec![];
+                    for variant in module.variant_names() {
+                        if !variants.remove(variant) {
+                            new.push(variant.to_string());
+                        }
+                    }
+                    added.push((type_id, new));
+                    removed.extend(variants.into_iter());
+
+                    for (id, added) in added.into_iter() {
+                        state.registry.add_module_names(id, added.into_iter());
+                    }
+                    state.registry.remove_module_names(removed.into_iter());
+
+                    if let Some(style) = style {
+                        state.registry.set_style_override(&type_id, &variant, style);
+                    }
+                }
+            },
+        )?;
+        debug!("Loaded module configurations");
 
         Ok(())
     }

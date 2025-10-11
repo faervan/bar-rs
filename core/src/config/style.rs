@@ -90,6 +90,7 @@ pub struct ContainerStyle {
 }
 
 #[derive(Debug, Default, Args, Merge, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ContainerStyleOverride {
     #[command(flatten)]
     pub style: StyleOverride,
@@ -152,7 +153,7 @@ mod clap_parse {
             _ => {
                 return Err(anyhow::anyhow!(
                     "Invalid number of values: expected 1, 2 or 4",
-                ))
+                ));
             }
         })
     }
@@ -167,7 +168,7 @@ mod clap_parse {
 
 mod serde_with_padding {
     use iced::Padding;
-    use serde::{de::Error as _, ser::SerializeSeq as _, Deserializer, Serializer};
+    use serde::{Deserializer, Serializer, de::Error as _, ser::SerializeSeq as _};
 
     use crate::helpers::accept_option::{AcceptOption, ImplAcceptOption};
 
@@ -218,7 +219,7 @@ mod serde_with_padding {
                 _ => {
                     return Err(D::Error::custom(
                         "Invalid number of values: expected 1, 2 or 4",
-                    ))
+                    ));
                 }
             }),
             None => None,
@@ -229,7 +230,7 @@ mod serde_with_padding {
 
 mod serde_with_color {
     use iced::Color;
-    use serde::{de::Error as _, Deserializer, Serialize as _, Serializer};
+    use serde::{Deserializer, Serialize as _, Serializer, de::Error as _};
 
     use crate::helpers::accept_option::{AcceptOption, ImplAcceptOption};
 

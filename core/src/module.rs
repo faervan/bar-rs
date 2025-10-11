@@ -1,12 +1,19 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use custom::CustomModules;
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 use toml::Table;
 
+pub use custom::CustomModules;
+
 use crate::{
-    config::style::ContainerStyle, registry::Registry, template_engine::TemplateEngine, Element,
+    Element,
+    config::{
+        style::{ContainerStyle, ContainerStyleOverride},
+        theme::Theme,
+    },
+    registry::Registry,
+    template_engine::TemplateEngine,
 };
 
 pub type Context = HashMap<String, Box<dyn ToString + Send + Sync>>;
@@ -18,7 +25,19 @@ pub trait Module: Downcast + Debug + Send + Sync {
         true
     }
 
-    fn view(&self, variant: &str, anchor: &Anchor, context: &Context) -> Element<'_>;
+    fn view(
+        &self,
+        variant: &str,
+        anchor: &Anchor,
+        context: &Context,
+        theme: &Theme,
+        style: &ContainerStyle,
+    ) -> Element<'_>;
+
+    #[allow(unused_variables)]
+    fn default_style(&self, variant: &str) -> ContainerStyleOverride {
+        ContainerStyleOverride::default()
+    }
 
     #[allow(unused_variables)]
     fn sources(&self, variant: &str) -> Vec<&String> {
@@ -26,14 +45,7 @@ pub trait Module: Downcast + Debug + Send + Sync {
     }
 
     #[allow(unused_variables)]
-    fn read_config(
-        &mut self,
-        variant: &str,
-        config: Table,
-        style: ContainerStyle,
-        engine: &TemplateEngine,
-    ) {
-    }
+    fn read_config(&mut self, variant: &str, config: Table, engine: &TemplateEngine) {}
 }
 impl_downcast!(Module);
 
@@ -46,7 +58,11 @@ mod dummy {
     use derive::Builder;
     use iced::widget::text;
 
-    use crate::{module::Module, Element};
+    use crate::{
+        Element,
+        config::{style::ContainerStyle, theme::Theme},
+        module::Module,
+    };
 
     #[derive(Builder, Debug)]
     pub struct DummyModule;
@@ -60,6 +76,8 @@ mod dummy {
             _variant: &str,
             _anchor: &smithay_client_toolkit::shell::wlr_layer::Anchor,
             _context: &super::Context,
+            _theme: &Theme,
+            _style: &ContainerStyle,
         ) -> Element<'_> {
             text!("This is a dummy module!").into()
         }
@@ -72,7 +90,12 @@ mod custom {
     use derive::Builder;
     use toml::Table;
 
-    use crate::{config::style::ContainerStyle, message::Message, template_engine::Token, Element};
+    use crate::{
+        Element,
+        config::{style::ContainerStyle, theme::Theme},
+        message::Message,
+        template_engine::Token,
+    };
 
     use super::Module;
 
@@ -83,7 +106,6 @@ mod custom {
 
     struct CustomModule {
         _sources: Vec<String>,
-        style: ContainerStyle,
         _config: Table,
         token: Box<dyn Token<Message> + Send + Sync>,
     }
@@ -103,18 +125,19 @@ mod custom {
             variant: &str,
             anchor: &smithay_client_toolkit::shell::wlr_layer::Anchor,
             context: &super::Context,
+            theme: &Theme,
+            style: &ContainerStyle,
         ) -> Element<'_> {
             let Some(custom) = self.modules.get(variant) else {
                 log::error!("Invalid variant name of custom module: {variant}");
                 return "Invalid variant name".into();
             };
-            custom.token.render(context, anchor, &custom.style)
+            custom.token.render(context, anchor, style, theme)
         }
         fn read_config(
             &mut self,
             variant: &str,
             config: Table,
-            style: ContainerStyle,
             engine: &crate::template_engine::TemplateEngine,
         ) {
             let format = match config.get("format") {
@@ -128,7 +151,6 @@ mod custom {
                 String::from(variant),
                 CustomModule {
                     _sources: vec![],
-                    style,
                     token: engine.render_token(format),
                     _config: config,
                 },

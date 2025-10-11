@@ -2,12 +2,13 @@ use std::collections::HashMap;
 
 use clap::{Args, Subcommand};
 use iced::{
-    platform_specific::shell::commands::layer_surface::{destroy_layer_surface, get_layer_surface},
-    runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
-    widget::Row,
-    window::Id,
+    Background,
     Length::Fill,
     Task,
+    platform_specific::shell::commands::layer_surface::{destroy_layer_surface, get_layer_surface},
+    runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
+    widget::{Row, container},
+    window::Id,
 };
 use log::info;
 use merge::Merge as _;
@@ -15,19 +16,18 @@ use serde::{Deserialize, Serialize};
 use smithay_client_toolkit::shell::wlr_layer::Layer;
 
 use crate::{
+    Element,
     config::{
-        prepare,
+        ConfigOptionOverride, ConfigOptions, prepare,
         style::{ContainerStyle, ContainerStyleOverride},
         theme::{Theme, ThemeOverride},
         window::MonitorSelection,
-        ConfigOptionOverride, ConfigOptions,
     },
     helpers::task_constructor::TaskConstructor,
     ipc::WindowResponse,
     message::Message,
     registry::Registry,
     state::{Outputs, State},
-    Element,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -47,7 +47,7 @@ pub struct Window {
 /// Configurations options that apply only to this specific window instance. They are applied by
 /// CLI arguments at window creation and can be changed at runtime through the IPC.
 pub struct WindowRuntimeOptions {
-    #[arg(default_value = "crabbar")]
+    #[arg(default_value = "example")]
     /// Name of the configuration to use
     pub name: String,
 
@@ -119,9 +119,30 @@ impl Window {
 
     pub fn view<'a>(&'a self, registry: &'a Registry) -> Element<'a> {
         let content = registry
-            .get_modules(self.config.modules.all().chain([&self.dummy]))
-            .fold(Row::new(), |row, (variant_name, module)| {
-                row.push(module.view(variant_name, &self.config.window.anchor, &HashMap::new()))
+            .iter_enabled(self.config.modules.all().chain([&self.dummy]))
+            .fold(Row::new(), |row, (variant_name, module, style)| {
+                let mut mod_style = self.style.clone();
+                mod_style.merge_opt(style.clone());
+
+                let module_view = module.view(
+                    variant_name,
+                    &self.config.window.anchor,
+                    &HashMap::new(),
+                    &self.theme,
+                    &mod_style,
+                );
+                row.push(
+                    container(module_view)
+                        .padding(mod_style.padding)
+                        .style(move |theme| iced::widget::container::Style {
+                            background: mod_style
+                                .style
+                                .background_color
+                                .clone()
+                                .map(|b| Background::Color(b.as_color(theme))),
+                            ..Default::default()
+                        }),
+                )
             });
 
         iced::widget::container(content)

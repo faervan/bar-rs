@@ -25,9 +25,9 @@ mod tests {
     use toml_example::TomlExample;
 
     use crate::config::{
+        ConfigOptions, GlobalConfig, MainConfig,
         style::{ColorDescriptor, ContainerStyle, Style},
         theme::Theme,
-        ConfigOptions, GlobalConfig, MainConfig,
     };
 
     #[test]

@@ -1,13 +1,14 @@
 use crate::{
-    config::{prepare, style::ContainerStyle, theme::Theme, ConfigOptions, GlobalConfig},
+    Element,
+    config::{ConfigOptions, GlobalConfig, prepare, style::ContainerStyle, theme::Theme},
     daemon,
     directories::ConfigRoot,
     ipc::{IpcRequest, IpcResponse, WindowRequest, WindowResponse},
     message::Message,
     module::register_modules,
     registry::Registry,
+    template_engine::TemplateEngine,
     window::{Window, WindowRuntimeOptions},
-    Element,
 };
 use std::{
     collections::{HashMap, VecDeque},
@@ -17,8 +18,8 @@ use std::{
 };
 
 use iced::{
-    event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
-    window::Id, Task,
+    Task, event::wayland, platform_specific::shell::commands::layer_surface::destroy_layer_surface,
+    window::Id,
 };
 use log::{error, info};
 use smithay_client_toolkit::{
@@ -47,7 +48,8 @@ pub struct State {
     pub config_presets: HashMap<String, ConfigOptions>,
     pub themes: HashMap<String, Theme>,
     pub styles: HashMap<String, ContainerStyle>,
-    registry: Registry,
+    pub registry: Registry,
+    pub engine: TemplateEngine,
 }
 
 impl State {

@@ -2,7 +2,12 @@ use std::{collections::HashMap, fmt::Debug};
 
 use smithay_client_toolkit::shell::wlr_layer::Anchor;
 
-use crate::{config::style::ContainerStyle, message::Message, module::Context, Element};
+use crate::{
+    Element,
+    config::{style::ContainerStyle, theme::Theme},
+    message::Message,
+    module::Context,
+};
 
 pub trait Token<Message: Sized>: Send + Sync {
     fn render<'a>(
@@ -10,6 +15,7 @@ pub trait Token<Message: Sized>: Send + Sync {
         context: &Context,
         anchor: &Anchor,
         style: &ContainerStyle,
+        theme: &Theme,
     ) -> Element<'a>;
 }
 
@@ -74,10 +80,15 @@ impl<Message: 'static> Token<Message> for TextToken {
         _context: &Context,
         _anchor: &Anchor,
         style: &ContainerStyle,
+        theme: &Theme,
     ) -> Element<'a> {
         let style = style.class("text");
-        iced::widget::container(iced::widget::text(&self.0).size(style.font_size))
-            .padding(style.margin)
-            .into()
+        iced::widget::container(
+            iced::widget::text(&self.0)
+                .size(style.font_size)
+                .color(style.color.as_color(theme)),
+        )
+        .padding(style.margin)
+        .into()
     }
 }
