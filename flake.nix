@@ -29,6 +29,7 @@
           pulseaudio # pactl
           wayland
           wireplumber # wpctl
+          dbus # bluetooth
         ];
       in
       {
@@ -41,13 +42,10 @@
               pkg-config
               pkgs.rust-bin.stable.${cargoTomlConfig.package.rust-version}.minimal
               wayland
+              dbus
             ];
             inherit nativeBuildInputs;
-
-            # ICED needed additional LD_LIBRARY_PATH
-            shellHook = ''
-              export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${builtins.toString (pkgs.lib.makeLibraryPath [pkgs.wayland])}"
-            '';
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
           });
         };
         packages = let
@@ -57,13 +55,14 @@
               openssl
               pkg-config
               wayland
+              dbus
           ];
           craneLib = crane.mkLib pkgs;
           doCheck = false;
           src = self;
           version = cargoTomlConfig.package.version;
           warpped-bar-rs = pkgs.writeShellScriptBin "wrapped-bar-rs" ''
-            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${builtins.toString (pkgs.lib.makeLibraryPath [pkgs.wayland])}"
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath buildInputs}"
             exec ${bar-rs}/bin/bar-rs "$@"
           '';
           bar-rs = craneLib.buildPackage {
