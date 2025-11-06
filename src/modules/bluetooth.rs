@@ -12,7 +12,7 @@ use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{io, time::sleep};
 
 use crate::button::button;
-use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
+use crate::config::popup_config::PopupConfig;
 use crate::{
     config::{
         anchor::BarAnchor,
@@ -86,7 +86,6 @@ impl Controller {
 pub struct BluetoothMod {
     controllers: Vec<Controller>,
     cfg_override: ModuleConfigOverride,
-    popup_cfg_override: PopupConfigOverride,
     icons: BTreeMap<bool, &'static str>,
 }
 
@@ -95,11 +94,6 @@ impl Default for BluetoothMod {
         Self {
             controllers: Vec::new(),
             cfg_override: Default::default(),
-            popup_cfg_override: PopupConfigOverride {
-                width: Some(250),
-                height: Some(250),
-                ..Default::default()
-            },
             icons: BTreeMap::from([(true, ""), (false, "")]),
         }
     }
@@ -129,7 +123,7 @@ impl Module for BluetoothMod {
     fn view(
         &self,
         config: &LocalModuleConfig,
-        popup_config: &PopupConfig,
+        _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
     ) -> Element<Message> {
@@ -164,13 +158,6 @@ impl Module for BluetoothMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(
-            self.popup_cfg_override.width.unwrap_or(popup_config.width),
-            self.popup_cfg_override
-                .height
-                .unwrap_or(popup_config.height),
-            anchor,
-        ))
         .style(|_, _| Style::default())
         .into()
     }
@@ -180,11 +167,10 @@ impl Module for BluetoothMod {
     fn read_config(
         &mut self,
         config: &HashMap<String, Option<String>>,
-        popup_config: &HashMap<String, Option<String>>,
+        _popup_config: &HashMap<String, Option<String>>,
         _templates: &mut Handlebars,
     ) {
         self.cfg_override = config.into();
-        self.popup_cfg_override.update(popup_config);
     }
 
     impl_on_click!();
