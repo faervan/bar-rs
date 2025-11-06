@@ -26,15 +26,15 @@ use crate::{impl_on_click, impl_wrapper};
 use super::Module;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Device {
-    pub icon: &'static str,
-    pub name: String,
+struct Device {
+    icon: &'static str,
+    name: String,
 }
 
 #[derive(Clone, Debug)]
-pub struct Controller {
-    pub is_powered: bool,
-    pub connected_devices: HashSet<Device>,
+struct Controller {
+    is_powered: bool,
+    connected_devices: HashSet<Device>,
 }
 
 impl Controller {
