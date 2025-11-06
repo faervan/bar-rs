@@ -183,8 +183,8 @@ impl Module for BluetoothMod {
                         let mut controllers: Vec<Controller> = Vec::new();
                         if let Ok(adapter_names) = session.adapter_names().await {
                             for adapter_name in adapter_names {
-                                // swallow any io errors for fetch adaper informations, because it will
-                                // because it frequently fetch in a loop
+                                // swallow any io errors for fetch adaper informations,
+                                // because it will be retred and frequently fetch in a loop
                                 if let Ok(adapter) = session.adapter(&adapter_name) {
                                     if let Ok(controller) = Controller::from_adaper(adapter).await {
                                         controllers.push(controller);
