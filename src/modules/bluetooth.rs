@@ -127,27 +127,48 @@ impl Module for BluetoothMod {
         _handlebars: &Handlebars,
     ) -> Element<Message> {
         let connected_devices = self.connected_devices();
-        let bt_text = match connected_devices.len() {
-            0 => self.status_icon().to_string(),
+        let (bt_icons, bt_text) = match connected_devices.len() {
+            0 => (self.status_icon().to_string(), None),
             // show name if only one connected device
             1 => {
                 let device = connected_devices.iter().next().unwrap();
-                format!("{} {}", device.icon, device.name)
+                (device.icon.to_string(), Some(&device.name))
             }
             // show icons for connected bluetooth devices
-            _ => connected_devices
-                .iter()
-                .fold(String::new(), |mut acc, elem| {
-                    acc.push_str(elem.icon);
-                    acc
-                }),
+            _ => (
+                connected_devices
+                    .iter()
+                    .fold(String::new(), |mut acc, elem| {
+                        acc.push_str(elem.icon);
+                        acc
+                    }),
+                None,
+            ),
         };
-
-        button(
+        let list = if let Some(bt_text) = bt_text {
             list![
                 anchor,
                 container(
+                    text(bt_icons)
+                        .fill(anchor)
+                        .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                        .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                        .font(NERD_FONT)
+                )
+                .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin)),
+                container(
                     text(bt_text)
+                        .fill(anchor)
+                        .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
+                        .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                )
+                .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
+            ]
+        } else {
+            list![
+                anchor,
+                container(
+                    text(bt_icons)
                         .fill(anchor)
                         .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
                         .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
@@ -155,10 +176,11 @@ impl Module for BluetoothMod {
                 )
                 .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
             ]
-            .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
-        )
-        .style(|_, _| Style::default())
-        .into()
+        };
+
+        button(list.spacing(self.cfg_override.spacing.unwrap_or(config.spacing)))
+            .style(|_, _| Style::default())
+            .into()
     }
 
     impl_wrapper!();
