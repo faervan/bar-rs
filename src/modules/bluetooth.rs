@@ -38,7 +38,7 @@ struct Controller {
 }
 
 impl Controller {
-    pub async fn get_all_devices(adapter: &Adapter) -> Result<HashSet<Device>, io::Error> {
+    async fn get_all_devices(adapter: &Adapter) -> Result<HashSet<Device>, io::Error> {
         let mut connected_devices = HashSet::new();
 
         let connected_devices_addresses = adapter.device_addresses().await?;
