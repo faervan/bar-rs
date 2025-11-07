@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     time::Duration,
 };
 
@@ -86,7 +86,6 @@ impl Controller {
 pub struct BluetoothMod {
     controllers: Vec<Controller>,
     cfg_override: ModuleConfigOverride,
-    icons: BTreeMap<bool, &'static str>,
 }
 
 impl Default for BluetoothMod {
@@ -94,17 +93,17 @@ impl Default for BluetoothMod {
         Self {
             controllers: Vec::new(),
             cfg_override: Default::default(),
-            icons: BTreeMap::from([(true, ""), (false, "")]),
         }
     }
 }
 
 impl BluetoothMod {
-    fn icon(&self) -> &'static str {
-        let enabled = self.controllers.iter().any(|c| c.is_powered);
-        self.icons
-            .get(&enabled)
-            .expect("bluetooth icon already set in module")
+    fn status_icon(&self) -> &'static str {
+        if self.controllers.iter().any(|c| c.is_powered) {
+            ""
+        } else {
+            ""
+        }
     }
     fn connected_devices(&self) -> HashSet<&Device> {
         let mut devices = HashSet::new();
@@ -129,7 +128,7 @@ impl Module for BluetoothMod {
     ) -> Element<Message> {
         let connected_devices = self.connected_devices();
         let bt_text = match connected_devices.len() {
-            0 => self.icon().to_string(),
+            0 => self.status_icon().to_string(),
             // show name if only one connected device
             1 => {
                 let device = connected_devices.iter().next().unwrap();
