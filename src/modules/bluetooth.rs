@@ -159,10 +159,10 @@ impl Module for BluetoothMod {
                 container(
                     text(bt_text)
                         .fill(anchor)
-                        .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
-                        .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
+                        .color(self.cfg_override.text_color.unwrap_or(config.text_color))
+                        .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 )
-                .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
+                .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
             ]
         } else {
             list![
