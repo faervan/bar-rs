@@ -5,6 +5,7 @@ use std::{
 };
 
 use battery::BatteryMod;
+use bluetooth::BluetoothMod;
 use cpu::CpuMod;
 use date::DateMod;
 use disk_usage::DiskUsageMod;
@@ -34,6 +35,7 @@ use crate::{
 };
 
 pub mod battery;
+pub mod bluetooth;
 pub mod cpu;
 pub mod date;
 pub mod disk_usage;
@@ -214,6 +216,7 @@ pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<CpuMod>();
     registry.register_module::<MemoryMod>();
     registry.register_module::<BatteryMod>();
+    registry.register_module::<BluetoothMod>();
     registry.register_module::<VolumeMod>();
     registry.register_module::<MediaMod>();
     registry.register_module::<DateMod>();

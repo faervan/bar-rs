@@ -32,6 +32,7 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - [x] hyprland workspace + window modules
 - [x] wayfire workspace + window modules
 - [x] niri workspace + window modules
+- [x] basic bluetooth connections monitoring support
 - [ ] sway workspace + window modules
 - [ ] custom modules
 - [ ] additional modules (wifi, pacman updates...)
