@@ -45,7 +45,7 @@ impl Module for WayfireWorkspaceMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         container(
             rich_text([span(
                 self.icons

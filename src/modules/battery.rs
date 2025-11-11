@@ -160,7 +160,7 @@ impl Module for BatteryMod {
         popup_config: &PopupConfig,
         anchor: &BarAnchor,
         handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         let time_remaining = if self.avg.valid {
             let time_ctx =
                 BTreeMap::from([("hours", self.avg.hours), ("minutes", self.avg.minutes)]);

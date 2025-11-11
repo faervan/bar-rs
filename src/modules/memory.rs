@@ -35,7 +35,7 @@ impl Module for MemoryMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         let usage = Command::new("sh")
             .arg("-c")
             .arg("free | grep Mem | awk '{printf \"%.0f\", $3/$2 * 100.0}'")

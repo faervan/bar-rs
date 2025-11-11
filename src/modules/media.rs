@@ -201,7 +201,7 @@ impl Module for MediaMod {
         popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         button(
             list![
                 anchor,
@@ -293,10 +293,11 @@ impl Module for MediaMod {
                             .unwrap_or_default()
                     ))
                 };
-                let status = track
-                    .paused
-                    .then_some(" (paused)".to_string())
-                    .unwrap_or_default();
+                let status = if track.paused {
+                    " (paused)".to_string()
+                } else {
+                    String::new()
+                };
                 let length_ctx = BTreeMap::from([
                     ("minutes", minutes as u32),
                     (

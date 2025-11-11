@@ -90,7 +90,7 @@ impl Module for NiriWindowMod {
         popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         button(
             text(self.trimmed_title())
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))

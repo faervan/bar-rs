@@ -350,7 +350,7 @@ impl Bar<'_> {
         Task::none()
     }
 
-    fn view(&self, window_id: Id) -> Element<Message> {
+    fn view(&self, window_id: Id) -> Element<'_, Message> {
         if window_id == self.layer_id {
             self.bar_view()
         } else if let Some(mod_id) = self
@@ -367,7 +367,7 @@ impl Bar<'_> {
         }
     }
 
-    fn bar_view(&self) -> Element<Message> {
+    fn bar_view(&self) -> Element<'_, Message> {
         let anchor = &self.config.anchor;
         let make_list = |spacing: fn(&Thrice<f32>) -> f32,
                          field: fn(&EnabledModules) -> &Vec<String>| {

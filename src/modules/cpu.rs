@@ -63,7 +63,7 @@ impl Module for CpuMod {
         popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         button(
             list![
                 anchor,

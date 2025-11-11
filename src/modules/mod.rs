@@ -63,7 +63,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
         popup_config: &PopupConfig,
         anchor: &BarAnchor,
         template: &Handlebars,
-    ) -> Element<Message>;
+    ) -> Element<'_, Message>;
     /// The wrapper around this module, which defines things like background color or border for
     /// this module.
     fn wrapper<'a>(

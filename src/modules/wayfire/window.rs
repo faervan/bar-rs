@@ -65,7 +65,7 @@ impl Module for WayfireWindowMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         container(
             rich_text([span(self.get_title().unwrap_or_default())
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))

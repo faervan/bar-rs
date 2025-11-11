@@ -40,7 +40,7 @@ impl Module for VolumeMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         list![
             anchor,
             button(

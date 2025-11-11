@@ -72,7 +72,7 @@ impl Module for HyprWorkspaceMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         list(
             anchor,
             self.open.iter().enumerate().map(|(id, (ws, _))| {

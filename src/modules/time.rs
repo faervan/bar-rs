@@ -47,7 +47,7 @@ impl Module for TimeMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         let time = Local::now();
         list![
             anchor,

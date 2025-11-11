@@ -104,7 +104,7 @@ impl Module for NiriWorkspaceMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         list(
             anchor,
             self.sort_by_outputs(|(output, workspaces)| {

@@ -27,7 +27,7 @@ impl Module for EmptyModule {
         _popup_config: &crate::config::popup_config::PopupConfig,
         _anchor: &BarAnchor,
         _template: &handlebars::Handlebars,
-    ) -> iced::Element<crate::Message> {
+    ) -> Element<'_, Message> {
         "".into()
     }
     impl_wrapper!();

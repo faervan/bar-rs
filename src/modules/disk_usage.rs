@@ -85,7 +85,7 @@ impl Module for DiskUsageMod {
         popup_config: &PopupConfig,
         anchor: &BarAnchor,
         handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         let Ok(stats) = get_stats(&self.path) else {
             return "Error".into();
         };

@@ -82,19 +82,10 @@ impl Controller {
     }
 }
 
-#[derive(Debug, Builder)]
+#[derive(Default, Debug, Builder)]
 pub struct BluetoothMod {
     controllers: Vec<Controller>,
     cfg_override: ModuleConfigOverride,
-}
-
-impl Default for BluetoothMod {
-    fn default() -> Self {
-        Self {
-            controllers: Vec::new(),
-            cfg_override: Default::default(),
-        }
-    }
 }
 
 impl BluetoothMod {
@@ -125,7 +116,7 @@ impl Module for BluetoothMod {
         _popup_config: &PopupConfig,
         anchor: &BarAnchor,
         _handlebars: &Handlebars,
-    ) -> Element<Message> {
+    ) -> Element<'_, Message> {
         let connected_devices = self.connected_devices();
         let (bt_icons, bt_text) = match connected_devices.len() {
             0 => (self.status_icon().to_string(), None),
