@@ -2,7 +2,7 @@
 name = "bar-rs"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80.1"  # from image-webp@0.2.1
+rust-version = "1.80.1" # from image-webp@0.2.1
 
 [dependencies]
 chrono = "0.4.39"
@@ -10,22 +10,21 @@ configparser = "3.1.0"
 ctrlc = "3.4.5"
 directories = "5.0.1"
 hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
-#iced = { git = "https://github.com/pop-os/iced.git", branch = "master", features = [
-#    "tokio",
-#    "wayland",
-#    "winit"
-#] }
 iced = { git = "https://github.com/Faervan/iced_pop-os.git", branch = "master", features = [
-    "tokio",
-    "wayland",
-    "winit",
-    "image"
+  "tokio",
+  "wayland",
+  "winit",
+  "image",
 ] }
 notify = "7.0.0"
-system-tray = "0.5.0"
-tokio = { version = "1.42.0", features = ["io-util", "macros", "process", "sync"] }
+tokio = { version = "1.42.0", features = [
+  "io-util",
+  "macros",
+  "process",
+  "sync",
+] }
 udev = { version = "0.9.1", features = ["mio"] }
-bar-rs_derive = { path = "crates/bar-rs_derive"}
+bar-rs_derive = { path = "crates/bar-rs_derive" }
 downcast-rs = "1.2.1"
 csscolorparser = "0.7.0"
 wayfire-rs = "0.2.2"
@@ -35,7 +34,7 @@ handlebars = "6.3.0"
 serde = { version = "1.0.217", features = ["derive"] }
 reqwest = "0.12.12"
 libc = "0.2.169"
-bluer = { version = "0.17.4", features = ["full"] }
+bluer = { version = "0.17.4", features = ["bluetoothd"] }
 
 [profile.dev.package."*"]
 opt-level = 3

@@ -44,7 +44,6 @@ pub mod hyprland;
 pub mod media;
 pub mod memory;
 pub mod niri;
-pub mod sys_tray;
 pub mod time;
 pub mod volume;
 pub mod wayfire;
