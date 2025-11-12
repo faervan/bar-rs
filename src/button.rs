@@ -1,4 +1,4 @@
-/// Literally 100% copypasta from https://github.com/iced-rs/iced/blob/master/widget/src/button.rs
+/// Literally 100% copy pasta from https://github.com/iced-rs/iced/blob/master/widget/src/button.rs
 use iced::core::widget::tree;
 use iced::core::{keyboard, overlay, renderer, touch};
 use iced::{

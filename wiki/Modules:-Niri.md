@@ -4,7 +4,7 @@ Add this to your `~/.config/niri/config.kdl` to launch bar-rs on startup:
 spawn-at-startup "bar-rs" "open"
 ```
 
-bar-rs supports two modules for the [Niri](https://github.com/YaLTeR/niri) wayland compositor:
+bar-rs supports two modules for the [Niri](https://github.com/YaLTeR/niri) Wayland compositor:
 
 ## Niri window
 Name: `niri.window`
@@ -14,14 +14,14 @@ This module shows the name or app_id of the currently focused window. A popup is
 You can override the default settings defined in [Module Styling](./Modules.md) by setting them in this section: `module:niri.window`.
 | Option | Description | Data type | Default |
 | ------ | ----------- | --------- | ------- |
-| max_length | the maximum character length of the title | usize | 25 |
+| max_length | The maximum character length of the title | usize | 25 |
 | show_app_id | Show the app_id instead of the window title | bool | false |
 
 ### Popup configuration
 You can override the default settings defined in [Popup Styling](./Popups.md) by setting them in this section: `module_popup:niri.window`.
 | Option | Description | Data type | Default |
 | ------ | ----------- | --------- | ------- |
-| format | the format of the popup text | String | `Title: {{title}}\nApplication ID: {{app_id}}\nWindow ID: {{window_id}}\nWorkspace ID: {{workspace_id}}` |
+| format | The format of the popup text | String | `Title: {{title}}\nApplication ID: {{app_id}}\nWindow ID: {{window_id}}\nWorkspace ID: {{workspace_id}}` |
 
 ```ini
 [module_popup:niri.window]
@@ -49,15 +49,15 @@ You can override the default settings defined in [Module Styling](./Modules.md) 
 | icon_border_radius | Radius of the border around the icons. | Insets (float) | 0 |
 | active_padding | Padding for the active icon, only useful with a background or border. | Insets (float) | 0 |
 | active_size | Size of the currently active icon. | float | 20 |
-| active_color | the color for the currently focused workspace | Color | black |
-| active_background | the background color for the currently focused workspace | Color | rgba(255, 255, 255, 0.5) |
+| active_color | The color for the currently focused workspace | Color | black |
+| active_background | The background color for the currently focused workspace | Color | rgba(255, 255, 255, 0.5) |
 | active_border_color | Color of the border around the active icon. | Color | / |
 | active_border_width | Width of the border around the active icon. | float | 1 |
 | active_border_radius | Radius of the border around the active icon. | Insets (float) | 0 |
-| Output: n | the name of the nth workspace on the given output (monitor) | String | / |
+| Output: n | The name of the nth workspace on the given output (monitor) | String | / |
 | output_order | the order of the workspaces, depending on their output (monitor) | Value list (String) | / |
-| fallback_icon | the icon to use for unnamed workspaces | String |  |
-| active_fallback_icon | the icon to use for unnamed workspaces when active | String |  |
+| fallback_icon | The icon to use for unnamed workspaces | String |  |
+| active_fallback_icon | The icon to use for unnamed workspaces when active | String |  |
 
 > \[!TIP]
 > Find some nice icons to use as workspace names [here](https://www.nerdfonts.com/cheat-sheet)

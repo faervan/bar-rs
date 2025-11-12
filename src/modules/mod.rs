@@ -106,7 +106,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     ) {
     }
     #[allow(unused_variables)]
-    /// The action to perform on a on_click event
+    /// The action to perform on an on_click event
     fn on_click<'a>(
         &'a self,
         event: iced::Event,

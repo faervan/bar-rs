@@ -33,7 +33,7 @@ key = value
 | i32 | A signed integer (positive or negative) of range $2^{32}$ (-2_147_483_648 to 2_147_483_647) | `-500`, `2147483647` |
 | usize | A positive integer of range 0 - a lot (depends on your architecture, but probably enough) | `0`, `100000` |
 | Value list | A list of values, separated by spaces. | `20 5 20` | 
-| Insets | A list of four values, representing all four directions (usually top, right, bottom and right). If one value is provided, it is used for all four sides. If two values are provided, the first is used for top and bottom and the second for left and right. | `0 20 5 10`, `0`, `0 10` |
+| Insets | A list of four values, representing all four directions (usually top, right, bottom, and right). If one value is provided, it is used for all four sides. If two values are provided, the first is used for top and bottom and the second for left and right. | `0 20 5 10`, `0`, `0 10` |
 
 ## General
 The general section contains three options:
@@ -62,7 +62,7 @@ anchor = top
 | height | The total height of the bar. The default depends on whether the bar is vertical or horizontal. | u32 | 1080 or 30 |
 | margin | The margin between the bar and the screen edge, depending on the anchor. | float | 0 |
 | padding | The padding between the bar edges and the actual contents of the bar. | Insets (float) | 0 |
-| spacing | Space between the modules, can be different for left, center and right | Value list (float) | 20 10 15 |
+| spacing | Space between the modules, can be different for left, center, and right | Value list (float) | 20 10 15 |
 
 **Example:**
 ```ini

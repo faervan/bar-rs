@@ -32,7 +32,7 @@ To configure modules individually use a section name like this:
 ```ini
 [module:{{name}}]
 ```
-where `{{name}}` is the name of the module, e. g. `cpu`
+where `{{name}}` is the name of the module, e.g. `cpu`
 
 **Example:**
 ```ini
@@ -46,12 +46,12 @@ active_background = rgba(255, 255, 255, 0.5)
 ```
 
 ## Module Styling
-section name: `[module_style]`
+Section name: `[module_style]`
 This section sets default values for all modules, which can be overridden for each module individually.
 | Option | Description | Data type | Default |
 | ------ | ----------- | --------- | ------- |
 | background | Background color of the status bar | Color | None |
-| spacing | Space between the modules, can be different for left, center and right | Value list (float) | 10 |
+| spacing | Space between the modules, can be different for left, center, and right | Value list (float) | 10 |
 | margin | The margin around this module. | Insets (float) | 0 |
 | padding | The padding surrounding the module content. | Insets (float) | 0 |
 | font_size | Default font size | float | 16 |

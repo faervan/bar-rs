@@ -120,12 +120,12 @@ impl Module for BluetoothMod {
         let connected_devices = self.connected_devices();
         let (bt_icons, bt_text) = match connected_devices.len() {
             0 => (self.status_icon().to_string(), None),
-            // show name if only one connected device
+            // Show name if only one connected device
             1 => {
                 let device = connected_devices.iter().next().unwrap();
                 (device.icon.to_string(), Some(&device.name))
             }
-            // show icons for connected bluetooth devices
+            // Show icons for connected Bluetooth devices
             _ => (
                 connected_devices
                     .iter()
@@ -197,8 +197,8 @@ impl Module for BluetoothMod {
                             return;
                         };
                         for adapter_name in adapter_names {
-                            // swallow any io errors for fetch adaper informations,
-                            // because it will be retred and frequently fetch in a loop
+                            // Swallow any io errors for fetch adapter information,
+                            // because it will be retried and frequently fetch in a loop
                             if let Ok(adapter) = session.adapter(&adapter_name) {
                                 if let Ok(controller) = Controller::from_adaper(adapter).await {
                                     controllers.push(controller);

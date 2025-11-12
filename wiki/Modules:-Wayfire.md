@@ -5,7 +5,7 @@ Add this to your `~/.config/wayfire.ini` to launch bar-rs on startup:
 bar = bar-rs open
 ```
 
-bar-rs supports two modules for the [Wayfire](https://github.com/WayfireWM/wayfire/) wayland compositor:
+bar-rs supports two modules for the [Wayfire](https://github.com/WayfireWM/wayfire/) Wayland compositor:
 
 ## Wayfire window
 Name: `wayfire.window`
@@ -15,7 +15,7 @@ Shows the name of the currently open window.
 You can override the default settings defined in [Module Styling](./Modules.md) by setting them in this section: `module:wayfire.window`.
 | Option | Description | Data type | Default |
 | ------ | ----------- | --------- | ------- |
-| max_length | the maximum character length of the title | usize | 25 |
+| max_length | The maximum character length of the title | usize | 25 |
 
 ## Wayfire workspaces
 Name: `wayfire.workspaces`

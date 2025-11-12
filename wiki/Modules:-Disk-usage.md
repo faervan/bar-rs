@@ -8,14 +8,14 @@ You can override the default settings defined in [Module Styling](./Modules.md) 
 | Option | Description | Data type | Default |
 | ------ | ----------- | --------- | ------- |
 | icon | the icon to use | String | 󰦚 |
-| path | some directory, which determines the filesystem of interest | String | `/` |
-| format | the content of the module text | String | `{{used_perc}}%` |
+| path | Some directory, which determines the filesystem of interest | String | `/` |
+| format | The content of the module text | String | `{{used_perc}}%` |
 
 ## Popup configuration
 You can override the default settings defined in [Popup Styling](./Popups.md) by setting them in this section: `module_popup:disk_usage`.
 | Option | Description | Data type | Default |
 | ------ | ----------- | --------- | ------- |
-| format | the format of the popup text | String | `Total: {{total_gb}} GB\nUsed: {{used_gb}} GB ({{used_perc}}%)\nFree: {{free_gb}} GB ({{free_perc}}%)` |
+| format | The format of the popup text | String | `Total: {{total_gb}} GB\nUsed: {{used_gb}} GB ({{used_perc}}%)\nFree: {{free_gb}} GB ({{free_perc}}%)` |
 
 `format` provides the following variables:
 - `total`: The total filesystem space in mb

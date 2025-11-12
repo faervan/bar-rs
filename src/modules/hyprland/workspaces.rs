@@ -181,7 +181,7 @@ impl Module for HyprWorkspaceMod {
 }
 
 pub async fn get_workspaces(active: Option<i32>) -> (usize, Vec<(String, bool)>) {
-    // Sleep a bit, to reduce the probability that a nonexisting ws is still reported active
+    // Sleep a bit, to reduce the probability that a non existing ws is still reported active
     sleep(Duration::from_millis(10)).await;
     let Ok(workspaces) = Workspaces::get_async().await else {
         eprintln!("[hyprland.workspaces] Failed to get Workspaces!");

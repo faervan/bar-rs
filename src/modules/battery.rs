@@ -557,7 +557,7 @@ async fn get_stats(
 }
 
 /*
-    How upower calculates remaining time (upower/src/up-daemon.c):
+    How `upower` calculates remaining time (`upower/src/up-daemon.c`):
     /* calculate a quick and dirty time remaining value
      * NOTE: Keep in sync with per-battery estimation code! */
     if (energy_rate_total > 0) {

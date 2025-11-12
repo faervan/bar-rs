@@ -2,7 +2,7 @@
 Extra windows that open on click to show some more info or allow for additional actions.
 
 ## Popup Styling
-section name: `[popup_style]`
+Section name: `[popup_style]`
 This section sets default values for all module popups, which can be overridden for each module individually.
 | Option | Description | Data type | Default |
 | ------ | ----------- | --------- | ------- |

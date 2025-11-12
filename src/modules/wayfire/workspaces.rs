@@ -20,10 +20,10 @@ use crate::{
 };
 use crate::{impl_on_click, impl_wrapper};
 
-/// I am unaware of a IPC method that gives a list of currently active workspaces (the ones with an
-/// open window), and this is generally tricky here, since all workspaces of a wset grid are active
-/// in a way. It would probably be posible to calculate the workspace of each active window
-/// manually, but I'm too lazy to do that atm.
+/// I am unaware of an IPC method that gives a list of currently active workspaces (the ones with an
+/// open window), and this is generally tricky here, since all workspaces of a `wset` grid are active
+/// in a way. It would probably be possible to calculate the workspace of each active window
+/// manually, but I'm too lazy to do that ATM.
 
 #[derive(Debug, Default, Builder)]
 pub struct WayfireWorkspaceMod {
