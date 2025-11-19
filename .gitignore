@@ -1,2 +1,4 @@
 **/target
 result
+packaging/arch/*.log
+packaging/arch/bar-rs-*

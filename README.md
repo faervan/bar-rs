@@ -43,8 +43,10 @@ For a list of all currently supported modules, see [the Wiki](https://github.com
 - ...
 
 ## Installation
-I aim for a release on the `AUR` after the [first milestone](https://github.com/Faervan/bar-rs/milestone/1) is reached. For now, you have to build bar-rs yourself.
+### On Arch Linux
+see [packaging/arch](packaging/arch)
 
+### Building from source
 <details>
 <summary><h2>Building</h2></summary>
   

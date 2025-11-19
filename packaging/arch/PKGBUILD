@@ -1,0 +1,57 @@
+# Maintainer: faervan <faervan@proton.me>
+pkgname=bar-rs-git
+_pkgdir=bar-rs-src
+pkgver=0.1.0.41.3beb386
+pkgrel=1
+pkgdesc="A simple status bar for hyprland, niri and wayfire, written in rust using iced-rs"
+arch=(x86_64)
+url="https://github.com/faervan/bar-rs"
+license=('GPL-3.0-only')
+depends=('libxkbcommon' 'glibc' 'sh' 'openssl' 'gcc-libs' 'dbus' 'systemd-libs')
+makedepends=('rust' 'git' 'pcre2' 'pkgconf')
+optdepends=(\
+	'procps-ng: the free command for the memory module' \
+	'grep: for the memory module' \
+	'coreutils: for the memory module' \
+	'libpulse: for the volume module' \
+	'wireplumber: for the volume module' \
+	'playerctl: for the media module')
+provides=('bar-rs')
+source=("$_pkgdir::git+https://github.com/faervan/bar-rs.git")
+sha256sums=('SKIP')
+options=('!debug')
+
+pkgver() {
+	cd "$_pkgdir"
+	echo "$(grep '^version =' Cargo.toml|head -n1|cut -d\" -f2|cut -d\- -f1).$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+	cd "$_pkgdir"
+	sed \
+		-i \
+		-e 's/cmd=".*"/cmd="bar-rs-daemon"/' \
+		-e '/if \[ ! -f "$cmd" ]; then/,/fi/d' \
+		-e '/uninstall() {/,/}/d' \
+		-e '/uninstall)/,/;;/d' \
+		-e "s/ | uninstall]/]/" \
+		-e 's/ \[--debug\]//' \
+		bar-rs
+}
+
+build() {
+	cd "$_pkgdir"
+	env CARGO_INCREMENTAL=0 cargo build --release --locked
+}
+
+check() {
+	cd "$_pkgdir"
+	env CARGO_INCREMENTAL=0 cargo test --release
+}
+
+package() {
+	cd "$_pkgdir"
+
+	install -D -m755 "target/release/bar-rs" "$pkgdir/usr/bin/bar-rs-daemon"
+	install -D -m755 "bar-rs" "$pkgdir/usr/bin/bar-rs"
+}
