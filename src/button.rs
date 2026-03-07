@@ -1,21 +1,21 @@
 /// Literally 100% copy pasta from https://github.com/iced-rs/iced/blob/master/widget/src/button.rs
 use iced::core::widget::tree;
 use iced::core::{keyboard, overlay, renderer, touch};
+use iced::widget::button::DEFAULT_PADDING;
+use iced::{Background, Color, Vector, window};
 use iced::{
+    Element, Event, Length, Padding, Rectangle, Size,
     core::{
-        event, layout, mouse,
+        Clipboard, Layout, Shell, Widget, layout, mouse,
         widget::{Operation, Tree},
-        Clipboard, Layout, Shell, Widget,
     },
     id::Id,
     widget::button::{Catalog, Status, Style, StyleFn},
-    Element, Event, Length, Padding, Rectangle, Size,
 };
-use iced::{Background, Color, Vector};
 
 type EventHandlerFn<'a, Message> = Box<
     dyn Fn(
-            iced::Event,
+            &iced::Event,
             iced::core::Layout,
             iced::mouse::Cursor,
             &mut dyn iced::core::Clipboard,
@@ -28,7 +28,8 @@ enum ButtonEventHandler<'a, Message>
 where
     Message: Clone,
 {
-    Message(Message),
+    Direct(Message),
+    Closure(Box<dyn Fn() -> Message + 'a>),
     F(EventHandlerFn<'a, Message>),
     FMaybe(EventHandlerFn<'a, Option<Message>>),
 }
@@ -39,41 +40,43 @@ where
 {
     fn get(
         &self,
-        event: iced::Event,
+        event: &iced::Event,
         layout: iced::core::Layout,
         cursor: iced::mouse::Cursor,
         clipboard: &mut dyn iced::core::Clipboard,
         viewport: &Rectangle,
     ) -> Option<Message> {
         match self {
-            ButtonEventHandler::Message(msg) => Some(msg.clone()),
+            ButtonEventHandler::Direct(msg) => Some(msg.clone()),
+            ButtonEventHandler::Closure(f) => Some(f()),
             ButtonEventHandler::F(f) => Some(f(event, layout, cursor, clipboard, viewport)),
             ButtonEventHandler::FMaybe(f) => f(event, layout, cursor, clipboard, viewport),
         }
     }
 }
 
-pub struct Button<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
+pub struct Button<'a, Message, Theme = crate::Theme, Renderer = iced::Renderer>
 where
+    Message: Clone,
     Renderer: iced::core::Renderer,
     Theme: Catalog,
-    Message: Clone,
 {
     content: Element<'a, Message, Theme, Renderer>,
-    on_event: Option<ButtonEventHandler<'a, Message>>,
+    on_press: Option<ButtonEventHandler<'a, Message>>,
     id: Id,
     width: Length,
     height: Length,
     padding: Padding,
     clip: bool,
     class: Theme::Class<'a>,
+    status: Option<Status>,
 }
 
 impl<'a, Message, Theme, Renderer> Button<'a, Message, Theme, Renderer>
 where
+    Message: Clone,
     Renderer: iced::core::Renderer,
     Theme: Catalog,
-    Message: Clone,
 {
     /// Creates a new [`Button`] with the given content.
     pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
@@ -83,78 +86,14 @@ where
         Button {
             content,
             id: Id::unique(),
-            on_event: None,
+            on_press: None,
             width: size.width.fluid(),
             height: size.height.fluid(),
-            padding: Padding::ZERO,
+            padding: DEFAULT_PADDING,
             clip: false,
             class: Theme::default(),
+            status: None,
         }
-    }
-
-    /// Defines the on_event action of the [`Button`]
-    pub fn on_event(mut self, msg: Message) -> Self {
-        self.on_event = Some(ButtonEventHandler::Message(msg));
-        self
-    }
-
-    /// Defines the on_event action of the [`Button`], if Some
-    pub fn on_event_maybe(mut self, msg: Option<Message>) -> Self {
-        if let Some(msg) = msg {
-            self.on_event = Some(ButtonEventHandler::Message(msg));
-        }
-        self
-    }
-
-    /// Determines the on_event action of the [`Button`] using a closure
-    pub fn on_event_with<F>(mut self, f: F) -> Self
-    where
-        F: Fn(
-                iced::Event,
-                iced::core::Layout,
-                iced::mouse::Cursor,
-                &mut dyn iced::core::Clipboard,
-                &Rectangle,
-            ) -> Message
-            + 'a,
-    {
-        self.on_event = Some(ButtonEventHandler::F(Box::new(f)));
-        self
-    }
-
-    /// Determines the on_event action of the [`Button`] with a closure, if Some
-    pub fn on_event_maybe_with<F>(self, f: Option<F>) -> Self
-    where
-        F: Fn(
-                iced::Event,
-                iced::core::Layout,
-                iced::mouse::Cursor,
-                &mut dyn iced::core::Clipboard,
-                &Rectangle,
-            ) -> Message
-            + 'a,
-    {
-        if let Some(f) = f {
-            self.on_event_with(f)
-        } else {
-            self
-        }
-    }
-
-    /// Determines the on_event action of the [`Button`] using a closure which might return a Message
-    pub fn on_event_try<F>(mut self, f: F) -> Self
-    where
-        F: Fn(
-                iced::Event,
-                iced::core::Layout,
-                iced::mouse::Cursor,
-                &mut dyn iced::core::Clipboard,
-                &Rectangle,
-            ) -> Option<Message>
-            + 'a,
-    {
-        self.on_event = Some(ButtonEventHandler::FMaybe(Box::new(f)));
-        self
     }
 
     /// Sets the width of the [`Button`].
@@ -172,6 +111,87 @@ where
     /// Sets the [`Padding`] of the [`Button`].
     pub fn padding<P: Into<Padding>>(mut self, padding: P) -> Self {
         self.padding = padding.into();
+        self
+    }
+
+    /// Sets the message that will be produced when the [`Button`] is pressed.
+    ///
+    /// Unless `on_press` is called, the [`Button`] will be disabled.
+    pub fn on_press(mut self, on_press: Message) -> Self {
+        self.on_press = Some(ButtonEventHandler::Direct(on_press));
+        self
+    }
+
+    /// Sets the message that will be produced when the [`Button`] is pressed.
+    ///
+    /// This is analogous to [`Button::on_press`], but using a closure to produce
+    /// the message.
+    ///
+    /// This closure will only be called when the [`Button`] is actually pressed and,
+    /// therefore, this method is useful to reduce overhead if creating the resulting
+    /// message is slow.
+    pub fn on_press_with(mut self, on_press: impl Fn() -> Message + 'a) -> Self {
+        self.on_press = Some(ButtonEventHandler::Closure(Box::new(on_press)));
+        self
+    }
+
+    /// Sets the message that will be produced when the [`Button`] is pressed,
+    /// if `Some`.
+    ///
+    /// If `None`, the [`Button`] will be disabled.
+    pub fn on_press_maybe(mut self, on_press: Option<Message>) -> Self {
+        self.on_press = on_press.map(ButtonEventHandler::Direct);
+        self
+    }
+
+    /// Determines the `on_press` action of the [`Button`] using a closure
+    pub fn on_press_with_context<F>(mut self, f: F) -> Self
+    where
+        F: Fn(
+                &iced::Event,
+                iced::core::Layout,
+                iced::mouse::Cursor,
+                &mut dyn iced::core::Clipboard,
+                &Rectangle,
+            ) -> Message
+            + 'a,
+    {
+        self.on_press = Some(ButtonEventHandler::F(Box::new(f)));
+        self
+    }
+
+    /// Determines the `on_press` action of the [`Button`] with a closure, if Some
+    pub fn on_press_with_context_maybe<F>(self, f: Option<F>) -> Self
+    where
+        F: Fn(
+                &iced::Event,
+                iced::core::Layout,
+                iced::mouse::Cursor,
+                &mut dyn iced::core::Clipboard,
+                &Rectangle,
+            ) -> Message
+            + 'a,
+    {
+        if let Some(f) = f {
+            self.on_press_with_context(f)
+        } else {
+            self
+        }
+    }
+
+    /// Determines the `on_press` action of the [`Button`] using a closure which might return a Message
+    pub fn on_press_with_context_try<F>(mut self, f: F) -> Self
+    where
+        F: Fn(
+                &iced::Event,
+                iced::core::Layout,
+                iced::mouse::Cursor,
+                &mut dyn iced::core::Clipboard,
+                &Rectangle,
+            ) -> Option<Message>
+            + 'a,
+    {
+        self.on_press = Some(ButtonEventHandler::FMaybe(Box::new(f)));
         self
     }
 
@@ -237,65 +257,74 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         layout::padded(limits, self.width, self.height, self.padding, |limits| {
             self.content
-                .as_widget()
+                .as_widget_mut()
                 .layout(&mut tree.children[0], renderer, limits)
         })
     }
 
     fn operate(
-        &self,
+        &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
         operation: &mut dyn Operation,
     ) {
-        operation.container(None, layout.bounds(), &mut |operation| {
-            self.content.as_widget().operate(
+        operation.container(None, layout.bounds());
+        operation.traverse(&mut |operation| {
+            self.content.as_widget_mut().operate(
                 &mut tree.children[0],
-                layout.children().next().unwrap(),
+                layout
+                    .children()
+                    .next()
+                    .unwrap()
+                    .with_virtual_offset(layout.virtual_offset()),
                 renderer,
                 operation,
             );
         });
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
-        if let event::Status::Captured = self.content.as_widget_mut().on_event(
+    ) {
+        self.content.as_widget_mut().update(
             &mut tree.children[0],
-            event.clone(),
-            layout.children().next().unwrap(),
+            event,
+            layout
+                .children()
+                .next()
+                .unwrap()
+                .with_virtual_offset(layout.virtual_offset()),
             cursor,
             renderer,
             clipboard,
             shell,
             viewport,
-        ) {
-            return event::Status::Captured;
+        );
+
+        if shell.is_event_captured() {
+            return;
         }
 
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-            | Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Middle))
-            | Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if self.on_event.is_some() {
+                if self.on_press.is_some() {
                     let bounds = layout.bounds();
 
                     if cursor.is_over(bounds) {
@@ -303,15 +332,13 @@ where
 
                         state.is_pressed = true;
 
-                        return event::Status::Captured;
+                        shell.capture_event();
                     }
                 }
             }
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
-            | Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Middle))
-            | Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Right))
             | Event::Touch(touch::Event::FingerLifted { .. }) => {
-                if let Some(on_press) = self.on_event.as_ref() {
+                if let Some(on_press) = &self.on_press {
                     let state = tree.state.downcast_mut::<State>();
 
                     if state.is_pressed {
@@ -319,30 +346,29 @@ where
 
                         let bounds = layout.bounds();
 
-                        if cursor.is_over(bounds) {
-                            if let Some(msg) =
+                        if cursor.is_over(bounds)
+                            && let Some(message) =
                                 on_press.get(event, layout, cursor, clipboard, viewport)
-                            {
-                                shell.publish(msg);
-                            }
+                        {
+                            shell.publish(message);
                         }
 
-                        return event::Status::Captured;
+                        shell.capture_event();
                     }
                 }
             }
-            Event::Keyboard(keyboard::Event::KeyPressed { ref key, .. }) => {
-                if let Some(on_press) = self.on_event.as_ref() {
+            Event::Keyboard(keyboard::Event::KeyPressed { key, .. }) => {
+                if let Some(on_press) = self.on_press.as_ref() {
                     let state = tree.state.downcast_mut::<State>();
                     if state.is_focused
                         && matches!(key, keyboard::Key::Named(keyboard::key::Named::Enter))
+                        && let Some(message) =
+                            on_press.get(event, layout, cursor, clipboard, viewport)
                     {
                         state.is_pressed = true;
-                        if let Some(msg) = on_press.get(event, layout, cursor, clipboard, viewport)
-                        {
-                            shell.publish(msg);
-                        }
-                        return event::Status::Captured;
+                        shell.publish(message);
+                        shell.capture_event();
+                        return;
                     }
                 }
             }
@@ -355,7 +381,25 @@ where
             _ => {}
         }
 
-        event::Status::Ignored
+        let current_status = if self.on_press.is_none() {
+            Status::Disabled
+        } else if cursor.is_over(layout.bounds()) {
+            let state = tree.state.downcast_ref::<State>();
+
+            if state.is_pressed {
+                Status::Pressed
+            } else {
+                Status::Hovered
+            }
+        } else {
+            Status::Active
+        };
+
+        if let Event::Window(window::Event::RedrawRequested(_now)) = event {
+            self.status = Some(current_status);
+        } else if self.status.is_some_and(|status| status != current_status) {
+            shell.request_redraw();
+        }
     }
 
     fn draw(
@@ -369,24 +413,12 @@ where
         viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
-        let content_layout = layout.children().next().unwrap();
-        let is_mouse_over = cursor.is_over(bounds);
-
-        let status = if self.on_event.is_none() {
-            Status::Disabled
-        } else if is_mouse_over {
-            let state = tree.state.downcast_ref::<State>();
-
-            if state.is_pressed {
-                Status::Pressed
-            } else {
-                Status::Hovered
-            }
-        } else {
-            Status::Active
-        };
-
-        let style = theme.style(&self.class, status);
+        let content_layout = layout
+            .children()
+            .next()
+            .unwrap()
+            .with_virtual_offset(layout.virtual_offset());
+        let style = theme.style(&self.class, self.status.unwrap_or(Status::Disabled));
 
         if style.background.is_some() || style.border.width > 0.0 || style.shadow.color.a > 0.0 {
             renderer.fill_quad(
@@ -394,6 +426,7 @@ where
                     bounds,
                     border: style.border,
                     shadow: style.shadow,
+                    snap: style.snap,
                 },
                 style
                     .background
@@ -432,7 +465,7 @@ where
     ) -> mouse::Interaction {
         let is_mouse_over = cursor.is_over(layout.bounds());
 
-        if is_mouse_over && self.on_event.is_some() {
+        if is_mouse_over && self.on_press.is_some() {
             mouse::Interaction::Pointer
         } else {
             mouse::Interaction::default()
@@ -442,14 +475,20 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut Tree,
-        layout: Layout<'_>,
+        layout: Layout<'b>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
             &mut tree.children[0],
-            layout.children().next().unwrap(),
+            layout
+                .children()
+                .next()
+                .unwrap()
+                .with_virtual_offset(layout.virtual_offset()),
             renderer,
+            viewport,
             translation,
         )
     }

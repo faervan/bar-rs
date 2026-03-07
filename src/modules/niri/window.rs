@@ -3,15 +3,16 @@ use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
+use iced::Element;
 use iced::widget::button::Style;
 use iced::widget::{container, scrollable, text};
-use iced::Element;
 use niri_ipc::Window;
 
 use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
 use crate::helpers::UnEscapeString;
 use crate::{
+    Message,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
@@ -19,8 +20,7 @@ use crate::{
     },
     fill::FillExt,
     listeners::niri::NiriListener,
-    modules::{require_listener, Module},
-    Message,
+    modules::{Module, require_listener},
 };
 use crate::{impl_on_click, impl_wrapper};
 
@@ -98,7 +98,7 @@ impl Module for NiriWindowMod {
                 .fill(anchor),
         )
         .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
-        .on_event_with(Message::popup::<Self>(
+        .on_press_with_context(Message::popup::<Self>(
             self.popup_cfg_override.width.unwrap_or(popup_config.width),
             self.popup_cfg_override
                 .height

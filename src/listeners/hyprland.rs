@@ -1,14 +1,18 @@
 use bar_rs_derive::Builder;
 use hyprland::{data::Client, event_listener::AsyncEventListener, shared::HyprDataActiveOptional};
-use iced::{futures::SinkExt, stream, Subscription};
+use iced::{
+    Subscription,
+    futures::{SinkExt, channel::mpsc::Sender},
+    stream,
+};
 
 use crate::{
+    Message,
     config::ConfigEntry,
     modules::hyprland::{
         window::update_window,
-        workspaces::{get_workspaces, HyprWorkspaceMod},
+        workspaces::{HyprWorkspaceMod, get_workspaces},
     },
-    Message,
 };
 
 use super::Listener;
@@ -22,7 +26,7 @@ impl Listener for HyprListener {
     }
     fn subscription(&self) -> Subscription<Message> {
         Subscription::run(|| {
-            stream::channel(1, |mut sender| async move {
+            stream::channel(1, |mut sender: Sender<Message>| async move {
                 let workspaces = get_workspaces(None).await;
                 sender
                     .send(Message::update(move |reg| {

@@ -7,13 +7,14 @@ use std::{
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::{
-    widget::{button, container, text},
     Background, Border, Color, Element, Padding,
+    widget::{button, container, text},
 };
 use niri_ipc::Workspace;
 use tokio::sync::broadcast;
 
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
@@ -23,8 +24,7 @@ use crate::{
     fill::FillExt,
     impl_on_click, impl_wrapper, list,
     listeners::niri::NiriListener,
-    modules::{require_listener, Module},
-    Message, NERD_FONT,
+    modules::{Module, require_listener},
 };
 
 #[derive(Debug, Builder)]

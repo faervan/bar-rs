@@ -6,20 +6,20 @@ use std::{
 use bar_rs_derive::Builder;
 use bluer::Adapter;
 use handlebars::Handlebars;
-use iced::widget::button::Style;
 use iced::widget::container;
-use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
+use iced::{Element, Subscription, futures::SinkExt, stream, widget::text};
+use iced::{futures::channel::mpsc::Sender, widget::button::Style};
 use tokio::{io, time::sleep};
 
 use crate::button::button;
 use crate::config::popup_config::PopupConfig;
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
     },
     fill::FillExt,
-    Message, NERD_FONT,
 };
 use crate::{impl_on_click, impl_wrapper};
 
@@ -189,7 +189,7 @@ impl Module for BluetoothMod {
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {
-            stream::channel(1, |mut sender| async move {
+            stream::channel(1, |mut sender: Sender<Message>| async move {
                 if let Ok(session) = bluer::Session::new().await {
                     loop {
                         let mut controllers: Vec<Controller> = Vec::new();

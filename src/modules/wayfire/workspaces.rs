@@ -2,13 +2,14 @@ use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{container, rich_text, span};
 use iced::Element;
 use iced::Padding;
+use iced::widget::{container, rich_text, span};
 
 use crate::config::parse::StringExt;
 use crate::config::popup_config::PopupConfig;
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
@@ -16,7 +17,6 @@ use crate::{
     fill::FillExt,
     listeners::wayfire::WayfireListener,
     modules::Module,
-    Message, NERD_FONT,
 };
 use crate::{impl_on_click, impl_wrapper};
 
@@ -58,6 +58,7 @@ impl Module for WayfireWorkspaceMod {
             .size(self.cfg_override.icon_size.unwrap_or(config.icon_size))
             .color(self.cfg_override.icon_color.unwrap_or(config.icon_color))
             .font(NERD_FONT)])
+            .on_link_click(iced::never)
             .fill(anchor),
         )
         .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))

@@ -4,9 +4,10 @@ use std::{collections::HashMap, time::Duration};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
+use iced::futures::channel::mpsc::Sender;
 use iced::widget::button::Style;
 use iced::widget::{column, container, scrollable};
-use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
+use iced::{Element, Subscription, futures::SinkExt, stream, widget::text};
 use tokio::{fs, io, runtime, select, sync::mpsc, task, time::sleep};
 use udev::Device;
 
@@ -14,12 +15,12 @@ use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
 use crate::helpers::UnEscapeString;
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
     },
     fill::FillExt,
-    Message, NERD_FONT,
 };
 use crate::{impl_on_click, impl_wrapper};
 
@@ -205,7 +206,7 @@ impl Module for BatteryMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(
+        .on_press_with_context(Message::popup::<Self>(
             self.popup_cfg_override.width.unwrap_or(popup_config.width),
             self.popup_cfg_override
                 .height
@@ -382,7 +383,7 @@ impl Module for BatteryMod {
                 }));
             });
 
-            stream::channel(1, |mut sender| async move {
+            stream::channel(1, |mut sender: Sender<Message>| async move {
                 tokio::spawn(async move {
                     loop {
                         let (avg, batteries) = get_stats(None, false).await.unwrap();

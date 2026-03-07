@@ -3,17 +3,17 @@ use std::collections::HashMap;
 use bar_rs_derive::Builder;
 use chrono::Local;
 use handlebars::Handlebars;
-use iced::widget::{container, text};
 use iced::Element;
+use iced::widget::{container, text};
 
 use crate::config::popup_config::PopupConfig;
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
     },
     fill::FillExt,
-    Message, NERD_FONT,
 };
 use crate::{impl_on_click, impl_wrapper};
 

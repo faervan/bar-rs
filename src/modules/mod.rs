@@ -9,16 +9,16 @@ use bluetooth::BluetoothMod;
 use cpu::CpuMod;
 use date::DateMod;
 use disk_usage::DiskUsageMod;
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 use empty::EmptyModule;
 use handlebars::Handlebars;
 use hyprland::{window::HyprWindowMod, workspaces::HyprWorkspaceMod};
 use iced::{
-    theme::Palette,
-    widget::{container, Container},
     Alignment, Color, Event, Theme,
+    theme::Palette,
+    widget::{Container, container},
 };
-use iced::{widget::container::Style, Element, Subscription};
+use iced::{Element, Subscription, widget::container::Style};
 use media::MediaMod;
 use memory::MemoryMod;
 use niri::{NiriWindowMod, NiriWorkspaceMod};
@@ -27,11 +27,11 @@ use volume::VolumeMod;
 use wayfire::{WayfireWindowMod, WayfireWorkspaceMod};
 
 use crate::{
+    Message,
     config::{anchor::BarAnchor, module_config::LocalModuleConfig, popup_config::PopupConfig},
     fill::FillExt,
     listeners::Listener,
     registry::Registry,
-    Message,
 };
 
 pub mod battery;
@@ -109,7 +109,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
     /// The action to perform on an on_click event
     fn on_click<'a>(
         &'a self,
-        event: iced::Event,
+        event: &iced::Event,
         config: &'a LocalModuleConfig,
     ) -> Option<&'a dyn Action> {
         None
@@ -152,6 +152,7 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
                 text: Color::WHITE,
                 primary: Color::WHITE,
                 success: Color::WHITE,
+                warning: Color::WHITE,
                 danger: Color::WHITE,
             },
         )
@@ -187,7 +188,7 @@ pub struct OnClickAction {
 }
 
 impl OnClickAction {
-    pub fn event(&self, event: Event) -> Option<&dyn Action> {
+    pub fn event(&self, event: &Event) -> Option<&dyn Action> {
         match event {
             Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
                 self.left.as_deref()
@@ -242,7 +243,7 @@ macro_rules! impl_wrapper {
                 $crate::button::button(content)
                     .fill(anchor)
                     .padding(self.cfg_override.padding.unwrap_or(config.padding))
-                    .on_event_try(|evt, _, _, _, _| {
+                    .on_press_with_context_try(|evt, _, _, _, _| {
                         self.on_click(evt, config).map(|evt| evt.as_message())
                     })
                     .style(|_, _| iced::widget::button::Style {
@@ -263,7 +264,7 @@ macro_rules! impl_on_click {
     () => {
         fn on_click<'a>(
             &'a self,
-            event: iced::Event,
+            event: &iced::Event,
             config: &'a LocalModuleConfig,
         ) -> Option<&'a dyn $crate::modules::Action> {
             self.cfg_override

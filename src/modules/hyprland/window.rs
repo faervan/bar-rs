@@ -4,8 +4,8 @@ use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::widget::{container, rich_text, span, text};
 use iced::{
-    futures::{channel::mpsc::Sender, SinkExt},
     Element,
+    futures::{SinkExt, channel::mpsc::Sender},
 };
 
 use crate::config::popup_config::PopupConfig;
@@ -17,7 +17,7 @@ use crate::{
     },
     fill::FillExt,
     listeners::hyprland::HyprListener,
-    modules::{require_listener, Message, Module},
+    modules::{Message, Module, require_listener},
 };
 use crate::{impl_on_click, impl_wrapper};
 
@@ -72,6 +72,7 @@ impl Module for HyprWindowMod {
             rich_text([span(self.get_title().unwrap_or_default())
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
+            .on_link_click(iced::never)
             .fill(anchor),
         )
         .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))

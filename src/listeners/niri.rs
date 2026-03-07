@@ -1,8 +1,12 @@
 use std::{collections::HashMap, env, sync::Arc};
 
 use bar_rs_derive::Builder;
-use iced::{futures::SinkExt, stream, Subscription};
-use niri_ipc::{socket::SOCKET_PATH_ENV, Event, Request};
+use iced::{
+    Subscription,
+    futures::{SinkExt, channel::mpsc::Sender},
+    stream,
+};
+use niri_ipc::{Event, Request, socket::SOCKET_PATH_ENV};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::UnixStream,
@@ -10,10 +14,10 @@ use tokio::{
 };
 
 use crate::{
+    Message, UpdateFn,
     config::ConfigEntry,
     modules::niri::{NiriWindowMod, NiriWorkspaceMod},
     registry::Registry,
-    Message, UpdateFn,
 };
 
 use super::Listener;
@@ -27,7 +31,7 @@ impl Listener for NiriListener {
     }
     fn subscription(&self) -> Subscription<Message> {
         Subscription::run(|| {
-            stream::channel(1, |mut sender| async move {
+            stream::channel(1, |mut sender: Sender<Message>| async move {
                 let (sx, mut rx) = mpsc::channel(1);
                 sender
                     .send(Message::GetReceiver(sx, |reg| {

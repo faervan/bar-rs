@@ -7,12 +7,13 @@ use std::{
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::{
-    widget::{button::Style, container, scrollable, text, Container, Text},
     Element,
+    widget::{Container, Text, button::Style, container, scrollable, text},
 };
 use libc::{__errno_location, statvfs};
 
 use crate::{
+    Message, NERD_FONT,
     button::button,
     config::{
         anchor::BarAnchor,
@@ -21,7 +22,7 @@ use crate::{
     },
     fill::FillExt,
     helpers::UnEscapeString,
-    impl_on_click, impl_wrapper, Message, NERD_FONT,
+    impl_on_click, impl_wrapper,
 };
 
 use super::Module;
@@ -115,7 +116,7 @@ impl Module for DiskUsageMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(
+        .on_press_with_context(Message::popup::<Self>(
             self.popup_cfg_override.width.unwrap_or(popup_config.width),
             self.popup_cfg_override
                 .height

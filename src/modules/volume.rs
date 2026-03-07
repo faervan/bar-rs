@@ -2,6 +2,7 @@ use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
+use iced::futures::channel::mpsc::Sender;
 use iced::widget::{button, container};
 use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
 use tokio::{
@@ -82,7 +83,7 @@ impl Module for VolumeMod {
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {
-            stream::channel(1, |mut sender| async move {
+            stream::channel(1, |mut sender: Sender<Message>| async move {
                 let volume = || {
                     Message::update(move |reg| {
                         let vmod = reg.get_module_mut::<VolumeMod>();

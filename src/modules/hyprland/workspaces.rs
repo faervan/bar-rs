@@ -7,12 +7,13 @@ use hyprland::{
     shared::{HyprData, HyprDataActive, HyprDataVec},
 };
 use iced::{
-    widget::{container, rich_text, span},
     Background, Border, Color, Element, Padding,
+    widget::{container, rich_text, span},
 };
 use tokio::time::sleep;
 
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
@@ -23,8 +24,7 @@ use crate::{
     impl_on_click, impl_wrapper,
     list::list,
     listeners::hyprland::HyprListener,
-    modules::{require_listener, Module},
-    Message, NERD_FONT,
+    modules::{Module, require_listener},
 };
 
 #[derive(Debug, Builder)]
@@ -91,7 +91,7 @@ impl Module for HyprWorkspaceMod {
                         .background_maybe(self.active_background)
                         .border(self.active_icon_border);
                 }
-                container(rich_text![span].fill(anchor))
+                container(rich_text![span].on_link_click(iced::never).fill(anchor))
                     .padding(self.cfg_override.icon_margin.unwrap_or(config.icon_margin))
                     .into()
             }),

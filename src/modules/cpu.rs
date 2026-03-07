@@ -9,11 +9,15 @@ use std::{
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{button::Style, container, scrollable, Container, Text};
-use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
+use iced::{Element, Subscription, futures::SinkExt, stream, widget::text};
+use iced::{
+    futures::channel::mpsc::Sender,
+    widget::{Container, Text, button::Style, container, scrollable},
+};
 use tokio::time::sleep;
 
 use crate::{
+    Message, NERD_FONT,
     button::button,
     config::{
         anchor::BarAnchor,
@@ -22,7 +26,7 @@ use crate::{
     },
     fill::FillExt,
     helpers::UnEscapeString,
-    impl_on_click, impl_wrapper, Message, NERD_FONT,
+    impl_on_click, impl_wrapper,
 };
 
 use super::Module;
@@ -85,7 +89,7 @@ impl Module for CpuMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_with(Message::popup::<Self>(
+        .on_press_with_context(Message::popup::<Self>(
             self.popup_cfg_override.width.unwrap_or(popup_config.width),
             self.popup_cfg_override
                 .height
@@ -204,7 +208,7 @@ impl Module for CpuMod {
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {
-            stream::channel(1, |mut sender| async move {
+            stream::channel(1, |mut sender: Sender<Message>| async move {
                 let interval: u64 = 500;
                 let gap: u64 = 2000;
                 loop {
@@ -293,8 +297,18 @@ impl TryFrom<&str> for CpuStats<usize> {
             value.split_whitespace().map(|p| p.parse()).collect();
         // Documentation can be found at
         // https://docs.kernel.org/filesystems/proc.html#miscellaneous-kernel-statistics-in-proc-stat
-        let [user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice] =
-            values?[..]
+        let [
+            user,
+            nice,
+            system,
+            idle,
+            iowait,
+            irq,
+            softirq,
+            steal,
+            guest,
+            guest_nice,
+        ] = values?[..]
         else {
             return Err(ReadError::ValueListInvalid);
         };

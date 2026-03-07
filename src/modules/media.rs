@@ -3,10 +3,11 @@ use std::{collections::HashMap, process::Stdio};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::button::Style;
-use iced::widget::{column, container, image, row, scrollable, Container, Text};
 use iced::Length::Fill;
-use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
+use iced::futures::channel::mpsc::Sender;
+use iced::widget::button::Style;
+use iced::widget::{Container, Text, column, container, image, row, scrollable};
+use iced::{Element, Subscription, futures::SinkExt, stream, widget::text};
 use serde::Deserialize;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -17,12 +18,12 @@ use crate::button::button;
 use crate::config::popup_config::{PopupConfig, PopupConfigOverride};
 use crate::helpers::UnEscapeString;
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
     },
     fill::FillExt,
-    Message, NERD_FONT,
 };
 use crate::{impl_on_click, impl_wrapper};
 
@@ -223,7 +224,7 @@ impl Module for MediaMod {
             ]
             .spacing(self.cfg_override.spacing.unwrap_or(config.spacing)),
         )
-        .on_event_maybe_with(self.track.as_ref().map(|_| {
+        .on_press_with_context_maybe(self.track.as_ref().map(|_| {
             Message::popup::<Self>(
                 self.popup_cfg_override.width.unwrap_or(popup_config.width),
                 self.popup_cfg_override
@@ -340,16 +341,16 @@ impl Module for MediaMod {
                         container(
                             row![
                                 button(icon(&self.ctrl_icons.previous))
-                                    .on_event(cmd("previous"))
+                                    .on_press(cmd("previous"))
                                     .style(|_, _| Style::default()),
                                 button(icon(match track.paused {
                                     true => &self.ctrl_icons.play,
                                     false => &self.ctrl_icons.pause,
                                 }))
-                                .on_event(cmd("play-pause"))
+                                .on_press(cmd("play-pause"))
                                 .style(|_, _| Style::default()),
                                 button(icon(&self.ctrl_icons.next))
-                                    .on_event(cmd("next"))
+                                    .on_press(cmd("next"))
                                     .style(|_, _| Style::default()),
                             ]
                             .spacing(20)
@@ -467,7 +468,7 @@ impl Module for MediaMod {
 
     fn subscription(&self) -> Option<iced::Subscription<Message>> {
         Some(Subscription::run(|| {
-            stream::channel(1, |mut sender| async move {
+            stream::channel(1, |mut sender: Sender<Message>| async move {
                 let mut child = Command::new("sh")
                     .arg("-c")
                     .arg(

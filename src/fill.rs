@@ -1,7 +1,10 @@
 use iced::{
-    widget::{text::Rich, Container, Text},
     Alignment::Center,
     Length::Fill,
+    widget::{
+        Container, Text,
+        text::{Catalog, Rich},
+    },
 };
 
 use crate::config::anchor::BarAnchor;
@@ -31,9 +34,11 @@ impl FillExt for Text<'_> {
     }
 }
 
-impl<Link> FillExt for Rich<'_, Link>
+impl<'a, Link, Message, Theme, Renderer> FillExt for Rich<'a, Link, Message, Theme, Renderer>
 where
     Link: Clone,
+    Theme: Catalog,
+    Renderer: iced::core::text::Renderer + 'a,
 {
     fn fill(self, anchor: &BarAnchor) -> Self {
         self.fillx(anchor.vertical())

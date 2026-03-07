@@ -1,8 +1,8 @@
 [package]
 name = "bar-rs"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.80.1" # from image-webp@0.2.1
+edition = "2024"
+rust-version = "1.94" # from image-webp@0.2.1
 
 [dependencies]
 chrono = "0.4"
@@ -10,12 +10,13 @@ configparser = "3.1"
 ctrlc = "3.4"
 directories = "6.0"
 hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
-iced = { git = "https://github.com/Faervan/iced_pop-os.git", branch = "master", features = [
+iced = { git = "https://github.com/pop-os/iced.git", branch = "master", features = [
   "tokio",
   "wayland",
   "winit",
   "image",
 ] }
+smithay-client-toolkit = "0.20"
 notify = "8.2"
 tokio = { version = "1.42", features = [
   "io-util",

@@ -2,36 +2,37 @@ use std::{
     any::{Any, TypeId},
     fmt::Debug,
     path::PathBuf,
-    process::{exit, Command},
+    process::{Command, exit},
     sync::Arc,
     time::Duration,
 };
 
-use config::{anchor::BarAnchor, get_config_dir, read_config, Config, EnabledModules, Thrice};
+use config::{Config, EnabledModules, Thrice, anchor::BarAnchor, get_config_dir, read_config};
 use fill::FillExt;
 use handlebars::Handlebars;
 use iced::{
-    daemon,
+    Alignment, Color, Element, Font, Rectangle, Subscription, Task, Theme, daemon,
+    event::wayland::OutputEvent,
     platform_specific::shell::commands::{
-        layer_surface::{destroy_layer_surface, get_layer_surface, Layer},
-        output::{get_output, get_output_info, OutputInfo},
+        layer_surface::{Layer, destroy_layer_surface, get_layer_surface},
         popup::{destroy_popup, get_popup},
     },
     runtime::platform_specific::wayland::{
         layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
         popup::{SctkPopupSettings, SctkPositioner},
     },
-    stream,
     theme::Palette,
     widget::{container, stack},
     window::Id,
-    Alignment, Color, Element, Font, Rectangle, Subscription, Task, Theme,
 };
-use list::{list, DynamicAlign};
+use list::{DynamicAlign, list};
 use listeners::register_listeners;
-use modules::{empty::EmptyModule, register_modules, Module};
+use modules::{Module, empty::EmptyModule, register_modules};
 use registry::Registry;
 use resolvers::register_resolvers;
+use smithay_client_toolkit::{
+    output::OutputInfo, reexports::client::protocol::wl_output::WlOutput,
+};
 use tokio::{
     sync::{broadcast, mpsc},
     time::sleep,
@@ -52,29 +53,47 @@ mod tooltip;
 const NERD_FONT: Font = Font::with_name("3270 Nerd Font");
 
 fn main() -> iced::Result {
-    daemon("Bar", Bar::update, Bar::view)
+    daemon(Bar::new, Bar::update, Bar::view)
+        .title("Bar")
         .theme(Bar::theme)
         .font(include_bytes!("../assets/3270/3270NerdFont-Regular.ttf"))
         .subscription(|state| {
             if state.open {
-                Subscription::batch({
-                    state
-                        .registry
-                        .get_modules(state.config.enabled_modules.get_all(), &state.config)
-                        .filter(|m| state.config.enabled_modules.contains(&m.name()))
-                        .filter_map(|m| m.subscription())
-                        .chain(
-                            state
-                                .registry
-                                .get_listeners(&state.config.enabled_listeners)
-                                .map(|l| l.subscription()),
-                        )
-                })
+                Subscription::batch([
+                    iced::event::listen_with(|event, _, _| {
+                        if let iced::Event::PlatformSpecific(
+                            iced::event::PlatformSpecific::Wayland(
+                                iced::event::wayland::Event::Output(event, wl_output),
+                            ),
+                        ) = event
+                        {
+                            Some(Message::OutputEvent {
+                                event: Box::new(event),
+                                wl_output,
+                            })
+                        } else {
+                            None
+                        }
+                    }),
+                    Subscription::batch({
+                        state
+                            .registry
+                            .get_modules(state.config.enabled_modules.get_all(), &state.config)
+                            .filter(|m| state.config.enabled_modules.contains(&m.name()))
+                            .filter_map(|m| m.subscription())
+                            .chain(
+                                state
+                                    .registry
+                                    .get_listeners(&state.config.enabled_listeners)
+                                    .map(|l| l.subscription()),
+                            )
+                    }),
+                ])
             } else {
                 Subscription::none()
             }
         })
-        .run_with(Bar::new)
+        .run()
 }
 
 pub struct UpdateFn(Box<dyn FnOnce(&mut Registry) + Send + Sync>);
@@ -112,8 +131,11 @@ pub enum Message {
     Spawn(Arc<Command>),
     ReloadConfig,
     LoadRegistry,
-    GotOutput(Option<IcedOutput>),
-    GotOutputInfo(Option<OutputInfo>),
+    OutputEvent {
+        event: Box<OutputEvent>,
+        wl_output: WlOutput,
+    },
+    OutputsReady,
 }
 
 impl Message {
@@ -153,18 +175,18 @@ impl Message {
         height: i32,
         anchor: &BarAnchor,
     ) -> impl Fn(
-        iced::Event,
+        &iced::Event,
         iced::core::Layout,
         iced::mouse::Cursor,
         &mut dyn iced::core::Clipboard,
         &Rectangle,
     ) -> Message
-           + 'a
+    + 'a
     where
         T: Module,
     {
         let anchor = *anchor;
-        move |_: iced::Event,
+        move |_: &iced::Event,
               layout: iced::core::Layout,
               _: iced::mouse::Cursor,
               _: &mut dyn iced::core::Clipboard,
@@ -194,13 +216,16 @@ impl Message {
     }
 }
 
+pub type Outputs = Vec<(WlOutput, Option<OutputInfo>)>;
+
 #[derive(Debug)]
 struct Bar<'a> {
     config_file: Arc<PathBuf>,
     config: Arc<Config>,
     registry: Registry,
-    logical_size: Option<(u32, u32)>,
-    output: IcedOutput,
+    outputs: Outputs,
+    /// If false, we have to wait for new Outputs before opening a window
+    outputs_ready: bool,
     layer_id: Id,
     open: bool,
     popup: Option<(TypeId, Id)>,
@@ -229,19 +254,15 @@ impl Bar<'_> {
             config_file: config_file.into(),
             config: config.into(),
             registry,
-            logical_size: None,
-            output: IcedOutput::Active,
+            outputs: Default::default(),
+            outputs_ready: false,
             layer_id: Id::unique(),
             open: true,
             popup: None,
             templates,
         };
-        let task = match &bar.config.monitor {
-            Some(_) => bar.try_get_output(),
-            None => bar.open(),
-        };
 
-        (bar, task)
+        (bar, Task::none())
     }
 
     fn update(&mut self, msg: Message) -> Task<Message> {
@@ -262,6 +283,8 @@ impl Bar<'_> {
                     },
                     parent_size: None,
                     grab: true,
+                    close_with_children: true,
+                    input_zone: None,
                 };
                 return match self.popup {
                     None => {
@@ -321,30 +344,35 @@ impl Bar<'_> {
                     read_config(&self.config_file, &mut self.registry, &mut self.templates).into();
                 self.open = true;
             }
-            Message::GotOutput(optn) => {
-                return match optn {
-                    Some(output) => {
-                        self.output = output;
-                        self.try_get_output_info()
-                    }
-                    None => Task::stream(stream::channel(1, |_| async {
-                        sleep(Duration::from_millis(500)).await;
-                    }))
-                    .chain(self.try_get_output()),
-                }
+            Message::OutputsReady => {
+                self.outputs_ready = true;
+                return self.open();
             }
-            Message::GotOutputInfo(optn) => {
-                return match optn {
-                    Some(info) => {
-                        self.logical_size = info.logical_size.map(|(x, y)| (x as u32, y as u32));
-                        self.open()
+            Message::OutputEvent { event, wl_output } => match *event {
+                OutputEvent::Created(info_maybe) => {
+                    let first_output = self.outputs.is_empty();
+                    self.outputs.push((wl_output, info_maybe));
+                    if !self.outputs_ready && first_output {
+                        return Task::future(async {
+                            sleep(Duration::from_millis(500)).await;
+                            Message::OutputsReady
+                        });
                     }
-                    None => Task::stream(stream::channel(1, |_| async {
-                        sleep(Duration::from_millis(500)).await;
-                    }))
-                    .chain(self.try_get_output_info()),
                 }
-            }
+                OutputEvent::InfoUpdate(info) => {
+                    if let Some((_, info_maybe)) =
+                        self.outputs.iter_mut().find(|(wlo, _)| wlo == &wl_output)
+                    {
+                        *info_maybe = Some(info);
+                    }
+                }
+                OutputEvent::Removed => {
+                    let pos = self.outputs.iter().position(|(wlo, _)| wlo == &wl_output);
+                    if let Some(pos) = pos {
+                        self.outputs.remove(pos);
+                    }
+                }
+            },
         }
         Task::none()
     }
@@ -417,7 +445,27 @@ impl Bar<'_> {
     }
 
     fn open(&self) -> Task<Message> {
-        let (x, y) = self.logical_size.unwrap_or((1920, 1080));
+        let (output, info) = match &self.config.monitor {
+            Some(name) => self
+                .outputs
+                .iter()
+                .find(|(_, info)| {
+                    info.as_ref()
+                        .is_some_and(|info| info.name.as_ref() == Some(name))
+                })
+                .map(|(o, info)| (IcedOutput::Output(o.clone()), info.as_ref()))
+                .unwrap_or_else(|| {
+                    eprintln!("No output with name {name} could be found!");
+                    (IcedOutput::Active, None)
+                }),
+            None => (IcedOutput::Active, None),
+        };
+
+        let (x, y) = info
+            .as_ref()
+            .and_then(|i| i.logical_size.map(|(x, y)| (x as u32, y as u32)))
+            .unwrap_or((1920, 1080));
+
         let (width, height) = match self.config.anchor.vertical() {
             true => (
                 self.config.module_config.global.width.unwrap_or(30),
@@ -428,6 +476,7 @@ impl Bar<'_> {
                 self.config.module_config.global.height.unwrap_or(30),
             ),
         };
+
         get_layer_surface(SctkLayerSurfaceSettings {
             layer: Layer::Top,
             keyboard_interactivity: self.config.kb_focus,
@@ -435,44 +484,11 @@ impl Bar<'_> {
             exclusive_zone: self.config.exclusive_zone(),
             size: Some((Some(width), Some(height))),
             namespace: "bar-rs".to_string(),
-            output: self.output.clone(),
+            output,
             margin: self.config.module_config.global.margin,
             id: self.layer_id,
             ..Default::default()
         })
-    }
-
-    fn try_get_output(&self) -> Task<Message> {
-        let monitor = self.config.monitor.clone();
-        get_output(move |output_state| {
-            output_state
-                .outputs()
-                .find(|o| {
-                    output_state
-                        .info(o)
-                        .map(|info| info.name == monitor)
-                        .unwrap_or(false)
-                })
-                .clone()
-        })
-        .map(|optn| Message::GotOutput(optn.map(IcedOutput::Output)))
-    }
-
-    fn try_get_output_info(&self) -> Task<Message> {
-        let monitor = self.config.monitor.clone();
-        get_output_info(move |output_state| {
-            output_state
-                .outputs()
-                .find(|o| {
-                    output_state
-                        .info(o)
-                        .map(|info| info.name == monitor)
-                        .unwrap_or(false)
-                })
-                .and_then(|o| output_state.info(&o))
-                .clone()
-        })
-        .map(Message::GotOutputInfo)
     }
 
     fn theme(&self, window_id: Id) -> Theme {
@@ -489,6 +505,7 @@ impl Bar<'_> {
                     text: Color::WHITE,
                     primary: Color::WHITE,
                     success: Color::WHITE,
+                    warning: Color::WHITE,
                     danger: Color::WHITE,
                 },
             )

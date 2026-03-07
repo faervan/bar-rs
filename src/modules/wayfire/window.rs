@@ -2,12 +2,13 @@ use std::{any::TypeId, collections::HashMap};
 
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
-use iced::widget::{container, rich_text, span, text};
 use iced::Element;
+use iced::widget::{container, rich_text, span, text};
 
 use crate::config::popup_config::PopupConfig;
 use crate::tooltip::ElementExt;
 use crate::{
+    Message,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
@@ -15,7 +16,6 @@ use crate::{
     fill::FillExt,
     listeners::wayfire::WayfireListener,
     modules::Module,
-    Message,
 };
 use crate::{impl_on_click, impl_wrapper};
 
@@ -70,6 +70,7 @@ impl Module for WayfireWindowMod {
             rich_text([span(self.get_title().unwrap_or_default())
                 .size(self.cfg_override.font_size.unwrap_or(config.font_size))
                 .color(self.cfg_override.text_color.unwrap_or(config.text_color))])
+            .on_link_click(iced::never)
             .fill(anchor),
         )
         .padding(self.cfg_override.text_margin.unwrap_or(config.text_margin))
