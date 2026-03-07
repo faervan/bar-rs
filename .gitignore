@@ -1,4 +1,15 @@
+# Rust build files
 **/target
+
+# Rust toolchain and build configuration
+# Can be used to speed up development compiles by enabling unstable tools like the mold linker and
+# the cranelift compiler backend
+.cargo/config.toml
+rust-toolchain.toml
+
+# Nix output directory
 result
+
+# Arch packaging output
 packaging/arch/*.log
 packaging/arch/bar-rs-*
