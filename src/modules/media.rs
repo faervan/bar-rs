@@ -492,30 +492,27 @@ impl Module for MediaMod {
                         .as_ref()
                         .and_then(|line| serde_json::from_str::<TrackInfo>(line.as_str()).ok())
                     {
-                        if let Some(url) = (!track.art_is_local).then_some(track.art_url.clone()) {
-                            if url != last_track {
-                                last_track = url.clone();
-                                let mut sender = sender.clone();
-                                tokio::task::spawn(async move {
-                                    let Ok(response) = reqwest::get(&url).await else {
-                                        eprintln!("Failed to get media cover: \"{url}\"");
-                                        return;
-                                    };
-                                    let Ok(bytes) = response.bytes().await else {
-                                        eprintln!(
-                                            "Failed to get bytes from media cover: \"{url}\""
-                                        );
-                                        return;
-                                    };
-                                    sender
-                                        .send(Message::update(move |reg| {
-                                            reg.get_module_mut::<MediaMod>().img =
-                                                Some(bytes.to_vec())
-                                        }))
-                                        .await
-                                        .unwrap();
-                                });
-                            }
+                        if let Some(url) = (!track.art_is_local).then_some(track.art_url.clone())
+                            && url != last_track
+                        {
+                            last_track = url.clone();
+                            let mut sender = sender.clone();
+                            tokio::task::spawn(async move {
+                                let Ok(response) = reqwest::get(&url).await else {
+                                    eprintln!("Failed to get media cover: \"{url}\"");
+                                    return;
+                                };
+                                let Ok(bytes) = response.bytes().await else {
+                                    eprintln!("Failed to get bytes from media cover: \"{url}\"");
+                                    return;
+                                };
+                                sender
+                                    .send(Message::update(move |reg| {
+                                        reg.get_module_mut::<MediaMod>().img = Some(bytes.to_vec())
+                                    }))
+                                    .await
+                                    .unwrap();
+                            });
                         }
                         sender
                             .send(Message::update(move |reg| {

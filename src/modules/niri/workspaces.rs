@@ -248,16 +248,16 @@ impl Module for NiriWorkspaceMod {
             let Some(val) = val.clone() else {
                 return;
             };
-            if let [output, idx] = key.split(':').map(|i| i.trim()).collect::<Vec<&str>>()[..] {
-                if let Ok(idx) = idx.parse() {
-                    match self.icons.get_mut(output) {
-                        Some(icons) => {
-                            icons.insert(idx, val);
-                        }
-                        None => {
-                            self.icons
-                                .insert(output.to_string(), HashMap::from([(idx, val)]));
-                        }
+            if let [output, idx] = key.split(':').map(|i| i.trim()).collect::<Vec<&str>>()[..]
+                && let Ok(idx) = idx.parse()
+            {
+                match self.icons.get_mut(output) {
+                    Some(icons) => {
+                        icons.insert(idx, val);
+                    }
+                    None => {
+                        self.icons
+                            .insert(output.to_string(), HashMap::from([(idx, val)]));
                     }
                 }
             }

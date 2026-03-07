@@ -71,12 +71,7 @@ impl BatteryMod {
             true => &self.icons_charging,
             false => &self.icons,
         };
-        icons
-            .iter()
-            .filter(|(k, _)| capacity >= **k)
-            .next_back()
-            .unwrap()
-            .1
+        icons.iter().rfind(|(k, _)| capacity >= **k).unwrap().1
     }
 }
 
@@ -521,19 +516,17 @@ async fn get_stats(
     let mut entries = fs::read_dir("/sys/class/power_supply").await?;
     let mut batteries = vec![];
     while let Ok(Some(dev_name)) = entries.next_entry().await {
-        if let Some(selection) = selection {
-            if is_blacklist
+        if let Some(selection) = selection
+            && is_blacklist
                 == selection.contains(&dev_name.file_name().to_string_lossy().to_string())
-            {
-                continue;
-            }
+        {
+            continue;
         }
         if let Ok(dev_type) =
             fs::read_to_string(&format!("{}/type", dev_name.path().to_string_lossy())).await
+            && dev_type.trim() == "Battery"
         {
-            if dev_type.trim() == "Battery" {
-                batteries.push(dev_name.path());
-            }
+            batteries.push(dev_name.path());
         }
     }
     let batteries = batteries.iter().fold(vec![], |mut acc, bat| {

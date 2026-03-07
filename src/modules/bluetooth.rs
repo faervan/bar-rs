@@ -199,10 +199,10 @@ impl Module for BluetoothMod {
                         for adapter_name in adapter_names {
                             // Swallow any io errors for fetch adapter information,
                             // because it will be retried and frequently fetch in a loop
-                            if let Ok(adapter) = session.adapter(&adapter_name) {
-                                if let Ok(controller) = Controller::from_adaper(adapter).await {
-                                    controllers.push(controller);
-                                }
+                            if let Ok(adapter) = session.adapter(&adapter_name)
+                                && let Ok(controller) = Controller::from_adaper(adapter).await
+                            {
+                                controllers.push(controller);
                             }
                         }
                         if sender

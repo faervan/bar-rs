@@ -188,7 +188,7 @@ pub async fn get_workspaces(active: Option<i32>) -> (usize, Vec<(String, bool)>)
         return (0, vec![]);
     };
     let mut open = workspaces.to_vec();
-    open.sort_by(|a, b| a.id.cmp(&b.id));
+    open.sort_by_key(|x| x.id);
     (
         open.iter()
             .position(|ws| {

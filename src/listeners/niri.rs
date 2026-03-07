@@ -82,7 +82,7 @@ impl Listener for NiriListener {
                                                 acc
                                             });
                                         for (_, workspaces) in workspaces.iter_mut() {
-                                            workspaces.sort_by(|a, b| a.idx.cmp(&b.idx));
+                                            workspaces.sort_by_key(|x| x.idx);
                                         }
                                         let ws_mod = reg.get_module_mut::<NiriWorkspaceMod>();
                                         ws_mod.focused = active_ws.unwrap();
