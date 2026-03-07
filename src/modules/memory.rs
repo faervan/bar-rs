@@ -3,16 +3,16 @@ use std::{collections::HashMap, process::Command};
 use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::widget::container;
-use iced::{widget::text, Element};
+use iced::{Element, widget::text};
 
 use crate::config::popup_config::PopupConfig;
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
     },
     fill::FillExt,
-    Message, NERD_FONT,
 };
 use crate::{impl_on_click, impl_wrapper};
 

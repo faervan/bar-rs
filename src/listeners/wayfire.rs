@@ -2,16 +2,17 @@ use std::{error::Error, time::Duration};
 
 use bar_rs_derive::Builder;
 use iced::{
-    futures::{channel::mpsc::Sender, SinkExt},
-    stream, Subscription,
+    Subscription,
+    futures::{SinkExt, channel::mpsc::Sender},
+    stream,
 };
 use serde_json::Value;
 use tokio::time::sleep;
 use wayfire_rs::ipc::WayfireSocket;
 
 use crate::{
-    modules::wayfire::{WayfireWindowMod, WayfireWorkspaceMod},
     Message,
+    modules::wayfire::{WayfireWindowMod, WayfireWorkspaceMod},
 };
 
 use super::Listener;

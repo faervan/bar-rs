@@ -1,13 +1,13 @@
 use std::{any::Any, fmt::Debug};
 
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 use hyprland::HyprListener;
 use iced::Subscription;
 use niri::NiriListener;
 use reload::ReloadListener;
 use wayfire::WayfireListener;
 
-use crate::{config::ConfigEntry, registry::Registry, Message};
+use crate::{Message, config::ConfigEntry, registry::Registry};
 
 pub mod hyprland;
 pub mod niri;

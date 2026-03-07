@@ -1,7 +1,7 @@
 use std::{
     any::TypeId,
     collections::{HashMap, HashSet},
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::Write,
     path::PathBuf,
     sync::Arc,
@@ -13,14 +13,14 @@ use directories::ProjectDirs;
 pub use enabled_modules::EnabledModules;
 use handlebars::Handlebars;
 use iced::{
-    futures::{channel::mpsc::Sender, SinkExt},
+    futures::{SinkExt, channel::mpsc::Sender},
     platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
 };
 use module_config::ModuleConfig;
 use popup_config::PopupConfig;
 use tokio::sync::mpsc;
 
-use crate::{registry::Registry, Message};
+use crate::{Message, registry::Registry};
 pub use thrice::Thrice;
 
 pub mod anchor;

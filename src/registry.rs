@@ -5,10 +5,10 @@ use std::{
 };
 
 use crate::{
+    OptionExt,
     config::{Config, EnabledModules},
     listeners::Listener,
     modules::Module,
-    OptionExt,
 };
 
 pub trait Builder: Any {

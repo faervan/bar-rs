@@ -4,7 +4,7 @@ use bar_rs_derive::Builder;
 use handlebars::Handlebars;
 use iced::futures::channel::mpsc::Sender;
 use iced::widget::{button, container};
-use iced::{futures::SinkExt, stream, widget::text, Element, Subscription};
+use iced::{Element, Subscription, futures::SinkExt, stream, widget::text};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
@@ -12,12 +12,12 @@ use tokio::{
 
 use crate::config::popup_config::PopupConfig;
 use crate::{
+    Message, NERD_FONT,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
     },
     fill::FillExt,
-    Message, NERD_FONT,
 };
 use crate::{impl_on_click, impl_wrapper};
 

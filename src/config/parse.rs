@@ -1,11 +1,11 @@
 use configparser::ini::Ini;
 use iced::{
-    platform_specific::shell::commands::layer_surface::KeyboardInteractivity, Background, Color,
+    Background, Color, platform_specific::shell::commands::layer_surface::KeyboardInteractivity,
 };
 
-use crate::{registry::Registry, OptionExt};
+use crate::{OptionExt, registry::Registry};
 
-use super::{anchor::BarAnchor, insets::Insets, Config, Thrice};
+use super::{Config, Thrice, anchor::BarAnchor, insets::Insets};
 
 impl From<(&Ini, &Registry)> for Config {
     fn from((ini, registry): (&Ini, &Registry)) -> Self {

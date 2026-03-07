@@ -2,18 +2,19 @@ use std::{env, path::PathBuf, time::Duration};
 
 use bar_rs_derive::Builder;
 use iced::{
-    futures::{executor, SinkExt},
-    stream, Subscription,
+    Subscription,
+    futures::{SinkExt, executor},
+    stream,
 };
 use notify::{
-    event::{ModifyKind, RemoveKind},
     Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+    event::{ModifyKind, RemoveKind},
 };
 use tokio::time::sleep;
 
 use crate::{
-    config::{get_config, ConfigEntry},
     Message,
+    config::{ConfigEntry, get_config},
 };
 
 use super::Listener;
@@ -36,20 +37,25 @@ impl Listener for ReloadListener {
                     move |result: Result<Event, Error>| {
                         let event = result.unwrap();
 
-                        if event.paths.contains(&config_pathx) && (matches!(event.kind, EventKind::Modify(ModifyKind::Data(_)))
+                        if event.paths.contains(&config_pathx)
+                            && (matches!(event.kind, EventKind::Modify(ModifyKind::Data(_)))
                                 || matches!(event.kind, EventKind::Remove(RemoveKind::File)))
-                            {
-                                executor::block_on(async {
-                                    sender.send(Message::ReloadConfig)
-                                        .await
-                                        .unwrap_or_else(|err| {
-                                            eprintln!("Trying to request config reload failed with err: {err}");
-                                        });
-                                });
+                        {
+                            executor::block_on(async {
+                                sender
+                                    .send(Message::ReloadConfig)
+                                    .await
+                                    .unwrap_or_else(|err| {
+                                        eprintln!(
+                                            "Trying to request config reload failed with err: {err}"
+                                        );
+                                    });
+                            });
                         }
                     },
-                    Config::default()
-                ).unwrap();
+                    Config::default(),
+                )
+                .unwrap();
 
                 watcher
                     .watch(

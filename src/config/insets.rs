@@ -1,4 +1,4 @@
-use iced::{runtime::platform_specific::wayland::layer_surface::IcedMargin, Padding, Radius};
+use iced::{Padding, Radius, runtime::platform_specific::wayland::layer_surface::IcedMargin};
 
 pub struct Insets {
     a: f32,

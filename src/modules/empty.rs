@@ -3,11 +3,12 @@ use bar_rs_derive::Builder;
 use iced::Element;
 
 use crate::{
+    FillExt, Message,
     config::{
         anchor::BarAnchor,
         module_config::{LocalModuleConfig, ModuleConfigOverride},
     },
-    impl_wrapper, FillExt, Message,
+    impl_wrapper,
 };
 
 use super::Module;

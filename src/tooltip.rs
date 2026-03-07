@@ -1,10 +1,10 @@
 use iced::widget::container;
 use iced::widget::tooltip::Position;
-use iced::{
-    widget::{container::Style, Tooltip},
-    Element,
-};
 use iced::{Background, Border, Color, Theme};
+use iced::{
+    Element,
+    widget::{Tooltip, container::Style},
+};
 
 pub trait ElementExt<'a, Message, Renderer>
 where

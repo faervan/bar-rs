@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use configparser::ini::Ini;
 use iced::{
-    runtime::platform_specific::wayland::layer_surface::IcedMargin, Background, Border, Color,
-    Padding,
+    Background, Border, Color, Padding,
+    runtime::platform_specific::wayland::layer_surface::IcedMargin,
 };
 
 use crate::modules::OnClickAction;
 
-use super::{parse::StringExt, Thrice};
+use super::{Thrice, parse::StringExt};
 
 #[derive(Debug, Default)]
 pub struct ModuleConfig {

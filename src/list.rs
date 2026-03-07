@@ -1,6 +1,6 @@
 use iced::{
-    widget::{column, row, Column, Container, Row},
     Alignment, Element, Padding, Pixels,
+    widget::{Column, Container, Row, column, row},
 };
 
 use crate::config::anchor::BarAnchor;
