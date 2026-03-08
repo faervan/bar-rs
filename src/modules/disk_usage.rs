@@ -217,7 +217,7 @@ impl Module for DiskUsageMod {
 }
 
 /// Get file system statistics using the statvfs system call, see
-/// https://man7.org/linux/man-pages/man3/statvfs.3.html
+/// <https://man7.org/linux/man-pages/man3/statvfs.3.html>
 fn get_stats(path: &CString) -> Result<FileSystemStats, ()> {
     let mut raw_stats: statvfs = unsafe { mem::zeroed() };
     if unsafe { libc::statvfs(path.as_ptr(), &mut raw_stats) } != 0 {

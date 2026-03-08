@@ -10,61 +10,107 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings -Zshare-generics=y -Zthreads=0
+  RUSTDOCFLAGS: -Dwarnings -Zshare-generics=y -Zthreads=0
+  toolchain: nightly-2026-03-06
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
-          - beta
     steps:
-      - uses: actions/checkout@v4
-      - name: Install libudev
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up environment
+        run: echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }-Zcodegen-backend=cranelift" >> "${GITHUB_ENV}"
+
+      - name: Install build dependencies
         run: sudo apt-get install -y libudev-dev librust-xkbcommon-sys-dev libdbus-1-dev pkg-config
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose
+
+      - name: Install rust toolchain
+        run: rustup update ${{ env.toolchain }} && rustup default ${{ env.toolchain }}
+
+      - name: Add cranelift to toolchain
+        run: rustup component add rustc-codegen-cranelift
+
+      - name: Compile build
+        run: cargo build --locked --profile ci --all-features --verbose
       
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
-          - beta
     steps:
-      - uses: actions/checkout@v4
-      - name: Install libudev
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up environment
+        run: echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }-Zcodegen-backend=cranelift" >> "${GITHUB_ENV}"
+
+      - name: Install build dependencies
         run: sudo apt-get install -y libudev-dev librust-xkbcommon-sys-dev libdbus-1-dev pkg-config
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo test --verbose
+
+      - name: Install rust toolchain
+        run: rustup update ${{ env.toolchain }} && rustup default ${{ env.toolchain }}
+
+      - name: Add cranelift to toolchain
+        run: rustup component add rustc-codegen-cranelift
+
+      - name: Run tests
+        run: cargo test --locked --profile ci --all-features --verbose --no-fail-fast
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up environment
+        run: echo "RUSTDOCFLAGS=${RUSTDOCFLAGS:+$RUSTDOCFLAGS }-Zcodegen-backend=cranelift" >> "${GITHUB_ENV}"
+
+      - name: Install build dependencies
+        run: sudo apt-get install -y libudev-dev librust-xkbcommon-sys-dev libdbus-1-dev pkg-config
+
+      - name: Install rust toolchain
+        run: rustup update ${{ env.toolchain }} && rustup default ${{ env.toolchain }}
+
+      - name: Add cranelift to toolchain
+        run: rustup component add rustc-codegen-cranelift
+
+      - name: Check rust documentation
+        run: cargo doc --locked --profile ci --all-features --document-private-items --no-deps
       
   clippy:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
-          - beta
     steps:
-      - uses: actions/checkout@v4
-      - name: Install libudev
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
         run: sudo apt-get install -y libudev-dev librust-xkbcommon-sys-dev libdbus-1-dev pkg-config
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: rustup component add clippy
-      - run: cargo clippy --verbose
+
+      - name: Install rust toolchain
+        run: rustup update ${{ env.toolchain }} && rustup default ${{ env.toolchain }}
+
+      - name: Add clippy to toolchain
+        run: rustup component add clippy
+
+      - name: Check clippy lints
+        run: cargo clippy --verbose
       
   rustfmt:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
-          - beta
     steps:
-      - uses: actions/checkout@v4
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: rustup component add rustfmt
-      - run: cargo fmt --check --verbose
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get install -y libudev-dev librust-xkbcommon-sys-dev libdbus-1-dev pkg-config
+
+      - name: Install rust toolchain
+        run: rustup update ${{ env.toolchain }} && rustup default ${{ env.toolchain }}
+
+      - name: Add rustfmt to toolchain
+        run: rustup component add rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --check --verbose
       

@@ -39,3 +39,12 @@ bluer = { version = "0.17", features = ["bluetoothd"] }
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.ci]
+inherits = "dev"
+opt-level = 0
+debug = "line-tables-only"
+codegen-units = 4
+
+[profile.ci.package."*"]
+opt-level = 0
