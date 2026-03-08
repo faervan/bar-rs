@@ -409,13 +409,23 @@ impl Module for MediaMod {
             .get("max_title_length")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
             .unwrap_or(default.max_title_length);
-        self.players = popup_config
+        self.players = config
             .get("players")
             .and_then(|v| {
                 v.as_ref()
                     .map(|v| v.split(',').map(|i| i.trim().to_string()).collect())
             })
             .unwrap_or(default.players);
+        // Unless we want to cache all tracks always, we have to wait here if a new player is
+        // enabled until it reports a new track as playing.
+        if self
+            .track
+            .as_ref()
+            .is_some_and(|track| !self.players.contains(&track.player))
+        {
+            self.track.take();
+        }
+
         self.cover_width = popup_config
             .get("cover_width")
             .and_then(|v| v.as_ref().and_then(|v| v.parse().ok()))
