@@ -2,7 +2,7 @@
 name = "bar-rs"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.94" # from image-webp@0.2.1
+rust-version = "1.94.0" # from image-webp@0.2.1
 
 [dependencies]
 chrono = "0.4"
