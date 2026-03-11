@@ -57,7 +57,7 @@
               wayland
               dbus
           ];
-          craneLib = crane.mkLib pkgs;
+          craneLib = (crane.mkLib pkgs).overrideToolchain (p: pkgs.rust-bin.stable.${cargoTomlConfig.package.rust-version}.default);
           doCheck = false;
           src = self;
           version = cargoTomlConfig.package.version;
