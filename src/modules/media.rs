@@ -27,7 +27,7 @@ use crate::{
 };
 use crate::{impl_on_click, impl_wrapper};
 
-use super::Module;
+use super::{KillOnDrop, Module};
 
 #[derive(Debug, Builder)]
 pub struct MediaMod {
@@ -492,6 +492,10 @@ impl Module for MediaMod {
                     .stdout
                     .take()
                     .expect("child did not have a handle to stdout");
+
+                // Kill playerctl when the subscription ends (e.g. on reload),
+                // so it doesn't leak and accumulate processes.
+                let _kill_on_drop = KillOnDrop(child);
 
                 let mut reader = BufReader::new(stdout).lines();
                 let mut last_track = String::new();
