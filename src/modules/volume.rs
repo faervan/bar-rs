@@ -21,7 +21,7 @@ use crate::{
 };
 use crate::{impl_on_click, impl_wrapper};
 
-use super::Module;
+use super::{KillOnDrop, Module};
 
 #[derive(Default, Debug, Builder)]
 pub struct VolumeMod {
@@ -108,6 +108,10 @@ impl Module for VolumeMod {
                     .stdout
                     .take()
                     .expect("child did not have a handle to stdout");
+
+                // Kill pactl when the subscription ends (e.g. on reload), so
+                // it doesn't leak and exhaust the pulse client limit.
+                let _kill_on_drop = KillOnDrop(child);
 
                 let mut reader = BufReader::new(stdout).lines();
 
