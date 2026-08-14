@@ -21,6 +21,7 @@ use iced::{
 use iced::{Element, Subscription, widget::container::Style};
 use media::MediaMod;
 use memory::MemoryMod;
+use net::{NetDownloadMod, NetUploadMod};
 use niri::{NiriWindowMod, NiriWorkspaceMod};
 use time::TimeMod;
 use volume::VolumeMod;
@@ -43,6 +44,7 @@ pub mod empty;
 pub mod hyprland;
 pub mod media;
 pub mod memory;
+pub mod net;
 pub mod niri;
 pub mod time;
 pub mod volume;
@@ -228,6 +230,8 @@ pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<WayfireWindowMod>();
     registry.register_module::<NiriWorkspaceMod>();
     registry.register_module::<NiriWindowMod>();
+    registry.register_module::<NetUploadMod>();
+    registry.register_module::<NetDownloadMod>();
 }
 
 #[macro_export]
