@@ -81,7 +81,7 @@ impl Listener for NiriListener {
                                                 }
                                                 acc
                                             });
-                                        for (_, workspaces) in workspaces.iter_mut() {
+                                        for workspaces in workspaces.values_mut() {
                                             workspaces.sort_by_key(|x| x.idx);
                                         }
                                         let ws_mod = reg.get_module_mut::<NiriWorkspaceMod>();
