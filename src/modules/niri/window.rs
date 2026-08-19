@@ -67,7 +67,7 @@ impl NiriWindowMod {
             .map(|title| match title.len() > self.max_length {
                 true => format!(
                     "{}...",
-                    &title.chars().take(self.max_length - 3).collect::<String>()
+                    title.chars().take(self.max_length - 3).collect::<String>()
                 ),
                 false => title.to_string(),
             })
