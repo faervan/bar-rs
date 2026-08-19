@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up environment
-        run: echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }-Zcodegen-backend=cranelift" >> "${GITHUB_ENV}"
+        run: echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }" >> "${GITHUB_ENV}"
 
       - name: Install build dependencies
         run: sudo apt-get install -y libudev-dev librust-xkbcommon-sys-dev libdbus-1-dev pkg-config
@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up environment
-        run: echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }-Zcodegen-backend=cranelift" >> "${GITHUB_ENV}"
+        run: echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }" >> "${GITHUB_ENV}"
 
       - name: Install build dependencies
         run: sudo apt-get install -y libudev-dev librust-xkbcommon-sys-dev libdbus-1-dev pkg-config
