@@ -147,9 +147,9 @@ fn default_interface() -> Option<String> {
     let reader = BufReader::new(file);
     for line in reader.lines().map_while(Result::ok).skip(1) {
         let mut fields = line.split_whitespace();
-        let iface = fields.next()?.to_string();
         let destination = fields.next()?;
         if destination == "00000000" {
+            let iface = fields.next()?.to_string();
             return Some(iface);
         }
     }
@@ -198,7 +198,7 @@ impl NetModule for NetUploadMod {
 
 impl Module for NetUploadMod {
     fn name(&self) -> String {
-        "net_upload".to_string()
+        "net.upload".to_string()
     }
 
     fn view(
@@ -259,7 +259,7 @@ impl NetModule for NetDownloadMod {
 
 impl Module for NetDownloadMod {
     fn name(&self) -> String {
-        "net_download".to_string()
+        "net.download".to_string()
     }
 
     fn view(
