@@ -15,6 +15,8 @@ The following modules are currently available:
 | ------ | ----------- |
 | [cpu](./Modules:-CPU.md) | Shows the current CPU usage |
 | [memory](./Modules:-Memory.md) | Shows the current memory usage |
+| [net.upload](./Modules:-Net.md) | Shows the current upload speed |
+| [net.download](./Modules:-Net.md) | Shows the current download speed |
 | [time](./Modules:-Date-and-Time.md) | Shows the local time |
 | [date](./Modules:-Date-and-Time.md) | Shows the local date |
 | [battery](./Modules:-Battery.md) | Shows the current capacity and remaining time |
