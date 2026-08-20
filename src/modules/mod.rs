@@ -160,17 +160,6 @@ pub trait Module: Any + Debug + Send + Sync + Downcast {
 }
 impl_downcast!(Module);
 
-/// Kills the wrapped child process when dropped, so subscription child
-/// processes (e.g. `pactl subscribe`, `playerctl --follow`) don't leak when
-/// the subscription ends (e.g. on config reload).
-pub struct KillOnDrop(pub tokio::process::Child);
-
-impl Drop for KillOnDrop {
-    fn drop(&mut self) {
-        let _ = self.0.start_kill();
-    }
-}
-
 pub trait Action: Any + Debug + Send + Sync + Downcast {
     fn as_message(&self) -> Message;
 }
