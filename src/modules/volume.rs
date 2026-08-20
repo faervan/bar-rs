@@ -100,6 +100,7 @@ impl Module for VolumeMod {
                 let mut child = Command::new("sh")
                     .arg("-c")
                     .arg("pactl subscribe")
+                    .kill_on_drop(true)
                     .stdout(Stdio::piped())
                     .spawn()
                     .expect("Failed to spawn pactl to monitor volume changes");

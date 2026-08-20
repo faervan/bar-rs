@@ -485,6 +485,7 @@ impl Module for MediaMod {
                         "playerctl --follow metadata --format '{\"title\": \"{{title}}\", \"artist\": \"{{artist}}\", \"album\": \"{{album}}\", \"art_url\": \"{{mpris:artUrl}}\", \"length\": {{mpris:length}}, \"status\": \"{{status}}\", \"player\": \"{{playerName}}\"}'",
                     )
                     .stdout(Stdio::piped())
+                    .kill_on_drop(true)
                     .spawn()
                     .expect("Failed to read output from playerctl");
 
