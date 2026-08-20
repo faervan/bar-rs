@@ -3,6 +3,7 @@ use std::{any::Any, fmt::Debug};
 use downcast_rs::{Downcast, impl_downcast};
 use hyprland::HyprListener;
 use iced::Subscription;
+use net::NetListener;
 use niri::NiriListener;
 use reload::ReloadListener;
 use wayfire::WayfireListener;
@@ -10,6 +11,7 @@ use wayfire::WayfireListener;
 use crate::{Message, config::ConfigEntry, registry::Registry};
 
 pub mod hyprland;
+pub mod net;
 pub mod niri;
 mod reload;
 pub mod wayfire;
@@ -26,5 +28,6 @@ pub fn register_listeners(registry: &mut Registry) {
     registry.register_listener::<HyprListener>();
     registry.register_listener::<WayfireListener>();
     registry.register_listener::<NiriListener>();
+    registry.register_listener::<NetListener>();
     registry.register_listener::<ReloadListener>();
 }
