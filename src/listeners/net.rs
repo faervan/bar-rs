@@ -54,10 +54,10 @@ fn default_interface() -> Option<String> {
     let reader = io::BufReader::new(file);
     for line in reader.lines().map_while(Result::ok).skip(1) {
         let mut fields = line.split_whitespace();
-        let iface = fields.next()?.to_string();
+        let iface = fields.next()?;
         let destination = fields.next()?;
         if destination == "00000000" {
-            return Some(iface);
+            return Some(iface.to_string());
         }
     }
     None
