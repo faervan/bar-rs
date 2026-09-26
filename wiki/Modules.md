@@ -17,6 +17,7 @@ The following modules are currently available:
 | [memory](./Modules:-Memory.md) | Shows the current memory usage |
 | [net.upload](./Modules:-Net.md) | Shows the current upload speed |
 | [net.download](./Modules:-Net.md) | Shows the current download speed |
+| [net.public_ip](./Modules:-Net.md) | Shows your public IP address |
 | [time](./Modules:-Date-and-Time.md) | Shows the local time |
 | [date](./Modules:-Date-and-Time.md) | Shows the local date |
 | [battery](./Modules:-Battery.md) | Shows the current capacity and remaining time |
