@@ -21,7 +21,7 @@ use iced::{
 use iced::{Element, Subscription, widget::container::Style};
 use media::MediaMod;
 use memory::MemoryMod;
-use net::{NetDownloadMod, NetUploadMod};
+use net::{NetDownloadMod, NetPublicIpMod, NetUploadMod};
 use niri::{NiriWindowMod, NiriWorkspaceMod};
 use time::TimeMod;
 use volume::VolumeMod;
@@ -232,6 +232,7 @@ pub fn register_modules(registry: &mut Registry) {
     registry.register_module::<NiriWindowMod>();
     registry.register_module::<NetUploadMod>();
     registry.register_module::<NetDownloadMod>();
+    registry.register_module::<NetPublicIpMod>();
 }
 
 #[macro_export]
